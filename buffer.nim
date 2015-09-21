@@ -3,7 +3,19 @@
 # Implementation uses a gap buffer with explicit undo stack.
 
 import strutils
-from unicode import reversed
+from unicode import reversed, lastRune, isCombining
+
+when false:
+  type
+    Style* = object
+      font: FontPtr
+      bold, italic: bool
+      size: int
+
+    Cell* = object
+      style: StyleIdx
+      w: byte
+      rune: Rune
 
 type
   ActionKind* = enum
@@ -15,22 +27,41 @@ type
     word: string
 
   Buffer* = ref object
-    cursor*: int
+    cursor: int
     front, back: string
     actions: seq[Action]
     undoIdx: int
     next*, prev*: Buffer
+    changed*: bool
+    heading*: string
+    filename*: string
 
-proc newBuffer*(): Buffer =
+proc newBuffer*(heading: string): Buffer =
   new(result)
   result.front = ""
   result.back = ""
+  result.filename = ""
+  result.heading = heading
   result.actions = @[]
+
+proc loadFromFile*(b: Buffer; filename: string) =
+  b.filename = filename
+
+proc clear*(result: Buffer) =
+  result.front.setLen 0
+  result.back.setLen 0
+  result.actions.setLen 0
 
 proc contents*(b: Buffer): string =
   result = newStringOfCap(b.front.len + b.back.len + 1)
   result.add b.front
   result.add '|'
+  for i in countdown(b.back.len-1, 0):
+    result.add b.back[i]
+
+proc fullText*(b: Buffer): string =
+  result = newStringOfCap(b.front.len + b.back.len)
+  result.add b.front
   for i in countdown(b.back.len-1, 0):
     result.add b.back[i]
 
@@ -85,10 +116,20 @@ proc insert*(b: Buffer; s: string) =
   edit(b)
   rawInsert(b, s)
 
-proc rawBackspace*(b: Buffer): char =
-  # XXX compute utf-8 width here
-  result = b.front[^1]
-  b.cursor -= 1
+proc rawBackspace(b: Buffer): string =
+  var x = 0
+  while true:
+    let (r, L) = lastRune(b.front, b.front.len-1-x)
+    inc(x, L)
+    if L > 1 and isCombining(r): discard
+    else: break
+  # we need to reverse this string here:
+  result = newString(x)
+  var j = 0
+  for i in countdown(b.front.len-1, b.front.len-x):
+    result[j] = b.front[i]
+    inc j
+  b.cursor -= result.len
   b.front.setLen(b.cursor)
 
 proc backspace*(b: Buffer) =
@@ -99,9 +140,9 @@ proc backspace*(b: Buffer) =
   if b.actions.len > 0 and b.actions[^1].k == del:
     b.actions[^1].word.add ch
   else:
-    b.actions.add(Action(k: del, pos: b.cursor, word: $ch))
+    b.actions.add(Action(k: del, pos: b.cursor, word: ch))
   edit(b)
-  if ch in Whitespace: b.actions[^1].k = delFinished
+  if ch.len == 1 and ch[0] in Whitespace: b.actions[^1].k = delFinished
 
 proc applyUndo(b: Buffer; a: Action) =
   if a.k <= insFinished:
