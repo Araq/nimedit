@@ -18,7 +18,7 @@ when false:
       rune: Rune
 
 type
-  ActionKind* = enum
+  ActionKind = enum
     ins, insFinished, del, delFinished
 
   Action = object
@@ -175,24 +175,26 @@ proc applyRedo(b: Buffer; a: Action) =
     b.front.setLen(b.cursor)
 
 proc undo*(b: Buffer) =
-  echo "undo ----------------------------------------"
-  for i, x in b.actions:
-    if i == b.undoIdx:
-      echo x, "*"
-    else:
-      echo x
+  when defined(debugUndo):
+    echo "undo ----------------------------------------"
+    for i, x in b.actions:
+      if i == b.undoIdx:
+        echo x, "*"
+      else:
+        echo x
   if b.undoIdx >= 0 and b.undoIdx < b.actions.len:
     applyUndo(b, b.actions[b.undoIdx])
     dec(b.undoIdx)
 
 proc redo*(b: Buffer) =
-  echo "redo ----------------------------------------"
-  inc(b.undoIdx)
-  for i, x in b.actions:
-    if i == b.undoIdx:
-      echo x, "*"
-    else:
-      echo x
+  when defined(debugUndo):
+    echo "redo ----------------------------------------"
+    inc(b.undoIdx)
+    for i, x in b.actions:
+      if i == b.undoIdx:
+        echo x, "*"
+      else:
+        echo x
   if b.undoIdx >= 0 and b.undoIdx < b.actions.len:
     applyRedo(b, b.actions[b.undoIdx])
   else:

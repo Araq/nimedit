@@ -72,12 +72,14 @@ proc setDefaults(ed: Editor) =
   ed.active = ed.buffer
   ed.hist = CmdHistory(cmds: @[], suggested: -1)
 
-  ed.theme.fg = color(255, 255, 255, 0)
+  #ed.theme.fg = color(255, 255, 255, 0)
   #r"C:\Windows\Fonts\cour.ttf"
   ed.theme.font = loadFont("fonts/DejaVuSansMono.ttf")
   ed.theme.active[true] = parseColor"#FFA500"
   ed.theme.active[false] = parseColor"#C0C0C0"
-  ed.theme.bg = parseColor"#0c090a"
+  #ed.theme.bg = parseColor"#0c090a"
+  ed.theme.bg = parseColor"#2d2d2d"
+  ed.theme.fg = parseColor"#fafafa"
 
 proc destroy(ed: Editor) =
   close(ed.theme.font)
@@ -166,7 +168,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
   echo cmd
   ed.hist.addCmd(cmd)
   if cmd.startsWith("#"):
-    ed.theme.bg = parseColor(cmd)
+    ed.theme.fg = parseColor(cmd)
   cmd == "quit" or cmd == "q"
 
 proc main(ed: Editor) =
@@ -276,9 +278,9 @@ proc main(ed: Editor) =
 
     clear(renderer)
     let fileList = ed.renderText(buffer.heading & "*", ed.theme.font,
-                                   color(255, 255, 255, 255))
+                                   ed.theme.fg)
     let content = ed.renderText(buffer.contents, ed.theme.font,
-                                   color(255, 255, 255, 255))
+                                   ed.theme.fg)
     renderer.draw(content, YGap*3+FontSize)
 
     renderer.draw(fileList, YGap)
@@ -286,10 +288,10 @@ proc main(ed: Editor) =
     ed.drawBorder(XGap, FontSize+YGap*2 + ed.screenH - 7*FontSize - YGap,
       FontSize+YGap*3, active==prompt)
 
-    let prompt = ed.renderText(prompt.contents, ed.theme.font, color(255, 255, 255, 255))
+    let prompt = ed.renderText(prompt.contents, ed.theme.font, ed.theme.fg)
     renderer.draw(prompt, FontSize+YGap*2 + ed.screenH - 7*FontSize)
 
-    let statusBar = ed.renderText(ed.statusMsg & buffer.filename, ed.theme.font, color(255, 255, 255, 255))
+    let statusBar = ed.renderText(ed.statusMsg & buffer.filename, ed.theme.font, ed.theme.fg)
     renderer.draw(statusBar, ed.screenH-FontSize-YGap*2)
     present(renderer)
   destroy ed
