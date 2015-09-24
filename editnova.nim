@@ -1,8 +1,8 @@
 
-from strutils import contains, parseHexInt, startsWith
+from strutils import contains, startsWith
 from os import extractFilename, splitFile
 import sdl2, sdl2/ttf
-import buffer, unicode, dialogs
+import buffer, styles, unicode, dialogs
 
 
 # TODO:
@@ -17,7 +17,6 @@ import buffer, unicode, dialogs
 #  - highlighting of ()s
 
 const
-  FontSize = 15
   XGap = 5
   YGap = 5
 
@@ -43,28 +42,15 @@ type
     hist: CmdHistory
     buffersCounter: int
 
-proc fatal(msg: string) {.noReturn.} =
-  sdl2.quit()
-  quit(msg)
-
-proc loadFont(path: string): FontPtr =
-  result = openFont(path, FontSize)
-  if result.isNil:
-    fatal("cannot load font " & path)
-
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
-proc parseColor(hex: string): Color =
-  let x = parseHexInt(hex)
-  result = color(x shr 16 and 0xff, x shr 8 and 0xff, x and 0xff, 0)
-
-proc setDefaults(ed: Editor) =
+proc setDefaults(ed: Editor; mgr: ptr StyleManager) =
   ed.screenW = cint(650)
   ed.screenH = cint(780)
   ed.statusMsg = "Ready "
 
-  ed.buffer = newBuffer(unkownName())
-  ed.prompt = newBuffer("")
+  ed.buffer = newBuffer(unkownName(), mgr)
+  ed.prompt = newBuffer("", mgr)
 
   ed.buffersCounter = 1
   ed.buffer.next = ed.buffer
@@ -74,7 +60,7 @@ proc setDefaults(ed: Editor) =
 
   #ed.theme.fg = color(255, 255, 255, 0)
   #r"C:\Windows\Fonts\cour.ttf"
-  ed.theme.font = loadFont("fonts/DejaVuSansMono.ttf")
+  ed.theme.font = loadFont("fonts/DejaVuSansMono.ttf", FontSize)
   ed.theme.active[true] = parseColor"#FFA500"
   ed.theme.active[false] = parseColor"#C0C0C0"
   #ed.theme.bg = parseColor"#0c090a"
@@ -172,7 +158,11 @@ proc runCmd(ed: Editor; cmd: string): bool =
   cmd == "quit" or cmd == "q"
 
 proc main(ed: Editor) =
-  setDefaults(ed)
+  var mgr: StyleManager
+  # ensure index 0 exists and has reasonable defaults:
+  discard mgr.getStyle(FontAttr(color: parseColor("#000000"), size: FontSize))
+
+  setDefaults(ed, addr mgr)
   ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE)
   ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
@@ -195,7 +185,8 @@ proc main(ed: Editor) =
       of MouseWheel:
         # scroll(w.x, w.y)
         let w = e.wheel
-        echo "xy ", w.x, " ", w.y
+        ed.active.firstLine -= w.y*3
+        #echo "xy ", w.x, " ", w.y
       of TextInput:
         let w = e.text
         active.insert($w.text)
@@ -262,14 +253,14 @@ proc main(ed: Editor) =
               else: ""
             let toOpen = chooseFilesToOpen(nil, previousLocation)
             for p in toOpen:
-              let x = newBuffer(p.extractFilename)
+              let x = newBuffer(p.extractFilename, addr mgr)
               x.loadFromFile(p)
               insertBuffer(buffer, x)
             active = buffer
           elif w.keysym.sym == ord('s'):
             discard "safe"
           elif w.keysym.sym == ord('n'):
-            let x = newBuffer(unkownName())
+            let x = newBuffer(unkownName(), addr mgr)
             insertBuffer(buffer, x)
             active = buffer
           elif w.keysym.sym == ord('q'):
@@ -294,6 +285,7 @@ proc main(ed: Editor) =
     let statusBar = ed.renderText(ed.statusMsg & buffer.filename, ed.theme.font, ed.theme.fg)
     renderer.draw(statusBar, ed.screenH-FontSize-YGap*2)
     present(renderer)
+  freeFonts mgr
   destroy ed
 
 if sdl2.init(INIT_VIDEO) != SdlSuccess:
