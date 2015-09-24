@@ -270,6 +270,8 @@ proc main(ed: Editor) =
           elif w.keysym.sym == ord('q'):
             removeBuffer(buffer)
       else: discard
+      # keydown means show the cursor:
+      blink = 0
     else:
       # timeout, so update the blinking:
       blink = 1-blink
@@ -281,7 +283,7 @@ proc main(ed: Editor) =
     let mainRect = rect(15, YGap*3+FontSize,
                         ed.screenW - 16,
                         ed.screenH - 7*FontSize - YGap*2)
-    let promptRect = rect(15, FontSize+YGap*2 + ed.screenH - 7*FontSize - YGap,
+    let promptRect = rect(15, FontSize+YGap*2 + ed.screenH - 7*FontSize,
                           ed.screenW - 16,
                           FontSize+YGap*2)
 
