@@ -5,6 +5,9 @@ from unicode import reversed, lastRune, isCombining
 import styles
 import sdl2, sdl2/ttf
 
+const
+  tabWidth = 2
+
 type
   ActionKind = enum
     ins, insFinished, del, delFinished
@@ -22,10 +25,10 @@ type
 
   Buffer* = ref object
     cursor: int
-    firstLine*: int
+    firstLine*, numberOfLines*, line*: int
     front, back: seq[Cell]
     mgr: ptr StyleManager
-    lines: seq[Line]
+    #lines: seq[Line]
     actions: seq[Action]
     undoIdx: int
     next*, prev*: Buffer
@@ -96,29 +99,67 @@ proc prepareForEdit(b: Buffer) =
       inc took
     setLen(b.back, b.back.len - took)
 
-proc left*(b: Buffer; shift: bool) =
+proc left*(b: Buffer; jump: bool) =
   if b.cursor > 0:
     b.cursor -= 1
-    prepareForEdit(b)
+    #prepareForEdit(b)
 
-proc right*(b: Buffer; shift: bool) =
+proc right*(b: Buffer; jump: bool) =
   if b.cursor < b.front.len+b.back.len:
     b.cursor += 1
-    prepareForEdit(b)
+    #prepareForEdit(b)
 
-proc up*(b: Buffer; shift: bool) =
+proc getColumn*(b: Buffer): int =
+  # XXX care about Unicode here
+  var i = b.cursor
+  while i >= 0:
+    if b.getCell(i).c == '\L': break
+    dec i
+    inc result
+
+proc up*(b: Buffer; jump: bool) =
+  var col = getColumn(b)
   while b.cursor >= 0:
+    if b.getCell(b.cursor).c == '\L': break
     b.cursor -= 1
-    if b.front[b.cursor].c == '\L': break
+  b.cursor -= 1
+  while b.cursor >= 0 and col > 0:
+    if b.getCell(b.cursor).c == '\L': break
+    b.cursor -= 1
+    dec col
   if b.cursor < 0: b.cursor = 0
-  prepareForEdit(b)
+  #prepareForEdit(b)
 
-proc down*(b: Buffer; shift: bool) =
-  discard
+proc down*(b: Buffer; jump: bool) =
+  var col = getColumn(b)
+
+  let L = b.front.len+b.back.len
+  while b.cursor < L:
+    if b.getCell(b.cursor).c == '\L': break
+    b.cursor += 1
+  b.cursor += 1
+
+  while b.cursor < L and col > 0:
+    if b.getCell(b.cursor).c == '\L': break
+    dec col
+    b.cursor += 1
+  if b.cursor >= L: b.cursor = L-1
 
 proc rawInsert*(b: Buffer; s: string) =
   for i in 0..<s.len:
-    b.front.add Cell(c: s[i])
+    case s[i]
+    of '\L':
+      b.front.add Cell(c: '\L')
+      inc b.numberOfLines
+    of '\C':
+      if i < s.len-1 and s[i+1] != '\L':
+        b.front.add Cell(c: '\L')
+        inc b.numberOfLines
+    of '\t':
+      for i in 1..tabWidth:
+        b.front.add Cell(c: ' ')
+    else:
+      b.front.add Cell(c: s[i])
   b.cursor += s.len
 
 proc insert*(b: Buffer; s: string) =
@@ -134,8 +175,10 @@ proc insert*(b: Buffer; s: string) =
 
 proc rawBackspace(b: Buffer): string =
   var x = 0
-  if b.front[^1].c.ord < 128:
+  let ch = b.front[^1].c
+  if ch.ord < 128:
     x = 1
+    if ch == '\L': dec b.numberOfLines
   else:
     var bf = newStringOfCap(20)
     for i in b.front.len-20 .. b.front.len-1:
