@@ -46,8 +46,7 @@ proc getCell(b: Buffer; i: int): Cell =
     else:
       result = Cell(c: '\L', s: StyleIdx(0))
 
-proc atEnd(b: Buffer; i: int): bool =
-  result = i >= b.front.len+b.back.len
+proc length(b: Buffer): int = b.front.len+b.back.len
 
 include drawbuffer
 
@@ -67,14 +66,6 @@ proc clear*(result: Buffer) =
   result.front.setLen 0
   result.back.setLen 0
   result.actions.setLen 0
-
-proc contents*(b: Buffer): string =
-  result = newStringOfCap(b.front.len + b.back.len + 1)
-  for i in 0..<b.front.len:
-    result.add b.front[i].c
-  result.add '|'
-  for i in countdown(b.back.len-1, 0):
-    result.add b.back[i].c
 
 proc fullText*(b: Buffer): string =
   result = newStringOfCap(b.front.len + b.back.len)

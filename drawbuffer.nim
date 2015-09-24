@@ -97,5 +97,5 @@ proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
   var i = getLineOffset(b, b.firstLine) # b.lines[b.firstLine].offset
   var dim = dim
   i = r.drawLine(b, i, dim, bg, cursor, blink)
-  while dim.y < dim.h and not atEnd(b, i):
+  while dim.y < dim.h and i <= length(b):
     i = r.drawLine(b, i, dim, bg, cursor, blink)
