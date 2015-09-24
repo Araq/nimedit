@@ -6,7 +6,6 @@ import buffer, styles, unicode, dialogs
 
 
 # TODO:
-#  - decent multiline handling
 #  - select, copy, cut from clipboard
 #  - syntax highlighting
 #  - large file handling
@@ -16,13 +15,16 @@ import buffer, styles, unicode, dialogs
 #  - miniview
 #  - highlighting of ()s
 
+# BUGS:
+#  - deleting an umlaut at the very beginning of the file makes editnova crash
+
 const
   XGap = 5
   YGap = 5
 
 type
   Theme = object
-    bg, fg: Color
+    bg, fg, cursor: Color
     uiA, uiB: Color
     active: array[bool, Color]
     font: FontPtr # default font
@@ -66,6 +68,7 @@ proc setDefaults(ed: Editor; mgr: ptr StyleManager) =
   #ed.theme.bg = parseColor"#0c090a"
   ed.theme.bg = parseColor"#2d2d2d"
   ed.theme.fg = parseColor"#fafafa"
+  ed.theme.cursor = ed.theme.fg
 
 proc destroy(ed: Editor) =
   close(ed.theme.font)
@@ -159,10 +162,10 @@ proc runCmd(ed: Editor; cmd: string): bool =
 
 proc main(ed: Editor) =
   var mgr: StyleManager
-  # ensure index 0 exists and has reasonable defaults:
-  discard mgr.getStyle(FontAttr(color: parseColor("#000000"), size: FontSize))
-
   setDefaults(ed, addr mgr)
+  # ensure index 0 exists and has reasonable defaults:
+  discard mgr.getStyle(FontAttr(color: ed.theme.fg, size: FontSize))
+
   ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE)
   ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
@@ -171,9 +174,10 @@ proc main(ed: Editor) =
   template buffer: expr = ed.buffer
   template renderer: expr = ed.renderer
 
+  var blink = 1
   while true:
     var e = Event(kind: UserEvent5)
-    if waitEvent(e) == SdlSuccess:
+    if waitEventTimeout(e, 500) == SdlSuccess:
       case e.kind
       of QuitEvent: break
       of WindowEvent:
@@ -266,21 +270,33 @@ proc main(ed: Editor) =
           elif w.keysym.sym == ord('q'):
             removeBuffer(buffer)
       else: discard
+    else:
+      # timeout, so update the blinking:
+      blink = 1-blink
 
     clear(renderer)
     let fileList = ed.renderText(buffer.heading & "*", ed.theme.font,
                                    ed.theme.fg)
-    let content = ed.renderText(buffer.contents, ed.theme.font,
-                                   ed.theme.fg)
-    renderer.draw(content, YGap*3+FontSize)
+
+    let mainRect = rect(15, YGap*3+FontSize,
+                        ed.screenW - 16,
+                        ed.screenH - 7*FontSize - YGap*2)
+    let promptRect = rect(15, FontSize+YGap*2 + ed.screenH - 7*FontSize - YGap,
+                          ed.screenW - 16,
+                          FontSize+YGap*2)
+
+    renderer.draw(buffer, mainRect, ed.theme.bg, ed.theme.cursor,
+                  blink==0 and active==buffer)
 
     renderer.draw(fileList, YGap)
     ed.drawBorder(XGap, FontSize+YGap*2, ed.screenH - 7*FontSize - YGap*2, active==buffer)
     ed.drawBorder(XGap, FontSize+YGap*2 + ed.screenH - 7*FontSize - YGap,
       FontSize+YGap*3, active==prompt)
 
-    let prompt = ed.renderText(prompt.contents, ed.theme.font, ed.theme.fg)
-    renderer.draw(prompt, FontSize+YGap*2 + ed.screenH - 7*FontSize)
+    #let prompt = ed.renderText(prompt.contents, ed.theme.font, ed.theme.fg)
+    #renderer.draw(prompt, FontSize+YGap*2 + ed.screenH - 7*FontSize)
+    renderer.draw(prompt, promptRect, ed.theme.bg, ed.theme.cursor,
+                  blink==0 and active==prompt)
 
     let statusBar = ed.renderText(ed.statusMsg & buffer.filename, ed.theme.font, ed.theme.fg)
     renderer.draw(statusBar, ed.screenH-FontSize-YGap*2)

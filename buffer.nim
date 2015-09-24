@@ -34,7 +34,6 @@ type
     filename*: string
 
 proc getCell(b: Buffer; i: int): Cell =
-  assert i < b.front.len + b.back.len
   if i < b.front.len:
     result = b.front[i]
   else:
@@ -43,6 +42,9 @@ proc getCell(b: Buffer; i: int): Cell =
       result = b.back[b.back.high-i]
     else:
       result = Cell(c: '\L', s: StyleIdx(0))
+
+proc atEnd(b: Buffer; i: int): bool =
+  result = i >= b.front.len+b.back.len
 
 include drawbuffer
 
@@ -137,7 +139,7 @@ proc rawBackspace(b: Buffer): string =
   else:
     var bf = newStringOfCap(20)
     for i in b.front.len-20 .. b.front.len-1:
-      if i < b.front.len:
+      if i >= 0 and i < b.front.len:
         bf.add b.front[i].c
     while true:
       let (r, L) = lastRune(bf, bf.len-1-x)
