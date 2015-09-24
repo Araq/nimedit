@@ -28,22 +28,20 @@ proc drawCursor(r: RendererPtr; dim: Rect; bg, color: Color; h: cint) =
 proc drawLine(r: RendererPtr; b: Buffer; i: int;
               dim: var Rect; bg, cursor: Color;
               blink: bool): int =
-  var i = i
-  var j = i+1
-
-  var cell = getCell(b, i)
-  var style = b.mgr[].getStyle(cell.s)
+  #var i = i
+  var j = i
+  var style = b.mgr[].getStyle(getCell(b, i).s)
   var maxh = style.attr.size
   let oldX = dim.x
 
   var cursorDim: Rect
-  if i == b.cursor: cursorDim = dim
 
   var buffer: array[120, char]
   block outerLoop:
     while true:
       var bufres = 0
       while true:
+        let cell = getCell(b, j)
 
         if cell.c == '\L':
           buffer[bufres] = '\0'
@@ -56,7 +54,6 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
         inc bufres
         inc j
 
-        cell = getCell(b, j)
         if b.mgr[].getStyle(cell.s) != style:
           style = b.mgr[].getStyle(cell.s)
           maxh = max(maxh, style.attr.size)
@@ -73,7 +70,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
   #echo dim
   if cursorDim.h > 0 and blink:
     r.drawCursor(cursorDim, bg, cursor, maxh.cint)
-  result = j
+  result = j+1
 
 proc getLineOffset(b: Buffer; lines: int): int =
   var lines = lines
