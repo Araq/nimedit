@@ -36,7 +36,7 @@ type
     heading*: string
     filename*: string
 
-proc getCell(b: Buffer; i: int): Cell =
+proc getCell(b: Buffer; i: Natural): Cell =
   if i < b.front.len:
     result = b.front[i]
   else:
@@ -134,7 +134,8 @@ proc down*(b: Buffer; jump: bool) =
     if b.getCell(b.cursor).c == '\L': break
     dec col
     b.cursor += 1
-  if b.cursor >= L: b.cursor = L-1
+  if b.cursor > L: b.cursor = L
+  if b.cursor < 0: b.cursor = 0
 
 proc rawInsert*(b: Buffer; s: string) =
   for i in 0..<s.len:
