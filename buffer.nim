@@ -90,19 +90,19 @@ proc prepareForEdit(b: Buffer) =
       b.front.add(b.back[i])
       inc took
     setLen(b.back, b.back.len - took)
-    if b.cursor != b.front.len:
-      echo "cursor ", b.cursor, " ", b.front.len
   assert b.cursor == b.front.len
   b.changed = true
 
 proc left*(b: Buffer; jump: bool) =
   if b.cursor > 0:
     let r = lastRune(b, b.cursor-1)
+    if r[0] == Rune('\L'): dec b.currentLine
     b.cursor -= r[1]
     dec b.desiredCol
 
 proc right*(b: Buffer; jump: bool) =
   if b.cursor < b.front.len+b.back.len:
+    if b[b.cursor] == '\L': inc b.currentLine
     b.cursor += graphemeLen(b, b.cursor)
     inc b.desiredCol
 
@@ -121,6 +121,7 @@ proc up*(b: Buffer; jump: bool) =
   var i = b.cursor - 1
   while i >= 0:
     if b[i] == '\L':
+      dec b.currentLine
       # move to the *start* of this line
       dec i
       while i >= 1 and b[i-1] != '\L': dec i
@@ -137,7 +138,9 @@ proc down*(b: Buffer; jump: bool) =
 
   let L = b.front.len+b.back.len
   while b.cursor < L:
-    if b[b.cursor] == '\L': break
+    if b[b.cursor] == '\L':
+      inc b.currentLine
+      break
     b.cursor += 1
   b.cursor += 1
 
@@ -154,10 +157,12 @@ proc rawInsert*(b: Buffer; s: string) =
     of '\L':
       b.front.add Cell(c: '\L')
       inc b.numberOfLines
+      inc b.currentLine
     of '\C':
       if i < s.len-1 and s[i+1] != '\L':
         b.front.add Cell(c: '\L')
         inc b.numberOfLines
+        inc b.currentLine
     of '\t':
       for i in 1..tabWidth:
         b.front.add Cell(c: ' ')
@@ -247,7 +252,6 @@ proc rawBackspace(b: Buffer): string =
       inc(x, L)
       if L > 1 and isCombining(r): discard
       else: break
-  echo "DELETING ", b.cursor, " len ", x
   # we need to reverse this string here:
   result = newString(x)
   var j = 0
