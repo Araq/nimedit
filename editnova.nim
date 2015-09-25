@@ -2,15 +2,14 @@
 from strutils import contains, startsWith, repeatChar
 from os import extractFilename, splitFile
 import sdl2, sdl2/ttf
-import buffer, styles, unicode, dialogs
+import buffertype, buffer, styles, unicode, dialogs, highlighters
 
 
 # TODO:
-#  - scrolling!
+#  - scrolling & mouse handling
 #  - select, copy, cut from clipboard
 #  - syntax highlighting
 #  - large file handling
-#  - mouse handling
 #  - show line numbers
 #  - show scroll bars; no horizontal scrolling though
 #  - miniview
@@ -165,7 +164,8 @@ proc main(ed: Editor) =
   var mgr: StyleManager
   setDefaults(ed, addr mgr)
   # ensure index 0 exists and has reasonable defaults:
-  discard mgr.getStyle(FontAttr(color: ed.theme.fg, size: FontSize))
+  #discard mgr.getStyle(FontAttr(color: ed.theme.fg, size: FontSize))
+  highlighters.setStyles(mgr)
 
   ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE)

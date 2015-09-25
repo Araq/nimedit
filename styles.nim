@@ -8,11 +8,13 @@ const
   FontSize* = 15
 
 type
+  FontStyle* {.pure.} = enum
+    Normal, Bold, Italic, BoldItalic
   StyleIdx* = distinct byte
   FontAttr* = object
-    bold*, italic*: bool
-    size*: byte
     color*: Color
+    style*: FontStyle
+    size*: byte
 
   Style* = object
     font*: FontPtr
@@ -21,6 +23,7 @@ type
   StyleManager* = object
     a: array[0..255, Style]
     L: int
+    fonts: array[FontStyle, FontPtr]
 
 proc fatal*(msg: string) {.noReturn.} =
   sdl2.quit()
@@ -35,36 +38,54 @@ proc loadFont*(path: string; size: byte): FontPtr =
   if result.isNil:
     fatal("cannot load font " & path)
 
-proc getStyle*(s: var StyleManager; font: FontPtr; attr: FontAttr): StyleIdx =
-  for i in 0..<s.L:
-    let x = addr(s.a[i])
-    if x.font == font and x.attr == attr: return StyleIdx(i)
-  doAssert(s.L < 254, "too many different styles requested")
-  result = StyleIdx(s.L)
-  s.a[s.L] = Style(font: font, attr: attr)
-  inc s.L
+proc setStyle*(s: var StyleManager; idx: StyleIdx; attr: FontAttr) =
+  s.L = idx.ord+1
+  if s.fonts[attr.style].isNil:
+    let suffix = case attr.style
+                 of FontStyle.Normal:
+                   ".ttf"
+                 of FontStyle.Bold:
+                   "-Bold.ttf"
+                 of FontStyle.Italic:
+                   "-Oblique.ttf"
+                 of FontStyle.BoldItalic:
+                   "-BoldOblique.ttf"
+    s.fonts[attr.style] = loadFont("fonts/DejaVuSansMono" & suffix, attr.size)
 
-proc getStyle*(s: var StyleManager; attr: FontAttr): StyleIdx =
-  for i in 0..<s.L:
-    let x = addr(s.a[i])
-    if x.attr == attr: return StyleIdx(i)
-  doAssert(s.L < 254, "too many different styles requested")
-  result = StyleIdx(s.L)
-  let suffix = if attr.bold and attr.italic:
-                 "-BoldOblique.ttf"
-               elif attr.bold:
-                 "-Bold.ttf"
-               elif attr.italic:
-                 "-Oblique.ttf"
-               else:
-                 ".ttf"
-  let font = loadFont("fonts/DejaVuSansMono" & suffix, attr.size)
-  s.a[s.L] = Style(font: font, attr: attr)
-  inc s.L
+  s.a[idx.int] = Style(font: s.fonts[attr.style], attr: attr)
+
+when false:
+  proc getStyle*(s: var StyleManager; font: FontPtr; attr: FontAttr): StyleIdx =
+    for i in 0..<s.L:
+      let x = addr(s.a[i])
+      if x.font == font and x.attr == attr: return StyleIdx(i)
+    doAssert(s.L < 254, "too many different styles requested")
+    result = StyleIdx(s.L)
+    s.a[s.L] = Style(font: font, attr: attr)
+    inc s.L
+
+  proc getStyle*(s: var StyleManager; attr: FontAttr): StyleIdx =
+    for i in 0..<s.L:
+      let x = addr(s.a[i])
+      if x.attr == attr: return StyleIdx(i)
+    doAssert(s.L < 254, "too many different styles requested")
+    result = StyleIdx(s.L)
+    let suffix = if attr.bold and attr.italic:
+                   "-BoldOblique.ttf"
+                 elif attr.bold:
+                   "-Bold.ttf"
+                 elif attr.italic:
+                   "-Oblique.ttf"
+                 else:
+                   ".ttf"
+    let font = loadFont("fonts/DejaVuSansMono" & suffix, attr.size)
+    s.a[s.L] = Style(font: font, attr: attr)
+    inc s.L
 
 proc getStyle*(s: StyleManager; i: StyleIdx): Style {.inline.} =
   assert i.int < s.L
   result = s.a[i.int]
 
 proc freeFonts*(s: StyleManager) =
-  for i in 0..<s.L: close(s.a[i].font)
+  for f in s.fonts:
+    if f != nil: close(f)

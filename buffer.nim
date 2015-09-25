@@ -1,56 +1,14 @@
 # Implementation uses a gap buffer with explicit undo stack.
 
 import strutils, unicode
-import styles
+import styles, highlighters
 import sdl2, sdl2/ttf
+import buffertype, unihelp, languages
+from os import splitFile
 
 const
   tabWidth = 2
 
-type
-  ActionKind = enum
-    ins, insFinished, del, delFinished
-
-  Action = object
-    k: ActionKind
-    pos: int
-    word: string
-  Cell = object
-    c: char
-    s: StyleIdx
-  Line = object
-    offset: int
-    parsingState: int
-
-  Buffer* = ref object
-    cursor: int
-    firstLine*, numberOfLines*, currentLine*, desiredCol: int
-    front, back: seq[Cell]
-    mgr: ptr StyleManager
-    #lines: seq[Line]
-    actions: seq[Action]
-    undoIdx: int
-    next*, prev*: Buffer
-    changed*: bool
-    heading*: string
-    filename*: string
-    lineending: string # CR-LF, CR or LF
-
-proc getCell(b: Buffer; i: Natural): Cell =
-  if i < b.front.len:
-    result = b.front[i]
-  else:
-    let i = i-b.front.len
-    if i <= b.back.high:
-      result = b.back[b.back.high-i]
-    else:
-      result = Cell(c: '\L', s: StyleIdx(0))
-
-proc `[]`(b: Buffer; i: Natural): char {.inline.} = getCell(b, i).c
-
-proc len(b: Buffer): int = b.front.len+b.back.len
-
-include unihelp
 include drawbuffer
 
 proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
@@ -61,12 +19,16 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.heading = heading
   result.actions = @[]
   result.mgr = mgr
+  result.eofChar = '\L'
 
 proc clear*(result: Buffer) =
   result.front.setLen 0
   result.back.setLen 0
   result.actions.setLen 0
   result.currentLine = 0
+  result.firstLine = 0
+  result.numberOfLines = 0
+  result.desiredCol = 0
 
 proc fullText*(b: Buffer): string =
   result = newStringOfCap(b.front.len + b.back.len)
@@ -120,8 +82,7 @@ proc getLine*(b: Buffer): int = b.currentLine
 
 proc up*(b: Buffer; jump: bool) =
   var col = b.desiredCol
-  echo "DESIRED ", col
-  var i = b.cursor# - 1
+  var i = b.cursor
 
   # move to the *start* of this line
   while i >= 1 and b[i-1] != '\L': dec i
@@ -134,12 +95,12 @@ proc up*(b: Buffer; jump: bool) =
     while i >= 0 and col > 0 and b[i] != '\L':
       i += graphemeLen(b, i)
       dec col
+    dec b.currentLine
   b.cursor = i
   if b.cursor < 0: b.cursor = 0
 
 proc down*(b: Buffer; jump: bool) =
   var col = b.desiredCol
-  echo "DESIRED ", col
 
   let L = b.front.len+b.back.len
   while b.cursor < L:
@@ -176,8 +137,9 @@ proc rawInsert*(b: Buffer; s: string) =
   b.cursor += s.len
 
 proc loadFromFile*(b: Buffer; filename: string) =
-  b.filename = filename
   clear(b)
+  b.filename = filename
+  b.lang = fileExtToLanguage(splitFile(filename).ext)
   let s = readFile(filename)
   for i in 0..<s.len:
     case s[i]
@@ -199,6 +161,8 @@ proc loadFromFile*(b: Buffer; filename: string) =
         b.front.add Cell(c: ' ')
     else:
       b.front.add Cell(c: s[i])
+  if b.lang != langNone:
+    highlightEverything(b, b.lang)
 
 proc save*(b: Buffer) =
   if b.filename.len == 0: b.filename = b.heading
@@ -271,10 +235,10 @@ proc backspace*(b: Buffer) =
   prepareForEdit(b)
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
   let ch = b.rawBackspace
-  if b.actions.len > 0 and b.actions[^1].k == del:
+  if b.actions.len > 0 and b.actions[^1].k == dele:
     b.actions[^1].word.add ch
   else:
-    b.actions.add(Action(k: del, pos: b.cursor, word: ch))
+    b.actions.add(Action(k: dele, pos: b.cursor, word: ch))
   edit(b)
   if ch.len == 1 and ch[0] in Whitespace: b.actions[^1].k = delFinished
   b.desiredCol = getColumn(b)

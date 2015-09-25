@@ -1,4 +1,5 @@
 
+import unicode, buffertype
 
 template ones(n: expr): expr = ((1 shl n)-1)
 
@@ -59,7 +60,7 @@ template fastRuneAt(s: Buffer, i: int, result: expr, doInc = true) =
     result = Rune(ord(ch))
     when doInc: inc(i)
 
-proc graphemeLen(s: Buffer; i: Natural): Natural =
+proc graphemeLen*(s: Buffer; i: Natural): Natural =
   ## The number of bytes belonging to 's[i]' including following combining
   ## characters.
   var j = i.int
@@ -72,7 +73,7 @@ proc graphemeLen(s: Buffer; i: Natural): Natural =
       if not isCombining(r2): break
       result = j-i
 
-proc lastRune(s: Buffer; last: int): (Rune, int) =
+proc lastRune*(s: Buffer; last: int): (Rune, int) =
   ## length of the last rune in 's[0..last]'. Returns the rune and its length
   ## in bytes.
   if s[last] <= chr(127):

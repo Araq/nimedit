@@ -12,38 +12,19 @@
 ## The interface supports one language nested in another.
 
 import
-  strutils
+  strutils, buffertype, styles, languages
+
+from sdl2 import Color
 
 type
-  TokenClass* = enum
-    gtEof, gtNone, gtWhitespace, gtDecNumber, gtBinNumber, gtHexNumber,
-    gtOctNumber, gtFloatNumber, gtIdentifier, gtKeyword, gtStringLit,
-    gtLongStringLit, gtCharLit, gtEscapeSequence, # escape sequence like \xff
-    gtOperator, gtPunctuation, gtComment, gtLongComment, gtRegularExpression,
-    gtTagStart, gtTagEnd, gtKey, gtValue, gtRawData, gtAssembler,
-    gtPreprocessor, gtDirective, gtCommand, gtRule, gtHyperlink, gtLabel,
-    gtReference, gtOther
-  GeneralTokenizer* = object of RootObj
+  GeneralTokenizer* = object
     kind*: TokenClass
     start*, length*: int
-    buf: cstring
+    buf: Buffer
     pos: int
     state: TokenClass
 
-  SourceLanguage* = enum
-    langNone, langNim, langNimrod, langCpp, langCsharp, langC, langJava
-
 const
-  sourceLanguageToStr*: array[SourceLanguage, string] = ["none",
-    "Nim", "Nimrod", "C++", "C#", "C", "Java"]
-  tokenClassToStr*: array[TokenClass, string] = ["Eof", "None", "Whitespace",
-    "DecNumber", "BinNumber", "HexNumber", "OctNumber", "FloatNumber",
-    "Identifier", "Keyword", "StringLit", "LongStringLit", "CharLit",
-    "EscapeSequence", "Operator", "Punctuation", "Comment", "LongComment",
-    "RegularExpression", "TagStart", "TagEnd", "Key", "Value", "RawData",
-    "Assembler", "Preprocessor", "Directive", "Command", "Rule", "Hyperlink",
-    "Label", "Reference", "Other"]
-
   # The following list comes from doc/keywords.txt, make sure it is
   # synchronized with this array by running the module itself as a test case.
   nimKeywords = ["addr", "and", "as", "asm", "atomic", "bind", "block",
@@ -58,13 +39,7 @@ const
     "template", "try", "tuple", "type", "using", "var", "when", "while", "with",
     "without", "xor", "yield"]
 
-proc getSourceLanguage*(name: string): SourceLanguage =
-  for i in countup(succ(low(SourceLanguage)), high(SourceLanguage)):
-    if cmpIgnoreStyle(name, sourceLanguageToStr[i]) == 0:
-      return i
-  result = langNone
-
-proc initGeneralTokenizer*(g: var GeneralTokenizer, buf: cstring) =
+proc initGeneralTokenizer*(g: var GeneralTokenizer, buf: Buffer) =
   g.buf = buf
   g.kind = low(TokenClass)
   g.start = 0
@@ -74,9 +49,6 @@ proc initGeneralTokenizer*(g: var GeneralTokenizer, buf: cstring) =
   while g.buf[pos] in {' ', '\x09'..'\x0D'}: inc(pos)
   g.pos = pos
 
-proc initGeneralTokenizer*(g: var GeneralTokenizer, buf: string) =
-  initGeneralTokenizer(g, cstring(buf))
-
 proc deinitGeneralTokenizer*(g: var GeneralTokenizer) =
   discard
 
@@ -84,13 +56,6 @@ proc nimGetKeyword(id: string): TokenClass =
   for k in nimKeywords:
     if cmpIgnoreStyle(id, k) == 0: return gtKeyword
   result = gtIdentifier
-  when false:
-    var i = getIdent(id)
-    if (i.id >= ord(tokKeywordLow) - ord(tkSymbol)) and
-        (i.id <= ord(tokKeywordHigh) - ord(tkSymbol)):
-      result = gtKeyword
-    else:
-      result = gtIdentifier
 
 proc nimNumberPostfix(g: var GeneralTokenizer, position: int): int =
   var pos = position
@@ -541,7 +506,7 @@ proc javaNextToken(g: var GeneralTokenizer) =
       "try", "void", "volatile", "while"]
   clikeNextToken(g, keywords, {})
 
-proc getNextToken*(g: var GeneralTokenizer, lang: SourceLanguage) =
+proc getNextToken(g: var GeneralTokenizer, lang: SourceLanguage) =
   case lang
   of langNone: assert false
   of langNim, langNimrod: nimNextToken(g)
@@ -549,6 +514,79 @@ proc getNextToken*(g: var GeneralTokenizer, lang: SourceLanguage) =
   of langCsharp: csharpNextToken(g)
   of langC: cNextToken(g)
   of langJava: javaNextToken(g)
+
+let
+  White = parseColor("#ffffff")
+  Orange = parseColor("#FFA500")
+  Blue = parseColor("#00FFFF")
+  Red = parseColor("#FF0000")
+  Yellow = parseColor("#FFFF00")
+  Pink = parseColor("#FF00FF")
+  Gray = parseColor("#808080")
+  Green = parseColor("#00FF00")
+  DeepPink = parseColor("#FF1493")
+
+proc setStyle(s: var StyleManager; cls: TokenClass; color: Color;
+              style = FontStyle.Normal) =
+  s.setStyle StyleIdx(cls), FontAttr(color: color, style: style, size: FontSize)
+
+proc setStyles*(s: var StyleManager) =
+  s.setStyle gtEof, White
+  s.setStyle gtNone, White
+  s.setStyle gtWhitespace, White
+  s.setStyle gtDecNumber, Blue
+  s.setStyle gtBinNumber, Blue
+  s.setStyle gtHexNumber, Blue
+  s.setStyle gtOctNumber, Blue
+  s.setStyle gtFloatNumber, Blue
+  s.setStyle gtIdentifier, White
+  s.setStyle gtKeyword, White, FontStyle.Bold
+  s.setStyle gtStringLit, Orange
+  s.setStyle gtLongStringLit, Orange
+  s.setStyle gtCharLit, Orange
+  s.setStyle gtEscapeSequence, Gray
+  s.setStyle gtOperator, White
+  s.setStyle gtPunctuation, White
+  s.setStyle gtComment, Green, FontStyle.Italic
+  s.setStyle gtLongComment, DeepPink
+  s.setStyle gtRegularExpression, Pink
+  s.setStyle gtTagStart, Yellow
+  s.setStyle gtTagEnd, Yellow
+  s.setStyle gtKey, White
+  s.setStyle gtValue, Blue
+  s.setStyle gtRawData, Pink
+  s.setStyle gtAssembler, Pink
+  s.setStyle gtPreprocessor, Yellow
+  s.setStyle gtDirective, Yellow
+  s.setStyle gtCommand, Yellow
+  s.setStyle gtRule, Yellow
+  s.setStyle gtHyperlink, Blue
+  s.setStyle gtLabel, Blue
+  s.setStyle gtReference, Blue
+  s.setStyle gtOther, White
+
+
+proc highlightEverything*(buf: Buffer; lang: SourceLanguage) =
+  var g: GeneralTokenizer
+  g.buf = buf
+  g.kind = low(TokenClass)
+  g.start = 0
+  g.length = 0
+  g.state = low(TokenClass)
+  var pos = 0                     # skip initial whitespace:
+  while g.buf[pos] in {' ', '\x09'..'\x0D'}: inc(pos)
+  g.pos = pos
+  let oldEofChar = buf.eofChar
+  buf.eofChar = '\0'
+  while true:
+    getNextToken(g, lang)
+    if g.kind == gtEof: break
+    for i in 0 ..< g.length:
+      buf.setCellStyle(g.start+i, StyleIdx(g.kind))
+  buf.eofChar = oldEofChar
+
+proc highlightLine*(g: var GeneralTokenizer; lang: SourceLanguage) =
+  discard "XXX To implement"
 
 when isMainModule:
   var keywords: seq[string]
