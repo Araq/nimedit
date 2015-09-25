@@ -33,6 +33,14 @@ proc whichColumn(b: Buffer; i: int; dim: Rect; font: FontPtr;
       return r
     inc j, L
 
+proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: byte) =
+  # requested cursor update?
+  if b.mouseX > 0:
+    if b.mouseX > dim.x and dim.y+maxh.cint > b.mouseY:
+      b.cursor = i
+      b.currentLine = max(b.firstLine + b.span + 1, 0)
+      b.mouseX = 0
+
 proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect;
           font: FontPtr; msg: cstring) =
   var d = dim
@@ -103,6 +111,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
           buffer[bufres] = '\0'
           if bufres >= 1:
             r.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color, bg)
+          mouseAfterNewLine(b, j, dim, maxh)
           if cursorCheck(): cursorDim = dim
           break outerLoop
 
