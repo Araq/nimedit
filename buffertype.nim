@@ -15,7 +15,7 @@ type
 
   Buffer* = ref object
     cursor*: int
-    firstLine*, numberOfLines*, currentLine*, desiredCol*: int
+    firstLine*, span*, numberOfLines*, currentLine*, desiredCol*: int
     front*, back*: seq[Cell]
     mgr*: ptr StyleManager
     #lines: seq[Line]

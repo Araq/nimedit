@@ -57,16 +57,25 @@ proc prepareForEdit(b: Buffer) =
   assert b.cursor == b.front.len
   b.changed = true
 
+proc scroll(b: Buffer; amount: int) =
+  inc b.currentLine, amount
+  if b.currentLine < b.firstLine:
+    b.firstLine = b.currentLine
+  elif b.currentLine > b.firstLine + b.span:
+    inc b.firstLine
+
 proc left*(b: Buffer; jump: bool) =
   if b.cursor > 0:
     let r = lastRune(b, b.cursor-1)
-    if r[0] == Rune('\L'): dec b.currentLine
+    if r[0] == Rune('\L'):
+      scroll(b, -1)
     b.cursor -= r[1]
     dec b.desiredCol
 
 proc right*(b: Buffer; jump: bool) =
   if b.cursor < b.front.len+b.back.len:
-    if b[b.cursor] == '\L': inc b.currentLine
+    if b[b.cursor] == '\L':
+      scroll(b, 1)
     b.cursor += graphemeLen(b, b.cursor)
     inc b.desiredCol
 
@@ -95,7 +104,7 @@ proc up*(b: Buffer; jump: bool) =
     while i >= 0 and col > 0 and b[i] != '\L':
       i += graphemeLen(b, i)
       dec col
-    dec b.currentLine
+    scroll(b, -1)
   b.cursor = i
   if b.cursor < 0: b.cursor = 0
 
@@ -105,7 +114,7 @@ proc down*(b: Buffer; jump: bool) =
   let L = b.front.len+b.back.len
   while b.cursor < L:
     if b[b.cursor] == '\L':
-      inc b.currentLine
+      scroll(b, 1)
       break
     b.cursor += 1
   b.cursor += 1

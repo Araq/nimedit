@@ -61,7 +61,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
 
   var cursorDim: Rect
 
-  var buffer: array[120, char]
+  var buffer: array[80, char]
   var cb = true
   template cursorCheck(): expr = cb and j == b.cursor
   block outerLoop:
@@ -117,13 +117,16 @@ proc getLineOffset(b: Buffer; lines: Natural): int =
 
 proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
            blink: bool) =
-  # correct scrolling commands:
+  # correct scrolling commands. Because of line continuations the maximal
+  # view is (dim.h div FontSize+2) div 2
   b.firstLine = clamp(b.firstLine, 0,
-                      max(0, b.numberOfLines - (dim.h div (FontSize+2)) + 2))
+                      max(0, b.numberOfLines - (dim.h div (FontSize+2)) div 2))
   #echo "FIRSTLINE ", b.firstLine, " ", b.numberOfLines
   # XXX cache line information
   var i = getLineOffset(b, b.firstLine) # b.lines[b.firstLine].offset
   var dim = dim
+  b.span = 0
   i = r.drawLine(b, i, dim, bg, cursor, blink)
   while dim.y < dim.h and i <= len(b):
     i = r.drawLine(b, i, dim, bg, cursor, blink)
+    inc b.span
