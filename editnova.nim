@@ -1,5 +1,5 @@
 
-from strutils import contains, startsWith
+from strutils import contains, startsWith, repeatChar
 from os import extractFilename, splitFile
 import sdl2, sdl2/ttf
 import buffer, styles, unicode, dialogs
@@ -16,7 +16,8 @@ import buffer, styles, unicode, dialogs
 #  - highlighting of ()s
 
 # BUGS:
-#  - deleting an umlaut at the very beginning of the file makes editnova crash
+#  - cursor movement is weird
+
 
 const
   XGap = 5
@@ -74,12 +75,6 @@ proc destroy(ed: Editor) =
   close(ed.theme.font)
   destroyRenderer ed.renderer
   destroy ed.window
-
-proc drawHorLine(ed: Editor; y: int) =
-  ed.renderer.setDrawColor(ed.theme.fg)
-  var r = rect(0,7+FontSize, ed.screenW, 2)
-  ed.renderer.drawRect(r)
-  ed.renderer.setDrawColor(ed.theme.bg)
 
 proc rect(x,y,w,h: int): Rect = sdl2.rect(x.cint, y.cint, w.cint, h.cint)
 
@@ -262,7 +257,7 @@ proc main(ed: Editor) =
               insertBuffer(buffer, x)
             active = buffer
           elif w.keysym.sym == ord('s'):
-            discard "safe"
+            buffer.save()
           elif w.keysym.sym == ord('n'):
             let x = newBuffer(unkownName(), addr mgr)
             insertBuffer(buffer, x)
@@ -277,8 +272,9 @@ proc main(ed: Editor) =
       blink = 1-blink
 
     clear(renderer)
-    let fileList = ed.renderText(buffer.heading & "*", ed.theme.font,
-                                   ed.theme.fg)
+    let fileList = ed.renderText(
+      buffer.heading & (if buffer.changed: "*" else: ""),
+      ed.theme.font, ed.theme.fg)
 
     let mainRect = rect(15, YGap*3+FontSize,
                         ed.screenW - 16,
@@ -300,7 +296,10 @@ proc main(ed: Editor) =
     renderer.draw(prompt, promptRect, ed.theme.bg, ed.theme.cursor,
                   blink==0 and active==prompt)
 
-    let statusBar = ed.renderText(ed.statusMsg & buffer.filename, ed.theme.font, ed.theme.fg)
+    let statusBar = ed.renderText(ed.statusMsg & buffer.filename &
+                        repeatChar(10) & "Pos: " & $(getLine(buffer)+1) & ", " &
+                                                   $(getColumn(buffer)+1),
+                        ed.theme.font, ed.theme.fg)
     renderer.draw(statusBar, ed.screenH-FontSize-YGap*2)
     present(renderer)
   freeFonts mgr
