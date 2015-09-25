@@ -6,11 +6,13 @@ import buffertype, buffer, styles, unicode, dialogs, highlighters
 
 
 # TODO:
+#  - line wrap
 #  - scrolling & mouse handling
 #  - select, copy, cut from clipboard
-#  - syntax highlighting
+#  - syntax highlighting updates
 #  - large file handling
 #  - show line numbers
+#  - fast cursor movement
 #  - show scroll bars; no horizontal scrolling though
 #  - miniview
 #  - highlighting of ()s

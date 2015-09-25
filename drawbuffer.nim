@@ -1,25 +1,49 @@
 
-proc drawText(r: RendererPtr; dim: Rect; font: FontPtr; msg: cstring;
-              fg, bg: Color): cint =
-  assert font != nil
-  #echo "drawText ", msg
+const
+  ContinueLineMarker = "\xE2\xA4\xB8\x00"
+  Ellipsis = "\xE2\x80\xA6\x00"
+
+proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
+                 fg, bg: Color): TexturePtr =
   var surf: SurfacePtr = renderUtf8Shaded(font, msg, fg, bg)
   if surf == nil:
-    echo("TTF_RenderText")
+    echo("TTF_RenderText failed")
     return
-  var texture: TexturePtr = createTextureFromSurface(r, surf)
-  if texture == nil:
-    echo("CreateTexture")
+  result = createTextureFromSurface(r, surf)
+  if result == nil:
+    echo("CreateTexture failed")
   freeSurface(surf)
 
+proc blit(r: RendererPtr; tex: TexturePtr; dim: Rect) =
   var d = dim
-  queryTexture(texture, nil, nil, addr(d.w), addr(d.h))
+  queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
+  r.copy(tex, nil, addr d)
 
-  r.copy(texture, nil, addr d)
-  destroy texture
-  result = d.w
+proc drawText(r: RendererPtr; dim: var Rect; oldX: cint;
+              font: FontPtr; msg: cstring; fg, bg: Color) =
+  assert font != nil
+  #echo "drawText ", msg
+  let text = r.drawTexture(font, msg, fg, bg)
+  var w, h: cint
+  queryTexture(text, nil, nil, addr(w), addr(h))
 
-const ContinueLineMarker = "\xE2\xA4\xB8"
+  if dim.x + w > dim.w:
+    # draw line continuation and contine in the next line:
+    let cont = r.drawTexture(font, Ellipsis, fg, bg)
+    r.blit(cont, dim)
+    destroy cont
+    dim.x = oldX
+    dim.y += h+2
+    let dots = r.drawTexture(font, Ellipsis, fg, bg)
+    var dotsW: cint
+    queryTexture(dots, nil, nil, addr(dotsW), nil)
+    r.blit(dots, dim)
+    destroy dots
+    dim.x += dotsW
+
+  r.blit(text, dim)
+  dim.x += w
+  destroy text
 
 proc drawCursor(r: RendererPtr; dim: Rect; bg, color: Color; h: cint) =
   r.setDrawColor(color)
@@ -49,7 +73,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
         if cell.c == '\L':
           buffer[bufres] = '\0'
           if bufres >= 1:
-            dim.x += r.drawText(dim, style.font, buffer, style.attr.color, bg)
+            r.drawText(dim, oldX, style.font, buffer, style.attr.color, bg)
           if cursorCheck(): cursorDim = dim
           break outerLoop
 
@@ -65,7 +89,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
 
       buffer[bufres] = '\0'
       if bufres >= 1:
-        dim.x += r.drawText(dim, style.font, buffer, style.attr.color, bg)
+        r.drawText(dim, oldX, style.font, buffer, style.attr.color, bg)
         style = b.mgr[].getStyle(getCell(b, j).s)
         maxh = max(maxh, style.attr.size)
 
