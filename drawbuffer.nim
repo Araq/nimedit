@@ -31,7 +31,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
               dim: var Rect; bg, cursor: Color;
               blink: bool): int =
   var j = i
-  var style = b.mgr[].getStyle(getCell(b, i).s)
+  var style = b.mgr[].getStyle(getCell(b, j).s)
   var maxh = style.attr.size
   let oldX = dim.x
 
@@ -55,8 +55,6 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
 
         if cursorCheck(): cursorDim = dim
         if b.mgr[].getStyle(cell.s) != style:
-          style = b.mgr[].getStyle(cell.s)
-          maxh = max(maxh, style.attr.size)
           break
         elif bufres == high(buffer) or cursorCheck():
           break
@@ -68,6 +66,9 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
       buffer[bufres] = '\0'
       if bufres >= 1:
         dim.x += r.drawText(dim, style.font, buffer, style.attr.color, bg)
+        style = b.mgr[].getStyle(getCell(b, j).s)
+        maxh = max(maxh, style.attr.size)
+
       if j == b.cursor:
         cursorDim = dim
         cb = false
@@ -85,14 +86,16 @@ proc getLineOffset(b: Buffer; lines: Natural): int =
     var cell = getCell(b, result)
     if cell.c == '\L':
       dec lines
-      if lines == 0: break
+      if lines == 0:
+        inc result
+        break
     inc result
 
 proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
            blink: bool) =
   # correct scrolling commands:
   b.firstLine = clamp(b.firstLine, 0,
-                      max(0, b.numberOfLines - (dim.h div FontSize)))
+                      max(0, b.numberOfLines - (dim.h div (FontSize+2)) + 2))
   #echo "FIRSTLINE ", b.firstLine, " ", b.numberOfLines
   # XXX cache line information
   var i = getLineOffset(b, b.firstLine) # b.lines[b.firstLine].offset
