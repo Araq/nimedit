@@ -24,7 +24,7 @@ type
 
   Buffer* = ref object
     cursor: int
-    firstLine*, numberOfLines*, currentLine*: int
+    firstLine*, numberOfLines*, currentLine*, desiredCol: int
     front, back: seq[Cell]
     mgr: ptr StyleManager
     #lines: seq[Line]
@@ -99,10 +99,12 @@ proc left*(b: Buffer; jump: bool) =
   if b.cursor > 0:
     let r = lastRune(b, b.cursor-1)
     b.cursor -= r[1]
+    dec b.desiredCol
 
 proc right*(b: Buffer; jump: bool) =
   if b.cursor < b.front.len+b.back.len:
     b.cursor += graphemeLen(b, b.cursor)
+    inc b.desiredCol
 
 proc getColumn*(b: Buffer): int =
   var i = b.cursor
@@ -115,33 +117,32 @@ proc getColumn*(b: Buffer): int =
 proc getLine*(b: Buffer): int = b.currentLine
 
 proc up*(b: Buffer; jump: bool) =
-  var col = getColumn(b)
-  echo "UP   COL ", col
-  b.cursor -= 1
-  while b.cursor >= 0:
-    if b.getCell(b.cursor).c == '\L': break
-    b.cursor -= 1
-  while b.cursor >= 0:
-    if b.getCell(b.cursor).c == '\L': break
-    b.cursor -= 1
-  while col > 0:
-    b.cursor += 1
-    dec col
+  var col = b.desiredCol
+  var i = b.cursor - 1
+  while i >= 0:
+    if b[i] == '\L':
+      # move to the *start* of this line
+      dec i
+      while i >= 1 and b[i-1] != '\L': dec i
+      while col > 0 and b[i] != '\L':
+        i += graphemeLen(b, i)
+        dec col
+      break
+    dec i
+  b.cursor = i
   if b.cursor < 0: b.cursor = 0
-  #prepareForEdit(b)
 
 proc down*(b: Buffer; jump: bool) =
-  var col = getColumn(b)
-  echo "DOWN COL ", col
+  var col = b.desiredCol
 
   let L = b.front.len+b.back.len
   while b.cursor < L:
-    if b.getCell(b.cursor).c == '\L': break
+    if b[b.cursor] == '\L': break
     b.cursor += 1
   b.cursor += 1
 
   while b.cursor < L and col > 0:
-    if b.getCell(b.cursor).c == '\L': break
+    if b[b.cursor] == '\L': break
     dec col
     b.cursor += 1
   if b.cursor > L: b.cursor = L
@@ -231,6 +232,7 @@ proc insert*(b: Buffer; s: string) =
   if s[^1] in Whitespace: b.actions[^1].k = insFinished
   edit(b)
   rawInsert(b, s)
+  b.desiredCol = getColumn(b)
 
 proc rawBackspace(b: Buffer): string =
   assert b.cursor == b.front.len
@@ -266,6 +268,7 @@ proc backspace*(b: Buffer) =
     b.actions.add(Action(k: del, pos: b.cursor, word: ch))
   edit(b)
   if ch.len == 1 and ch[0] in Whitespace: b.actions[^1].k = delFinished
+  b.desiredCol = getColumn(b)
 
 proc applyUndo(b: Buffer; a: Action) =
   if a.k <= insFinished:
