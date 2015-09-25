@@ -2,6 +2,7 @@
 const
   #ContinueLineMarker = "\xE2\xA4\xB8\x00"
   Ellipsis = "\xE2\x80\xA6\x00"
+  CharBufSize = 80
 
 proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
                  fg, bg: Color): TexturePtr =
@@ -14,7 +15,26 @@ proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
     echo("CreateTexture failed")
   freeSurface(surf)
 
-proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect) =
+proc whichColumn(b: Buffer; i: int; dim: Rect; font: FontPtr;
+                 msg: cstring): int =
+  var buffer: array[CharBufSize, char]
+  var j = i
+  var r = 0
+  let ending = i+msg.len
+  while j < ending:
+    var L = graphemeLen(b, j)
+    for k in 0..<L:
+      buffer[r] = b[k+j]
+      inc r
+    buffer[r] = '\0'
+    var w: cint
+    discard sizeUtf8(font, buffer, addr w, nil)
+    if dim.x+w >= b.mouseX-1:
+      return r
+    inc j, L
+
+proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect;
+          font: FontPtr; msg: cstring) =
   var d = dim
   queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
 
@@ -22,7 +42,7 @@ proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect) =
   if b.mouseX > 0:
     let p = point(b.mouseX, b.mouseY)
     if d.contains(p):
-      b.cursor = i
+      b.cursor = i - len(msg) + whichColumn(b, i-len(msg), d, font, msg)
       b.currentLine = max(b.firstLine + b.span + 1, 0)
       b.mouseX = 0
 
@@ -39,18 +59,18 @@ proc drawText(r: RendererPtr; b: Buffer; i: int; dim: var Rect; oldX: cint;
   if dim.x + w > dim.w:
     # draw line continuation and contine in the next line:
     let cont = r.drawTexture(font, Ellipsis, fg, bg)
-    r.blit(b, i, cont, dim)
+    r.blit(b, i, cont, dim, font, msg)
     destroy cont
     dim.x = oldX
     dim.y += h+2
     let dots = r.drawTexture(font, Ellipsis, fg, bg)
     var dotsW: cint
     queryTexture(dots, nil, nil, addr(dotsW), nil)
-    r.blit(b, i, dots, dim)
+    r.blit(b, i, dots, dim, font, msg)
     destroy dots
     dim.x += dotsW
 
-  r.blit(b, i, text, dim)
+  r.blit(b, i, text, dim, font, msg)
   dim.x += w
   destroy text
 
@@ -70,7 +90,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
 
   var cursorDim: Rect
 
-  var buffer: array[80, char]
+  var buffer: array[CharBufSize, char]
   var cb = true
   template cursorCheck(): expr = cb and j == b.cursor
   block outerLoop:
