@@ -29,6 +29,7 @@ proc clear*(result: Buffer) =
   result.firstLine = 0
   result.numberOfLines = 0
   result.desiredCol = 0
+  result.cursor = 0
 
 proc fullText*(b: Buffer): string =
   result = newStringOfCap(b.front.len + b.back.len)
@@ -64,21 +65,6 @@ proc scroll(b: Buffer; amount: int) =
   elif b.currentLine > b.firstLine + b.span:
     inc b.firstLine
 
-proc left*(b: Buffer; jump: bool) =
-  if b.cursor > 0:
-    let r = lastRune(b, b.cursor-1)
-    if r[0] == Rune('\L'):
-      scroll(b, -1)
-    b.cursor -= r[1]
-    dec b.desiredCol
-
-proc right*(b: Buffer; jump: bool) =
-  if b.cursor < b.front.len+b.back.len:
-    if b[b.cursor] == '\L':
-      scroll(b, 1)
-    b.cursor += graphemeLen(b, b.cursor)
-    inc b.desiredCol
-
 proc getColumn*(b: Buffer): int =
   var i = b.cursor
   while i > 0 and b[i-1] != '\L':
@@ -86,6 +72,21 @@ proc getColumn*(b: Buffer): int =
   while i < b.cursor and b[i] != '\L':
     i += graphemeLen(b, i)
     inc result
+
+proc left*(b: Buffer; jump: bool) =
+  if b.cursor > 0:
+    let r = lastRune(b, b.cursor-1)
+    if r[0] == Rune('\L'):
+      scroll(b, -1)
+    b.cursor -= r[1]
+    b.desiredCol = getColumn(b)
+
+proc right*(b: Buffer; jump: bool) =
+  if b.cursor < b.front.len+b.back.len:
+    if b[b.cursor] == '\L':
+      scroll(b, 1)
+    b.cursor += graphemeLen(b, b.cursor)
+    b.desiredCol = getColumn(b)
 
 proc getLine*(b: Buffer): int = b.currentLine
 
