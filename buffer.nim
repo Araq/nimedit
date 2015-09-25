@@ -90,6 +90,8 @@ proc prepareForEdit(b: Buffer) =
       b.front.add(b.back[i])
       inc took
     setLen(b.back, b.back.len - took)
+    if b.cursor != b.front.len:
+      echo b.cursor, " ", b.front.len
   assert b.cursor == b.front.len
   b.changed = true
 
@@ -118,23 +120,26 @@ proc getLine*(b: Buffer): int = b.currentLine
 
 proc up*(b: Buffer; jump: bool) =
   var col = b.desiredCol
-  var i = b.cursor - 1
-  while i >= 0:
-    if b[i] == '\L':
-      dec b.currentLine
-      # move to the *start* of this line
-      dec i
-      while i >= 1 and b[i-1] != '\L': dec i
-      while col > 0 and b[i] != '\L':
-        i += graphemeLen(b, i)
-        dec col
-      break
+  echo "DESIRED ", col
+  var i = b.cursor# - 1
+
+  # move to the *start* of this line
+  while i >= 1 and b[i-1] != '\L': dec i
+  if i >= 1 and b[i-1] == '\L':
+    # move up 1 line:
     dec i
+    # move to the *start* of this line
+    while i >= 1 and b[i-1] != '\L': dec i
+    # move to the desired column:
+    while i >= 0 and col > 0 and b[i] != '\L':
+      i += graphemeLen(b, i)
+      dec col
   b.cursor = i
   if b.cursor < 0: b.cursor = 0
 
 proc down*(b: Buffer; jump: bool) =
   var col = b.desiredCol
+  echo "DESIRED ", col
 
   let L = b.front.len+b.back.len
   while b.cursor < L:

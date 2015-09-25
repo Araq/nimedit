@@ -6,6 +6,7 @@ import buffer, styles, unicode, dialogs
 
 
 # TODO:
+#  - scrolling!
 #  - select, copy, cut from clipboard
 #  - syntax highlighting
 #  - large file handling
@@ -14,9 +15,14 @@ import buffer, styles, unicode, dialogs
 #  - show scroll bars; no horizontal scrolling though
 #  - miniview
 #  - highlighting of ()s
+#  - highlighting of substring occurences
+
+# Optimizations:
+#  - cache font renderings
+#  - cache content for quick search&replace
 
 # BUGS:
-#  - cursor movement is weird
+#  - 'redo' does not work anymore
 
 
 const

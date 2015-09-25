@@ -14,6 +14,7 @@ proc drawText(r: RendererPtr; dim: Rect; font: FontPtr; msg: cstring;
 
   var d = dim
   queryTexture(texture, nil, nil, addr(d.w), addr(d.h))
+
   r.copy(texture, nil, addr d)
   destroy texture
   result = d.w
