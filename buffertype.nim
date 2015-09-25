@@ -16,18 +16,19 @@ type
   Buffer* = ref object
     cursor*: int
     firstLine*, span*, numberOfLines*, currentLine*, desiredCol*: int
+    mouseX*, mouseY*: int
     front*, back*: seq[Cell]
     mgr*: ptr StyleManager
     #lines: seq[Line]
     actions*: seq[Action]
     undoIdx*: int
-    next*, prev*: Buffer
     changed*: bool
     heading*: string
     filename*: string
     lang*: SourceLanguage
-    lineending*: string # CR-LF, CR or LF
     eofChar*: char
+    next*, prev*: Buffer
+    lineending*: string # CR-LF, CR or LF
 
 proc getCell*(b: Buffer; i: Natural): Cell =
   if i < b.front.len:

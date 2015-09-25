@@ -6,7 +6,6 @@ import buffertype, buffer, styles, unicode, dialogs, highlighters
 
 
 # TODO:
-#  - line wrap
 #  - scrolling & mouse handling
 #  - select, copy, cut from clipboard
 #  - syntax highlighting updates
@@ -17,6 +16,7 @@ import buffertype, buffer, styles, unicode, dialogs, highlighters
 #  - miniview
 #  - highlighting of ()s
 #  - highlighting of substring occurences
+#  - search&replace
 
 # Optimizations:
 #  - cache font renderings
@@ -165,8 +165,6 @@ proc runCmd(ed: Editor; cmd: string): bool =
 proc main(ed: Editor) =
   var mgr: StyleManager
   setDefaults(ed, addr mgr)
-  # ensure index 0 exists and has reasonable defaults:
-  #discard mgr.getStyle(FontAttr(color: ed.theme.fg, size: FontSize))
   highlighters.setStyles(mgr)
 
   ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
@@ -179,6 +177,13 @@ proc main(ed: Editor) =
 
   var blink = 1
   while true:
+    let mainRect = rect(15, YGap*3+FontSize,
+                        ed.screenW - 16,
+                        ed.screenH - 7*FontSize - YGap*2)
+    let promptRect = rect(15, FontSize+YGap*2 + ed.screenH - 7*FontSize,
+                          ed.screenW - 16,
+                          FontSize+YGap*2)
+
     var e = Event(kind: UserEvent5)
     if waitEventTimeout(e, 500) == SdlSuccess:
       case e.kind
@@ -188,7 +193,19 @@ proc main(ed: Editor) =
         if w.event == WindowEvent_Resized:
           ed.screenW = w.data1
           ed.screenH = w.data2
-      of MouseButtonDown: discard
+      of MouseButtonDown:
+        let w = e.button
+        let p = point(w.x, w.y)
+        if mainRect.contains(p):
+          if active == buffer:
+            buffer.setCursorFromMouse(mainRect, p)
+          else:
+            active = buffer
+        elif promptRect.contains(p):
+          if active == prompt:
+            prompt.setCursorFromMouse(promptRect, p)
+          else:
+            active = prompt
       of MouseWheel:
         # scroll(w.x, w.y)
         let w = e.wheel
@@ -284,13 +301,6 @@ proc main(ed: Editor) =
       buffer.heading & (if buffer.changed: "*" else: ""),
       ed.theme.font, ed.theme.fg)
 
-    let mainRect = rect(15, YGap*3+FontSize,
-                        ed.screenW - 16,
-                        ed.screenH - 7*FontSize - YGap*2)
-    let promptRect = rect(15, FontSize+YGap*2 + ed.screenH - 7*FontSize,
-                          ed.screenW - 16,
-                          FontSize+YGap*2)
-
     renderer.draw(buffer, mainRect, ed.theme.bg, ed.theme.cursor,
                   blink==0 and active==buffer)
 
@@ -299,14 +309,12 @@ proc main(ed: Editor) =
     ed.drawBorder(XGap, FontSize+YGap*2 + ed.screenH - 7*FontSize - YGap,
       FontSize+YGap*3, active==prompt)
 
-    #let prompt = ed.renderText(prompt.contents, ed.theme.font, ed.theme.fg)
-    #renderer.draw(prompt, FontSize+YGap*2 + ed.screenH - 7*FontSize)
     renderer.draw(prompt, promptRect, ed.theme.bg, ed.theme.cursor,
                   blink==0 and active==prompt)
 
     let statusBar = ed.renderText(ed.statusMsg & buffer.filename &
-                        repeatChar(10) & "Pos: " & $(getLine(buffer)+1) & ", " &
-                                                   $(getColumn(buffer)+1),
+                        repeatChar(10) & "Ln: " & $(getLine(buffer)+1) &
+                                        " Col: " & $(getColumn(buffer)+1),
                         ed.theme.font, ed.theme.fg)
     renderer.draw(statusBar, ed.screenH-FontSize-YGap*2)
     present(renderer)

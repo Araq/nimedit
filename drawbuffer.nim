@@ -1,6 +1,6 @@
 
 const
-  ContinueLineMarker = "\xE2\xA4\xB8\x00"
+  #ContinueLineMarker = "\xE2\xA4\xB8\x00"
   Ellipsis = "\xE2\x80\xA6\x00"
 
 proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
@@ -14,12 +14,21 @@ proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
     echo("CreateTexture failed")
   freeSurface(surf)
 
-proc blit(r: RendererPtr; tex: TexturePtr; dim: Rect) =
+proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect) =
   var d = dim
   queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
+
+  # requested cursor update?
+  if b.mouseX > 0:
+    let p = point(b.mouseX, b.mouseY)
+    if d.contains(p):
+      b.cursor = i
+      b.currentLine = max(b.firstLine + b.span + 1, 0)
+      b.mouseX = 0
+
   r.copy(tex, nil, addr d)
 
-proc drawText(r: RendererPtr; dim: var Rect; oldX: cint;
+proc drawText(r: RendererPtr; b: Buffer; i: int; dim: var Rect; oldX: cint;
               font: FontPtr; msg: cstring; fg, bg: Color) =
   assert font != nil
   #echo "drawText ", msg
@@ -30,18 +39,18 @@ proc drawText(r: RendererPtr; dim: var Rect; oldX: cint;
   if dim.x + w > dim.w:
     # draw line continuation and contine in the next line:
     let cont = r.drawTexture(font, Ellipsis, fg, bg)
-    r.blit(cont, dim)
+    r.blit(b, i, cont, dim)
     destroy cont
     dim.x = oldX
     dim.y += h+2
     let dots = r.drawTexture(font, Ellipsis, fg, bg)
     var dotsW: cint
     queryTexture(dots, nil, nil, addr(dotsW), nil)
-    r.blit(dots, dim)
+    r.blit(b, i, dots, dim)
     destroy dots
     dim.x += dotsW
 
-  r.blit(text, dim)
+  r.blit(b, i, text, dim)
   dim.x += w
   destroy text
 
@@ -73,7 +82,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
         if cell.c == '\L':
           buffer[bufres] = '\0'
           if bufres >= 1:
-            r.drawText(dim, oldX, style.font, buffer, style.attr.color, bg)
+            r.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color, bg)
           if cursorCheck(): cursorDim = dim
           break outerLoop
 
@@ -89,7 +98,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
 
       buffer[bufres] = '\0'
       if bufres >= 1:
-        r.drawText(dim, oldX, style.font, buffer, style.attr.color, bg)
+        r.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color, bg)
         style = b.mgr[].getStyle(getCell(b, j).s)
         maxh = max(maxh, style.attr.size)
 
@@ -115,6 +124,11 @@ proc getLineOffset(b: Buffer; lines: Natural): int =
         break
     inc result
 
+proc setCursorFromMouse*(b: Buffer; dim: Rect; mouse: Point) =
+  #let line =  FontSize+2
+  b.mouseX = mouse.x
+  b.mouseY = mouse.y
+
 proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
            blink: bool) =
   # correct scrolling commands. Because of line continuations the maximal
@@ -130,3 +144,5 @@ proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
   while dim.y < dim.h and i <= len(b):
     i = r.drawLine(b, i, dim, bg, cursor, blink)
     inc b.span
+  # if not found, ignore mouse request anyway:
+  b.mouseX = 0
