@@ -20,6 +20,7 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.actions = @[]
   result.mgr = mgr
   result.eofChar = '\L'
+  result.readOnly = -2
 
 proc clear*(result: Buffer) =
   result.front.setLen 0
@@ -53,8 +54,9 @@ proc prepareForEdit(b: Buffer) =
       b.front.add(b.back[i])
       inc took
     setLen(b.back, b.back.len - took)
-    if b.cursor != b.front.len:
-      echo b.cursor, " ", b.front.len
+    #if b.cursor != b.front.len:
+    #  echo b.cursor, " ", b.front.len
+    b.cursor = b.front.len
   assert b.cursor == b.front.len
   b.changed = true
 
@@ -72,6 +74,13 @@ proc getColumn*(b: Buffer): int =
   while i < b.cursor and b[i] != '\L':
     i += graphemeLen(b, i)
     inc result
+
+proc getLastLine*(b: Buffer): string =
+  var i = b.len
+  while i > 0 and b[i-1] != '\L': dec i
+  result = ""
+  for j in i..<b.len:
+    result.add b[j]
 
 proc left*(b: Buffer; jump: bool) =
   if b.cursor > 0:
@@ -207,6 +216,7 @@ proc saveAs*(b: Buffer; filename: string) =
   save(b)
 
 proc insert*(b: Buffer; s: string) =
+  if b.cursor <= b.readOnly: return
   prepareForEdit(b)
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
   if b.actions.len > 0 and b.actions[^1].k == ins:
@@ -218,11 +228,11 @@ proc insert*(b: Buffer; s: string) =
   rawInsert(b, s)
   b.desiredCol = getColumn(b)
 
-proc rawBackspace(b: Buffer): string =
+proc rawBackspace(b: Buffer; overrideUtf8=false): string =
   assert b.cursor == b.front.len
   var x = 0
   let ch = b.front[b.cursor-1].c
-  if ch.ord < 128:
+  if ch.ord < 128 or overrideUtf8:
     x = 1
     if ch == '\L': dec b.numberOfLines
   else:
@@ -240,11 +250,12 @@ proc rawBackspace(b: Buffer): string =
   b.cursor -= result.len
   b.front.setLen(b.cursor)
 
-proc backspace*(b: Buffer) =
+proc backspace*(b: Buffer; overrideUtf8=false) =
   if b.cursor <= 0: return
+  if b.cursor-1 <= b.readOnly: return
   prepareForEdit(b)
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
-  let ch = b.rawBackspace
+  let ch = b.rawBackspace(overrideUtf8)
   if b.actions.len > 0 and b.actions[^1].k == dele:
     b.actions[^1].word.add ch
   else:

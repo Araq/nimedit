@@ -2,11 +2,10 @@
 from strutils import contains, startsWith, repeatChar
 from os import extractFilename, splitFile
 import sdl2, sdl2/ttf
-import buffertype, buffer, styles, unicode, dialogs, highlighters
+import buffertype, buffer, styles, unicode, dialogs, highlighters, console
 
 
 # TODO:
-#  - scrolling & mouse handling
 #  - select, copy, cut from clipboard
 #  - syntax highlighting updates
 #  - large file handling
@@ -37,12 +36,10 @@ type
     active: array[bool, Color]
     font: FontPtr # default font
 
-  CmdHistory = object
-    cmds: seq[string]
-    suggested: int
-
   Editor = ref object
-    active, buffer, prompt: Buffer
+    active, main, prompt, console: Buffer # active points to either
+                                          # main, prompt or console
+    mainRect, promptRect, consoleRect: Rect
     statusMsg: string
 
     renderer: RendererPtr
@@ -51,6 +48,7 @@ type
     screenW, screenH: cint
     hist: CmdHistory
     buffersCounter: int
+    con: Console
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
@@ -59,14 +57,16 @@ proc setDefaults(ed: Editor; mgr: ptr StyleManager) =
   ed.screenH = cint(780)
   ed.statusMsg = "Ready "
 
-  ed.buffer = newBuffer(unkownName(), mgr)
+  ed.main = newBuffer(unkownName(), mgr)
   ed.prompt = newBuffer("", mgr)
+  ed.console = newBuffer("", mgr)
 
   ed.buffersCounter = 1
-  ed.buffer.next = ed.buffer
-  ed.buffer.prev = ed.buffer
-  ed.active = ed.buffer
+  ed.main.next = ed.main
+  ed.main.prev = ed.main
+  ed.active = ed.main
   ed.hist = CmdHistory(cmds: @[], suggested: -1)
+  ed.con = newConsole(ed.console)
 
   #ed.theme.fg = color(255, 255, 255, 0)
   #r"C:\Windows\Fonts\cour.ttf"
@@ -85,11 +85,11 @@ proc destroy(ed: Editor) =
 
 proc rect(x,y,w,h: int): Rect = sdl2.rect(x.cint, y.cint, w.cint, h.cint)
 
-proc drawBorder(ed: Editor; x, y, h: int; b: bool) =
+proc drawBorder(ed: Editor; x, y, w, h: int; b: bool) =
   ed.renderer.setDrawColor(ed.theme.active[b])
-  var r = rect(x, y, ed.screenW-10, h)
+  var r = rect(x, y, w, h)
   ed.renderer.drawRect(r)
-  var r2 = rect(x+1, y+1, ed.screenW-12, h-2)
+  var r2 = rect(x+1, y+1, w-2, h-2)
   ed.renderer.drawRect(r2)
   ed.renderer.setDrawColor(ed.theme.bg)
 
@@ -131,30 +131,6 @@ template removeBuffer(n) =
     dec ed.buffersCounter
 
 
-proc addCmd(h: var CmdHistory; cmd: string) =
-  var replaceWith = -1
-  for i in 0..high(h.cmds):
-    if h.cmds[i] == cmd:
-      # suggest it again:
-      h.suggested = i
-      return
-    elif h.cmds[i] in cmd:
-      # correct previously wrong or shorter command:
-      if replaceWith < 0 or h.cmds[replaceWith] < h.cmds[i]: replaceWith = i
-  if replaceWith < 0:
-    h.cmds.add cmd
-  else:
-    h.cmds[replaceWith] = cmd
-
-proc suggest(h: var CmdHistory; up: bool): string =
-  if h.suggested < 0 or h.suggested >= h.cmds.len:
-    h.suggested = (if up: h.cmds.high else: 0)
-  if h.suggested >= 0 and h.suggested < h.cmds.len:
-    result = h.cmds[h.suggested]
-    h.suggested += (if up: -1 else: 1)
-  else:
-    result = ""
-
 proc runCmd(ed: Editor; cmd: string): bool =
   echo cmd
   ed.hist.addCmd(cmd)
@@ -162,7 +138,32 @@ proc runCmd(ed: Editor; cmd: string): bool =
     ed.theme.fg = parseColor(cmd)
   cmd == "quit" or cmd == "q"
 
-proc main(ed: Editor) =
+proc hasConsole(ed: Editor): bool = ed.consoleRect.x >= 0
+
+proc layout(ed: Editor) =
+  ed.mainRect = rect(15, YGap*3+FontSize,
+                        ed.screenW - 15*2,
+                        ed.screenH - 7*FontSize - YGap*2)
+  ed.promptRect = rect(15, FontSize+YGap*3 + ed.screenH - 7*FontSize,
+                          ed.screenW - 15*2,
+                          FontSize+YGap*2)
+  if ed.screenW > 900:
+    # enable the console:
+    let d = ed.screenW div 2
+    ed.mainRect.w = d - 15
+    ed.consoleRect = ed.mainRect
+    ed.consoleRect.x += ed.mainRect.w + XGap*2
+  else:
+    # disable console:
+    ed.consoleRect.x = -1
+    # if the console is disabled, it cannot have the focus:
+    if ed.active == ed.console: ed.active = ed.main
+
+proc drawBorder(ed: Editor; rect: Rect; active: bool) =
+  ed.drawBorder(rect.x - XGap, rect.y - YGap, rect.w + XGap, rect.h + YGap,
+                active)
+
+proc mainProc(ed: Editor) =
   var mgr: StyleManager
   setDefaults(ed, addr mgr)
   highlighters.setStyles(mgr)
@@ -172,18 +173,13 @@ proc main(ed: Editor) =
   ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
   template prompt: expr = ed.prompt
   template active: expr = ed.active
-  template buffer: expr = ed.buffer
+  template main: expr = ed.main
   template renderer: expr = ed.renderer
+  template console: expr = ed.console
 
   var blink = 1
+  layout(ed)
   while true:
-    let mainRect = rect(15, YGap*3+FontSize,
-                        ed.screenW - 16,
-                        ed.screenH - 7*FontSize - YGap*2)
-    let promptRect = rect(15, FontSize+YGap*2 + ed.screenH - 7*FontSize,
-                          ed.screenW - 16,
-                          FontSize+YGap*2)
-
     var e = Event(kind: UserEvent5)
     if waitEventTimeout(e, 500) == SdlSuccess:
       case e.kind
@@ -193,24 +189,32 @@ proc main(ed: Editor) =
         if w.event == WindowEvent_Resized:
           ed.screenW = w.data1
           ed.screenH = w.data2
+          layout(ed)
       of MouseButtonDown:
         let w = e.button
         let p = point(w.x, w.y)
-        if mainRect.contains(p):
-          if active == buffer:
-            buffer.setCursorFromMouse(mainRect, p)
+        if ed.mainRect.contains(p):
+          if active == main:
+            main.setCursorFromMouse(ed.mainRect, p)
           else:
-            active = buffer
-        elif promptRect.contains(p):
+            active = main
+        elif ed.promptRect.contains(p):
           if active == prompt:
-            prompt.setCursorFromMouse(promptRect, p)
+            prompt.setCursorFromMouse(ed.promptRect, p)
           else:
             active = prompt
+        elif hasConsole(ed) and ed.consoleRect.contains(p):
+          if active == console:
+            console.setCursorFromMouse(ed.consoleRect, p)
+          else:
+            active = console
       of MouseWheel:
-        # scroll(w.x, w.y)
         let w = e.wheel
-        ed.active.firstLine -= w.y*3
-        #echo "xy ", w.x, " ", w.y
+        var p: Point
+        discard getMouseState(p.x, p.y)
+        let a = if hasConsole(ed) and ed.consoleRect.contains(p): console
+                else: main
+        a.firstLine -= w.y*3
       of TextInput:
         let w = e.text
         active.insert($w.text)
@@ -220,32 +224,44 @@ proc main(ed: Editor) =
         of SDL_SCANCODE_BACKSPACE:
           active.backspace()
         of SDL_SCANCODE_RETURN:
-          if active==buffer:
-            buffer.insert("\L")
-          else:
+          if active==main:
+            main.insert("\L")
+          elif active==prompt:
             if ed.runCmd(prompt.fullText): break
             prompt.clear
+          elif active==console:
+            enterPressed(ed.con)
         of SDL_SCANCODE_ESCAPE:
-          if active==buffer: active = prompt
-          else: active = buffer
+          if (w.keysym.modstate and KMOD_SHIFT) != 0:
+            if active == console or not ed.hasConsole: active = main
+            else: active = console
+          else:
+            if active==main: active = prompt
+            else: active = main
         of SDL_SCANCODE_RIGHT: active.right((w.keysym.modstate and KMOD_CTRL) != 0)
         of SDL_SCANCODE_LEFT: active.left((w.keysym.modstate and KMOD_CTRL) != 0)
         of SDL_SCANCODE_DOWN:
           if active==prompt:
             prompt.clear
             prompt.insert(ed.hist.suggest(up=false))
+          elif active == console:
+            ed.con.downPressed()
           else:
             active.down((w.keysym.modstate and KMOD_CTRL) != 0)
         of SDL_SCANCODE_UP:
           if active==prompt:
             prompt.clear
             prompt.insert(ed.hist.suggest(up=true))
+          elif active == console:
+            ed.con.upPressed()
           else:
             active.up((w.keysym.modstate and KMOD_CTRL) != 0)
         of SDL_SCANCODE_TAB:
           if (w.keysym.modstate and KMOD_CTRL) != 0:
-            buffer = buffer.next
-            active = buffer
+            main = main.next
+            active = main
+          elif active == console:
+            ed.con.tabPressed()
         else: discard
         if (w.keysym.modstate and KMOD_CTRL) != 0:
           # CTRL+Z: undo
@@ -273,22 +289,22 @@ proc main(ed: Editor) =
             freeClipboardText(text)
           elif w.keysym.sym == ord('o'):
             let previousLocation =
-              if buffer.filename.len > 0: buffer.filename.splitFile.dir
+              if main.filename.len > 0: main.filename.splitFile.dir
               else: ""
             let toOpen = chooseFilesToOpen(nil, previousLocation)
             for p in toOpen:
               let x = newBuffer(p.extractFilename, addr mgr)
               x.loadFromFile(p)
-              insertBuffer(buffer, x)
-            active = buffer
+              insertBuffer(main, x)
+            active = main
           elif w.keysym.sym == ord('s'):
-            buffer.save()
+            main.save()
           elif w.keysym.sym == ord('n'):
             let x = newBuffer(unkownName(), addr mgr)
-            insertBuffer(buffer, x)
-            active = buffer
+            insertBuffer(main, x)
+            active = main
           elif w.keysym.sym == ord('q'):
-            removeBuffer(buffer)
+            removeBuffer(main)
       else: discard
       # keydown means show the cursor:
       blink = 0
@@ -298,23 +314,26 @@ proc main(ed: Editor) =
 
     clear(renderer)
     let fileList = ed.renderText(
-      buffer.heading & (if buffer.changed: "*" else: ""),
+      main.heading & (if main.changed: "*" else: ""),
       ed.theme.font, ed.theme.fg)
-
-    renderer.draw(buffer, mainRect, ed.theme.bg, ed.theme.cursor,
-                  blink==0 and active==buffer)
-
     renderer.draw(fileList, YGap)
-    ed.drawBorder(XGap, FontSize+YGap*2, ed.screenH - 7*FontSize - YGap*2, active==buffer)
-    ed.drawBorder(XGap, FontSize+YGap*2 + ed.screenH - 7*FontSize - YGap,
-      FontSize+YGap*3, active==prompt)
 
-    renderer.draw(prompt, promptRect, ed.theme.bg, ed.theme.cursor,
+    renderer.draw(main, ed.mainRect, ed.theme.bg, ed.theme.cursor,
+                  blink==0 and active==main)
+    ed.drawBorder(ed.mainRect, active==main)
+
+    if ed.hasConsole:
+      renderer.draw(console, ed.consoleRect, ed.theme.bg, ed.theme.cursor,
+                    blink==0 and active==console)
+      ed.drawBorder(ed.consoleRect, active==console)
+
+    renderer.draw(prompt, ed.promptRect, ed.theme.bg, ed.theme.cursor,
                   blink==0 and active==prompt)
+    ed.drawBorder(ed.promptRect, active==prompt)
 
-    let statusBar = ed.renderText(ed.statusMsg & buffer.filename &
-                        repeatChar(10) & "Ln: " & $(getLine(buffer)+1) &
-                                        " Col: " & $(getColumn(buffer)+1),
+    let statusBar = ed.renderText(ed.statusMsg & main.filename &
+                        repeatChar(10) & "Ln: " & $(getLine(main)+1) &
+                                        " Col: " & $(getColumn(main)+1),
                         ed.theme.font, ed.theme.fg)
     renderer.draw(statusBar, ed.screenH-FontSize-YGap*2)
     present(renderer)
@@ -327,5 +346,5 @@ elif ttfInit() != SdlSuccess:
   echo "TTF_Init"
 else:
   startTextInput()
-  main(Editor())
+  mainProc(Editor())
 sdl2.quit()

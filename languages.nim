@@ -33,7 +33,7 @@ proc getSourceLanguage*(name: string): SourceLanguage =
 
 proc fileExtToLanguage*(ext: string): SourceLanguage =
   case ext.toLower
-  of ".nim": langNim
+  of ".nim", ".nims": langNim
   of ".cpp", ".hpp", ".cxx", ".h": langCpp
   of ".c": langC
   of ".java": langJava

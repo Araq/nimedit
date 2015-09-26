@@ -64,7 +64,7 @@ proc drawText(r: RendererPtr; b: Buffer; i: int; dim: var Rect; oldX: cint;
   var w, h: cint
   queryTexture(text, nil, nil, addr(w), addr(h))
 
-  if dim.x + w > dim.w:
+  if dim.x + w > dim.w+oldX:
     # draw line continuation and contine in the next line:
     let cont = r.drawTexture(font, Ellipsis, fg, bg)
     r.blit(b, i, cont, dim, font, msg)
