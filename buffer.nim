@@ -62,7 +62,7 @@ proc scroll(b: Buffer; amount: int) =
   inc b.currentLine, amount
   if b.currentLine < b.firstLine:
     b.firstLine = b.currentLine
-  elif b.currentLine > b.firstLine + b.span:
+  elif b.currentLine > b.firstLine + b.span-1:
     inc b.firstLine
 
 proc getColumn*(b: Buffer): int =

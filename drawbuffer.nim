@@ -38,7 +38,7 @@ proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: byte) =
   if b.mouseX > 0:
     if b.mouseX > dim.x and dim.y+maxh.cint > b.mouseY:
       b.cursor = i
-      b.currentLine = max(b.firstLine + b.span + 1, 0)
+      b.currentLine = max(b.firstLine + b.span, 0)
       b.mouseX = 0
 
 proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect;
@@ -51,7 +51,7 @@ proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect;
     let p = point(b.mouseX, b.mouseY)
     if d.contains(p):
       b.cursor = i - len(msg) + whichColumn(b, i-len(msg), d, font, msg)
-      b.currentLine = max(b.firstLine + b.span + 1, 0)
+      b.currentLine = max(b.firstLine + b.span, 0)
       b.mouseX = 0
 
   r.copy(tex, nil, addr d)
@@ -170,6 +170,7 @@ proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
   var dim = dim
   b.span = 0
   i = r.drawLine(b, i, dim, bg, cursor, blink)
+  inc b.span
   while dim.y < dim.h and i <= len(b):
     i = r.drawLine(b, i, dim, bg, cursor, blink)
     inc b.span
