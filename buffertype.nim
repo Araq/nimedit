@@ -50,4 +50,4 @@ proc setCellStyle*(b: Buffer; i: Natural; s: StyleIdx) =
 
 proc `[]`*(b: Buffer; i: Natural): char {.inline.} = getCell(b, i).c
 
-proc len*(b: Buffer): int = b.front.len+b.back.len
+proc len*(b: Buffer): int {.inline.} = b.front.len+b.back.len

@@ -67,6 +67,7 @@ proc scroll(b: Buffer; amount: int) =
   elif b.currentLine > b.firstLine + b.span-1:
     inc b.firstLine
 
+proc getLine*(b: Buffer): int = b.currentLine
 proc getColumn*(b: Buffer): int =
   var i = b.cursor
   while i > 0 and b[i-1] != '\L':
@@ -82,7 +83,7 @@ proc getLastLine*(b: Buffer): string =
   for j in i..<b.len:
     result.add b[j]
 
-proc left*(b: Buffer; jump: bool) =
+proc rawLeft*(b: Buffer) =
   if b.cursor > 0:
     let r = lastRune(b, b.cursor-1)
     if r[0] == Rune('\L'):
@@ -90,14 +91,24 @@ proc left*(b: Buffer; jump: bool) =
     b.cursor -= r[1]
     b.desiredCol = getColumn(b)
 
-proc right*(b: Buffer; jump: bool) =
+proc left*(b: Buffer; jump: bool) =
+  rawLeft(b)
+  if jump:
+    while b.cursor > 0 and b[b.cursor] notin WhiteSpace: rawLeft(b)
+    while b.cursor > 1 and b[b.cursor-1] in WhiteSpace: rawLeft(b)
+
+proc rawRight(b: Buffer) =
   if b.cursor < b.front.len+b.back.len:
     if b[b.cursor] == '\L':
       scroll(b, 1)
     b.cursor += graphemeLen(b, b.cursor)
     b.desiredCol = getColumn(b)
 
-proc getLine*(b: Buffer): int = b.currentLine
+proc right*(b: Buffer; jump: bool) =
+  rawRight(b)
+  if jump:
+    while b.cursor < b.len and b[b.cursor] in WhiteSpace: rawRight(b)
+    while b.cursor < b.len and b[b.cursor] notin WhiteSpace: rawRight(b)
 
 proc up*(b: Buffer; jump: bool) =
   var col = b.desiredCol

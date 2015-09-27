@@ -6,11 +6,11 @@ import buffertype, buffer, styles, unicode, dialogs, highlighters, console
 
 
 # TODO:
-#  - select, copy, cut from clipboard
 #  - syntax highlighting updates
+#  - support for range markers (required for selections)
+#  - select, copy, cut from clipboard
 #  - large file handling
 #  - show line numbers
-#  - fast cursor movement
 #  - show scroll bars; no horizontal scrolling though
 #  - miniview
 #  - highlighting of ()s
