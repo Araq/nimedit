@@ -43,9 +43,12 @@ proc insertReadonly*(c: Console; s: string) =
   c.b.insert(s)
   c.b.readOnly = c.b.len-1
 
+proc insertPrompt(c: Console) =
+  c.insertReadOnly(os.getCurrentDir() & ">")
+
 proc newConsole*(b: Buffer): Console =
   result = Console(b: b, hist: CmdHistory(cmds: @[], suggested: -1), files: @[])
-  result.insertReadOnly(os.getCurrentDir() & ">")
+  result.insertPrompt()
 
 proc getCommand(c: Console): string =
   result = ""
@@ -248,7 +251,7 @@ proc execThreadProc() {.thread.} =
     let exitCode = p.waitForExit()
     p.close()
     if exitCode != 0:
-      responses.send("Process terminated with exitcode: " & $exitCode)
+      responses.send("Process terminated with exitcode: " & $exitCode & "\L")
     responses.send EndToken
   template echod(msg) = echo msg
 
@@ -277,7 +280,7 @@ proc execThreadProc() {.thread.} =
               started = false
               responses.send getCurrentExceptionMsg()
               responses.send EndToken
-            echo "STARTED ", bin
+            echod "STARTED " & bin
             o = p.outputStream
           else:
             echod("[Thread] Ignored request " & task)
@@ -286,15 +289,14 @@ proc execThreadProc() {.thread.} =
       if not p.running:
         echod("[Thread] Process exited.")
         while not o.atEnd:
-          let line = o.readLine()
+          let line = o.readAll()
           responses.send(line)
 
         # Process exited.
         waitForExit()
-      #var ps = @[p]
-      #if osproc.select(ps) == 1:
-      let line = o.readLine()
-      responses.send(line)
+      if osproc.hasData(p):
+        let line = o.readAll()
+        responses.send(line)
 
 var backgroundThread: Thread[void]
 createThread[void](backgroundThread, execThreadProc)
@@ -305,9 +307,10 @@ proc update*(c: Console) =
       let resp = responses.recv()
       if resp == EndToken:
         c.processRunning = false
-        c.insertReadOnly("\L" & os.getCurrentDir() & ">")
+        c.insertReadOnly "\L"
+        insertPrompt(c)
       else:
-        insertReadOnly(c, "\L" & resp)
+        insertReadOnly(c, resp)
 
 proc sendBreak*(c: Console) =
   if c.processRunning:
@@ -319,17 +322,21 @@ proc enterPressed*(c: Console) =
   addCmd(c.hist, cmd)
   var a = ""
   var i = parseWord(cmd, a, 0, true)
+  c.insertReadOnly "\L"
   case a
   of "":
-    c.insertReadOnly("\L" & os.getCurrentDir() & ">")
+    insertPrompt c
+  of "cls":
+    clear(c.b)
+    insertPrompt c
   of "cd":
     var b = ""
     i = parseWord(cmd, b, i)
     try:
       os.setCurrentDir(b)
     except OSError:
-      c.insertReadOnly("\L" & getCurrentExceptionMsg())
-    c.insertReadOnly("\L" & os.getCurrentDir() & ">")
+      c.insertReadOnly(getCurrentExceptionMsg() & "\L")
+    insertPrompt c
   else:
     requests.send cmd
     c.processRunning = true
