@@ -181,7 +181,11 @@ proc mainProc(ed: Editor) =
   layout(ed)
   while true:
     var e = Event(kind: UserEvent5)
-    if waitEventTimeout(e, 500) == SdlSuccess:
+    # if we have an external process running in the background, we have a
+    # much shorter timeout. Nevertheless this should not affect our blinking
+    # speed:
+    let timeout = if ed.con.processRunning: 100.cint else: 500.cint
+    if waitEventTimeout(e, timeout) == SdlSuccess:
       case e.kind
       of QuitEvent: break
       of WindowEvent:
@@ -271,6 +275,8 @@ proc mainProc(ed: Editor) =
               active.redo
             else:
               active.undo
+          elif w.keysym.sym == ord('b'):
+            ed.con.sendBreak()
           elif w.keysym.sym == ord('f'):
             discard "find"
           elif w.keysym.sym == ord('g'):
@@ -310,8 +316,12 @@ proc mainProc(ed: Editor) =
       blink = 0
     else:
       # timeout, so update the blinking:
-      blink = 1-blink
-
+      if timeout == 500:
+        blink = 1-blink
+      else:
+        inc blink
+        if blink >= 5: blink = 0
+    update(ed.con)
     clear(renderer)
     let fileList = ed.renderText(
       main.heading & (if main.changed: "*" else: ""),

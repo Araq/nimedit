@@ -1,6 +1,6 @@
 # Some nice console support.
 
-import buffertype, buffer, os, osproc, strutils
+import buffertype, buffer, os, osproc, streams, strutils
 
 type
   CmdHistory* = object
@@ -36,6 +36,7 @@ type
     b: Buffer
     hist: CmdHistory
     files: seq[string]
+    processRunning*: bool
 
 proc insertReadonly*(c: Console; s: string) =
   c.b.readOnly = -2
@@ -51,9 +52,6 @@ proc getCommand(c: Console): string =
   let b = c.b
   for i in b.readOnly+1 .. <c.b.len:
     result.add c.b[i]
-
-proc update*(c: Console) =
-  discard "update feature"
 
 proc emptyCmd(c: Console) =
   let b = c.b
@@ -225,6 +223,96 @@ proc tabPressed*(c: Console) =
       break
     swap(a, b)
 
+proc cmdToArgs(cmd: string): tuple[exe: string, args: seq[string]] =
+  result.exe = ""
+  result.args = @[]
+  var i = parseWord(cmd, result.exe, 0)
+  while true:
+    var x = ""
+    i = parseWord(cmd, x, i)
+    if x.len == 0: break
+    result.args.add x
+
+# Threading channels
+var requests: Channel[string]
+requests.open()
+var responses: Channel[string]
+responses.open()
+# Threading channels END
+
+const EndToken = "\e" # a single ESC
+
+proc execThreadProc() {.thread.} =
+  template waitForExit() =
+    started = false
+    let exitCode = p.waitForExit()
+    p.close()
+    if exitCode != 0:
+      responses.send("Process terminated with exitcode: " & $exitCode)
+    responses.send EndToken
+  template echod(msg) = echo msg
+
+  var p: Process
+  var o: Stream
+  var started = false
+  while true:
+    var tasks = requests.peek()
+    if tasks == 0 and not started: tasks = 1
+    if tasks > 0:
+      for i in 0..<tasks:
+        let task = requests.recv()
+        if task == EndToken:
+          echod("[Thread] Stopping process.")
+          p.terminate()
+          o.close()
+          waitForExit()
+        else:
+          if not started:
+            let (bin, args) = cmdToArgs(task)
+            started = true
+            try:
+              p = startProcess(bin, os.getCurrentDir(), args,
+                               options = {poStdErrToStdOut, poUsePath})
+            except:
+              started = false
+              responses.send getCurrentExceptionMsg()
+              responses.send EndToken
+            echo "STARTED ", bin
+            o = p.outputStream
+          else:
+            echod("[Thread] Ignored request " & task)
+    # Check if process exited.
+    if started:
+      if not p.running:
+        echod("[Thread] Process exited.")
+        while not o.atEnd:
+          let line = o.readLine()
+          responses.send(line)
+
+        # Process exited.
+        waitForExit()
+      #var ps = @[p]
+      #if osproc.select(ps) == 1:
+      let line = o.readLine()
+      responses.send(line)
+
+var backgroundThread: Thread[void]
+createThread[void](backgroundThread, execThreadProc)
+
+proc update*(c: Console) =
+  if c.processRunning:
+    if responses.peek > 0:
+      let resp = responses.recv()
+      if resp == EndToken:
+        c.processRunning = false
+        c.insertReadOnly("\L" & os.getCurrentDir() & ">")
+      else:
+        insertReadOnly(c, "\L" & resp)
+
+proc sendBreak*(c: Console) =
+  if c.processRunning:
+    requests.send EndToken
+
 proc enterPressed*(c: Console) =
   c.files.setLen 0
   let cmd = getCommand(c)
@@ -232,6 +320,8 @@ proc enterPressed*(c: Console) =
   var a = ""
   var i = parseWord(cmd, a, 0, true)
   case a
+  of "":
+    c.insertReadOnly("\L" & os.getCurrentDir() & ">")
   of "cd":
     var b = ""
     i = parseWord(cmd, b, i)
@@ -239,7 +329,7 @@ proc enterPressed*(c: Console) =
       os.setCurrentDir(b)
     except OSError:
       c.insertReadOnly("\L" & getCurrentExceptionMsg())
-  of "rm", "remove":
-    discard "implement me"
-  else: discard
-  c.insertReadOnly("\L" & os.getCurrentDir() & ">")
+    c.insertReadOnly("\L" & os.getCurrentDir() & ">")
+  else:
+    requests.send cmd
+    c.processRunning = true
