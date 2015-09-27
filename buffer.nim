@@ -55,7 +55,7 @@ proc prepareForEdit(b: Buffer) =
       inc took
     setLen(b.back, b.back.len - took)
     #if b.cursor != b.front.len:
-    #  echo b.cursor, " ", b.front.len
+    #  echo b.cursor, " ", b.front.len, " ", took
     b.cursor = b.front.len
   assert b.cursor == b.front.len
   b.changed = true
@@ -142,18 +142,21 @@ proc rawInsert*(b: Buffer; s: string) =
     of '\L':
       b.front.add Cell(c: '\L')
       inc b.numberOfLines
-      inc b.currentLine
+      scroll(b, 1)
+      inc b.cursor
     of '\C':
       if i < s.len-1 and s[i+1] != '\L':
         b.front.add Cell(c: '\L')
         inc b.numberOfLines
-        inc b.currentLine
+        scroll(b, 1)
+        inc b.cursor
     of '\t':
       for i in 1..tabWidth:
         b.front.add Cell(c: ' ')
+        inc b.cursor
     else:
       b.front.add Cell(c: s[i])
-  b.cursor += s.len
+      inc b.cursor
 
 proc loadFromFile*(b: Buffer; filename: string) =
   clear(b)
