@@ -3,6 +3,7 @@ from strutils import contains, startsWith, repeatChar
 from os import extractFilename, splitFile
 import sdl2, sdl2/ttf
 import buffertype, buffer, styles, unicode, dialogs, highlighters, console
+import languages
 
 
 # TODO:
@@ -60,6 +61,7 @@ proc setDefaults(ed: Editor; mgr: ptr StyleManager; fontM: var FontManager) =
   ed.main = newBuffer(unkownName(), mgr)
   ed.prompt = newBuffer("", mgr)
   ed.console = newBuffer("", mgr)
+  ed.console.lang = langConsole
 
   ed.buffersCounter = 1
   ed.main.next = ed.main
@@ -227,7 +229,7 @@ proc mainProc(ed: Editor) =
           active.backspace()
         of SDL_SCANCODE_RETURN:
           if active==main:
-            main.insert("\L")
+            main.insertEnter()
           elif active==prompt:
             if ed.runCmd(prompt.fullText): break
             prompt.clear

@@ -243,6 +243,16 @@ proc insert*(b: Buffer; s: string) =
   b.desiredCol = getColumn(b)
   highlightLine(b)
 
+proc insertEnter*(b: Buffer) =
+  # move to the *start* of this line
+  var i = b.cursor
+  while i >= 1 and b[i-1] != '\L': dec i
+  var toInsert = "\L"
+  while b[i] == ' ':
+    toInsert.add ' '
+    inc i
+  b.insert(toInsert)
+
 proc rawBackspace(b: Buffer; overrideUtf8=false): string =
   assert b.cursor == b.front.len
   var x = 0
