@@ -234,7 +234,6 @@ proc saveAs*(b: Buffer; filename: string) =
 
 proc insert*(b: Buffer; s: string) =
   if b.cursor <= b.readOnly or s.len == 0: return
-  assert '\0' notin s
   let oldCursor = b.cursor
   prepareForEdit(b)
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))

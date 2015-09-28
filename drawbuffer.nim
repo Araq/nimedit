@@ -176,7 +176,6 @@ proc getLineOffset(b: Buffer; lines: Natural): int =
     inc result
 
 proc setCursorFromMouse*(b: Buffer; dim: Rect; mouse: Point) =
-  #let line =  FontSize+2
   b.mouseX = mouse.x
   b.mouseY = mouse.y
 

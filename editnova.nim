@@ -7,7 +7,7 @@ import languages
 
 
 # TODO:
-#  - syntax highlighting is wrong for edge cases (period refresh?)
+#  - syntax highlighting is wrong for edge cases (periodic refresh?)
 #  - support for range markers (required for selections)
 #  - select, copy, cut from clipboard
 #  - DEL key does nothing
@@ -24,7 +24,7 @@ import languages
 #  - cache content for quick search&replace
 
 # BUGS:
-#  - 'redo' does not work anymore
+#  - 'undo' removes too much after a PASTE; 'redo' does not work anymore
 
 
 const
