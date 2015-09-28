@@ -371,7 +371,7 @@ proc clikeNextToken(g: var GeneralTokenizer, keywords: openArray[string],
     case g.buf[pos]
     of ' ', '\x09'..'\x0D':
       g.kind = gtWhitespace
-      while g.buf[pos] in {' ', '\x09'..'\x0D'}: inc(pos)
+      while pos < g.buf.len and g.buf[pos] in {' ', '\x09'..'\x0D'}: inc(pos)
     of '/':
       inc(pos)
       if g.buf[pos] == '/':
@@ -492,7 +492,7 @@ proc consoleNextToken(g: var GeneralTokenizer) =
       else:
         break
     case id
-    of "error:": g.kind = gtRed
+    of "error:", "fatal:": g.kind = gtRed
     of "warning:": g.kind = gtYellow
     of "hint:": g.kind = gtGreen
     else:

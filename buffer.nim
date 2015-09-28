@@ -299,6 +299,12 @@ proc backspace*(b: Buffer; overrideUtf8=false) =
   b.desiredCol = getColumn(b)
   highlightLine(b, oldCursor)
 
+proc deleteKey*(b: Buffer) =
+  if b.cursor >= b.len: return
+  let (r, L) = lastRune(b, b.cursor+1)
+  inc(b.cursor, L)
+  backspace(b)
+
 proc applyUndo(b: Buffer; a: Action) =
   let oldCursor = b.cursor
   if a.k <= insFinished:

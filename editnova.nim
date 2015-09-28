@@ -10,7 +10,6 @@ import languages
 #  - syntax highlighting is wrong for edge cases (periodic refresh?)
 #  - support for range markers (required for selections)
 #  - select, copy, cut from clipboard
-#  - DEL key does nothing
 #  - large file handling
 #  - show line numbers
 #  - show scroll bars; no horizontal scrolling though
@@ -228,6 +227,8 @@ proc mainProc(ed: Editor) =
         case w.keysym.scancode
         of SDL_SCANCODE_BACKSPACE:
           active.backspace()
+        of SDL_SCANCODE_DELETE:
+          active.deleteKey()
         of SDL_SCANCODE_RETURN:
           if active==main:
             main.insertEnter()
