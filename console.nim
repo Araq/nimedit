@@ -34,21 +34,23 @@ proc suggest*(h: var CmdHistory; up: bool): string =
 type
   Console* = ref object
     b: Buffer
-    hist: CmdHistory
+    hist*: CmdHistory
     files: seq[string]
+    prefix: string
     processRunning*: bool
+    beforeSuggestionPos: int
 
 proc insertReadonly*(c: Console; s: string) =
-  c.b.readOnly = -2
+  c.b.readOnly = -1
   c.b.insert(s)
   c.b.readOnly = c.b.len-1
 
-proc insertPrompt(c: Console) =
+proc insertPrompt*(c: Console) =
   c.insertReadOnly(os.getCurrentDir() & ">")
 
 proc newConsole*(b: Buffer): Console =
-  result = Console(b: b, hist: CmdHistory(cmds: @[], suggested: -1), files: @[])
-  result.insertPrompt()
+  result = Console(b: b, hist: CmdHistory(cmds: @[], suggested: -1), files: @[],
+                   prefix: "")
 
 proc getCommand(c: Console): string =
   result = ""
@@ -183,12 +185,15 @@ proc startsWithIgnoreCase(s, prefix: string): bool =
     if s[i].toLower != prefix[i].toLower: return false
     inc(i)
 
-proc suggestPath(c: Console; prefix: string) =
+proc suggestPath(c: Console; b: Buffer; prefix: string) =
+  # suggest the path with the matching prefix (ignoring case),
+  # but ultimately suggest every file:
   var sug = -1
-  for i, x in c.files:
-    if x.startsWithIgnoreCase(prefix):
-      sug = i
-      break
+  if prefix.len > 0:
+    for i, x in c.files:
+      if x.startsWithIgnoreCase(prefix):
+        sug = i
+        break
   if sug < 0 and prefix.len > 0:
     # if we have no prefix, pick a file that contains the prefix somewhere
     let p = prefix.toLower
@@ -196,35 +201,49 @@ proc suggestPath(c: Console; prefix: string) =
       if p in x.toLower:
         sug = i
         break
-  # no match, just suggest something:
-  if sug < 0: sug = 0
-  for i in 0..<prefix.len: backspace(c.b, overrideUtf8=true)
-  insert(c.b, c.files[sug])
+  # no match, just suggest something, but ignore crap starting with a dot:
+  if sug < 0:
+    sug = 0
+    while sug < c.files.high and c.files[sug][0] == '.': inc sug
+  # these inserts&deletes do not count as changed event:
+  let oldChanged = b.changed
+  for i in 0..<c.beforeSuggestionPos: backspace(b, overrideUtf8=true)
+  insert(b, c.files[sug])
+  c.beforeSuggestionPos = c.files[sug].len
   delete(c.files, sug)
+  b.changed = oldChanged
 
 proc tabPressed*(c: Console) =
-  let cmd = getCommand(c)
-  if c.files.len == 0:
-    for k, x in os.walkDir(os.getCurrentDir(), relative=true):
-      c.files.add x
+  let b = c.b
 
-  # suggest the path with the matching prefix (ignoring case),
-  # but ultimately suggest every file:
-  var a = ""
-  var b = ""
-  var i = 0
-  while true:
-    i = parseWord(cmd, b, i)
-    # if b.len == 0 means at end:
-    if b.len == 0:
-      # parseWord always skips initial whitespace, so we look at the passed
-      # character:
-      if i > 0 and cmd[i-1] == ' ':
-        suggestPath(c, "")
-      else:
-        suggestPath(c, a)
-      break
-    swap(a, b)
+  if b.changed:
+    let cmd = getCommand(c)
+    c.prefix.setLen 0
+    var prefixB = ""
+    var i = 0
+    while true:
+      i = parseWord(cmd, prefixB, i)
+      # if b.len == 0 means at end:
+      if prefixB.len == 0:
+        # parseWord always skips initial whitespace, so we look at the passed
+        # character:
+        if i > 0 and cmd[i-1] == ' ':
+          # no prefix:
+          setLen c.prefix, 0
+        break
+      swap(c.prefix, prefixB)
+
+    c.beforeSuggestionPos = c.prefix.len
+    setLen c.files, 0
+    b.changed = false
+
+  if c.files.len == 0:
+    # prefix == "..\..\foo"
+    let dots = splitPath(c.prefix)[0]
+    for k, f in os.walkDir(os.getCurrentDir() / dots, relative=true):
+      c.files.add dots / f
+  echo "prefix ", c.prefix
+  suggestPath(c, b, c.prefix)
 
 proc cmdToArgs(cmd: string): tuple[exe: string, args: seq[string]] =
   result.exe = ""

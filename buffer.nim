@@ -19,7 +19,7 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.heading = heading
   result.actions = @[]
   result.mgr = mgr
-  result.readOnly = -2
+  result.readOnly = -1
   result.tabSize = tabWidth
 
 proc clear*(result: Buffer) =

@@ -47,9 +47,8 @@ type
     window: WindowPtr
     theme: Theme
     screenW, screenH: cint
-    hist: CmdHistory
     buffersCounter: int
-    con: Console
+    con, promptCon: Console
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
@@ -67,8 +66,10 @@ proc setDefaults(ed: Editor; mgr: ptr StyleManager; fontM: var FontManager) =
   ed.main.next = ed.main
   ed.main.prev = ed.main
   ed.active = ed.main
-  ed.hist = CmdHistory(cmds: @[], suggested: -1)
+
   ed.con = newConsole(ed.console)
+  ed.con.insertPrompt()
+  ed.promptCon = newConsole(ed.prompt)
 
   ed.theme.font = fontM.fontByName("Arial", 12)
   ed.theme.active[true] = parseColor"#FFA500"
@@ -131,8 +132,7 @@ template removeBuffer(n) =
 
 
 proc runCmd(ed: Editor; cmd: string): bool =
-  echo cmd
-  ed.hist.addCmd(cmd)
+  ed.promptCon.hist.addCmd(cmd)
   if cmd.startsWith("#"):
     ed.theme.fg = parseColor(cmd)
   cmd == "quit" or cmd == "q"
@@ -248,16 +248,14 @@ proc mainProc(ed: Editor) =
         of SDL_SCANCODE_LEFT: active.left((w.keysym.modstate and KMOD_CTRL) != 0)
         of SDL_SCANCODE_DOWN:
           if active==prompt:
-            prompt.clear
-            prompt.insert(ed.hist.suggest(up=false))
+            ed.promptCon.downPressed()
           elif active == console:
             ed.con.downPressed()
           else:
             active.down((w.keysym.modstate and KMOD_CTRL) != 0)
         of SDL_SCANCODE_UP:
           if active==prompt:
-            prompt.clear
-            prompt.insert(ed.hist.suggest(up=true))
+            ed.promptCon.upPressed()
           elif active == console:
             ed.con.upPressed()
           else:
@@ -270,6 +268,8 @@ proc mainProc(ed: Editor) =
             main.insert("\t")
           elif active == console:
             ed.con.tabPressed()
+          elif active == prompt:
+            ed.promptCon.tabPressed()
         else: discard
         if (w.keysym.modstate and KMOD_CTRL) != 0:
           # CTRL+Z: undo
