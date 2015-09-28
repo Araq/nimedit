@@ -479,14 +479,9 @@ proc consoleNextToken(g: var GeneralTokenizer) =
   of 'a'..'z', 'A'..'Z', '_', '/', '\\', '\x80'..'\xFF':
     var id = $c.toLower
     inc pos
-    var dotPos = -1
     while true:
       let c = g.buf[pos]
-      if c == '.':
-        dotPos = pos
-        add(id, '.')
-        inc(pos)
-      elif c in (symChars+{'/','\\',':','\x80'..'\xFF'}):
+      if c in (symChars+{'/','\\',':','\x80'..'\xFF', '.'}):
         add(id, c.toLower)
         inc(pos)
       else:
@@ -495,21 +490,7 @@ proc consoleNextToken(g: var GeneralTokenizer) =
     of "error:", "fatal:": g.kind = gtRed
     of "warning:": g.kind = gtYellow
     of "hint:": g.kind = gtGreen
-    else:
-      if dotpos >= 0 and dotpos < pos-1:
-        g.kind = gtLink
-        # filenames can also have optional line information like (line, pos):
-        if g.buf[pos] == '(':
-          var p = pos+1
-          if g.buf[p] in Digits:
-            while g.buf[p] in Digits: inc p
-            if g.buf[p] == ',':
-              inc p
-              while g.buf[p] == ' ': inc p
-              while g.buf[p] in Digits: inc p
-            if g.buf[p] == ')': pos = p+1
-      else:
-        g.kind = gtIdentifier
+    else: g.kind = gtIdentifier
   of '[':
     if pos > 0 and g.buf[pos-1] == ' ' and g.buf[pos+1] in Letters:
       inc pos
