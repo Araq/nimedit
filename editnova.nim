@@ -6,13 +6,13 @@ import buffertype, buffer, styles, unicode, dialogs, highlighters, console
 
 
 # TODO:
-#  - syntax highlighting updates
+#  - handle TABs properly
 #  - support for range markers (required for selections)
 #  - select, copy, cut from clipboard
 #  - large file handling
 #  - show line numbers
 #  - show scroll bars; no horizontal scrolling though
-#  - miniview
+#  - minimap
 #  - highlighting of ()s
 #  - highlighting of substring occurences
 #  - search&replace
@@ -68,7 +68,7 @@ proc setDefaults(ed: Editor; mgr: ptr StyleManager; fontM: var FontManager) =
   ed.hist = CmdHistory(cmds: @[], suggested: -1)
   ed.con = newConsole(ed.console)
 
-  ed.theme.font = fontM.findFont(12)
+  ed.theme.font = fontM.fontByName("Arial", 12)
   ed.theme.active[true] = parseColor"#FFA500"
   ed.theme.active[false] = parseColor"#C0C0C0"
   #ed.theme.bg = parseColor"#0c090a"

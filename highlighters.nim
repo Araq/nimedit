@@ -118,11 +118,23 @@ proc nimNextToken(g: var GeneralTokenizer) =
         break
       else:
         inc(pos)
+  elif g.state == gtLongStringLit:
+    g.kind = gtLongStringLit
+    while pos < g.buf.len:
+      if g.buf[pos] == '\"':
+        inc(pos)
+        if g.buf[pos] == '\"' and g.buf[pos+1] == '\"' and
+            g.buf[pos+2] != '\"':
+          inc(pos, 2)
+          break
+      else:
+        inc(pos)
+    g.state = gtNone
   else:
     case g.buf[pos]
     of ' ', '\x09'..'\x0D':
       g.kind = gtWhitespace
-      while g.buf[pos] in {' ', '\x09'..'\x0D'}: inc(pos)
+      while pos < g.buf.len and g.buf[pos] in {' ', '\x09'..'\x0D'}: inc(pos)
     of '#':
       if g.buf[pos+1] == '#': g.kind = gtLongComment
       else: g.kind = gtComment
@@ -222,7 +234,7 @@ proc nimNextToken(g: var GeneralTokenizer) =
         g.kind = gtOperator
         while g.buf[pos] in OpChars: inc(pos)
       else:
-        inc(pos)
+        if pos < g.buf.len: inc(pos)
         g.kind = gtNone
   g.length = pos - g.pos
   g.pos = pos
@@ -338,6 +350,23 @@ proc clikeNextToken(g: var GeneralTokenizer, keywords: openArray[string],
         g.state = gtNone
         break
       else: inc(pos)
+  elif g.state == gtLongComment:
+    var nested = 0
+    g.kind = gtLongComment
+    while pos < g.buf.len:
+      case g.buf[pos]
+      of '*':
+        inc(pos)
+        if g.buf[pos] == '/':
+          inc(pos)
+          if nested == 0: break
+      of '/':
+        inc(pos)
+        if g.buf[pos] == '*':
+          inc(pos)
+          if hasNestedComments in flags: inc(nested)
+      else: inc(pos)
+    g.state = gtNone
   else:
     case g.buf[pos]
     of ' ', '\x09'..'\x0D':
@@ -614,31 +643,41 @@ proc setStyles*(s: var StyleManager; m: var FontManager) =
   ss gtYellow, "Yellow"
 
 
-proc highlightEverything*(b: Buffer; ) =
+proc highlight(b: Buffer; first, last: int;
+               initialState: TokenClass) =
   var g: GeneralTokenizer
   g.buf = b
   g.kind = low(TokenClass)
-  g.start = 0
+  g.start = first
   g.length = 0
-  g.state = low(TokenClass)
-  g.pos = 0
-  while true:
+  g.state = initialState
+  g.pos = first
+  while g.pos <= last:
     getNextToken(g, b.lang)
     if g.length == 0: break
     for i in 0 ..< g.length:
-      b.setCellStyle(g.start+i, StyleIdx(g.kind))
+      b.setCellStyle(g.start+i, g.kind)
 
 proc isCriticalDelete*(b: Buffer; deleted: seq[Cell]) =
   discard
 
-proc highlightUpdate*(b: Buffer) =
-  # Update everything: way too slow even for moderate files!
+proc highlightLine*(b: Buffer) =
+  # Updating everything turned out to be way too slow even for files of
+  # moderate size.
   if b.lang != langNone:
     # move to the *start* of this line
     var i = b.cursor
     while i >= 1 and b[i-1] != '\L': dec i
+    let first = i
+    while b[i] != '\L': inc i
+    let last = i
+    let initialState = if first == 0: gtNone else: getCell(b, first-1).s
+    highlight(b, first, last, initialState)
 
-    highlightEverything(b)
+proc highlightEverything*(b: Buffer) =
+  if b.lang != langNone:
+    highlight(b, 0, b.len-1, gtNone)
+
 
 when isMainModule:
   var keywords: seq[string]

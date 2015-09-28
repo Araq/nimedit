@@ -194,8 +194,7 @@ proc loadFromFile*(b: Buffer; filename: string) =
       b.front.add Cell(c: '\t')
     else:
       b.front.add Cell(c: s[i])
-  if b.lang != langNone:
-    highlightEverything(b)
+  highlightEverything(b)
 
 proc save*(b: Buffer) =
   if b.filename.len == 0: b.filename = b.heading
@@ -227,6 +226,7 @@ proc save*(b: Buffer) =
 
 proc saveAs*(b: Buffer; filename: string) =
   b.filename = filename
+  b.lang = fileExtToLanguage(splitFile(filename).ext)
   save(b)
 
 proc insert*(b: Buffer; s: string) =
@@ -241,7 +241,7 @@ proc insert*(b: Buffer; s: string) =
   edit(b)
   rawInsert(b, s)
   b.desiredCol = getColumn(b)
-  highlightUpdate(b)
+  highlightLine(b)
 
 proc rawBackspace(b: Buffer; overrideUtf8=false): string =
   assert b.cursor == b.front.len
@@ -278,7 +278,7 @@ proc backspace*(b: Buffer; overrideUtf8=false) =
   edit(b)
   if ch.len == 1 and ch[0] in Whitespace: b.actions[^1].k = delFinished
   b.desiredCol = getColumn(b)
-  highlightUpdate(b)
+  highlightLine(b)
 
 proc applyUndo(b: Buffer; a: Action) =
   if a.k <= insFinished:
@@ -294,7 +294,7 @@ proc applyUndo(b: Buffer; a: Action) =
     for i in countdown(a.word.len-1, 0):
       b.front.add Cell(c: a.word[i])
     b.cursor += a.word.len
-  highlightUpdate(b)
+  highlightLine(b)
 
 proc applyRedo(b: Buffer; a: Action) =
   if a.k <= insFinished:
@@ -310,7 +310,7 @@ proc applyRedo(b: Buffer; a: Action) =
     b.cursor = a.pos
     # reverse op of insert is delete:
     b.front.setLen(b.cursor)
-  highlightUpdate(b)
+  highlightLine(b)
 
 proc undo*(b: Buffer) =
   when defined(debugUndo):

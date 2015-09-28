@@ -56,7 +56,7 @@ proc loadFont(path: string; size: byte): FontPtr =
     fatal("cannot load font " & path)
 
 proc fontByName*(m: var FontManager; name: string; size: byte;
-                 style: FontStyle): FontPtr =
+                 style=FontStyle.Normal): FontPtr =
   for f in m:
     if f.name == name and f.size == size: return f.fonts[style]
   var location = "fonts/"
