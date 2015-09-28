@@ -6,9 +6,11 @@ const
 
 proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
                  fg, bg: Color): TexturePtr =
+  assert font != nil
+  assert msg[0] != '\0'
   var surf: SurfacePtr = renderUtf8Shaded(font, msg, fg, bg)
   if surf == nil:
-    echo("TTF_RenderText failed")
+    echo("TTF_RenderText failed ##", msg, "##")
     return
   result = createTextureFromSurface(r, surf)
   if result == nil:

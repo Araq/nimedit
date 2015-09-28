@@ -474,24 +474,27 @@ proc consoleNextToken(g: var GeneralTokenizer) =
   const symChars = {'A'..'Z', 'a'..'z', '0'..'9', '_'}
   var pos = g.pos
   g.start = g.pos
-  case g.buf[pos]
+  let c = g.buf[pos]
+  case c
   of 'a'..'z', 'A'..'Z', '_', '/', '\\', '\x80'..'\xFF':
-    var id = ""
+    var id = $c.toLower
+    inc pos
     var dotPos = -1
     while true:
       let c = g.buf[pos]
       if c == '.':
         dotPos = pos
         add(id, '.')
-      elif c in (symChars+{'/','\\','.',':','\x80'..'\xFF'}):
+        inc(pos)
+      elif c in (symChars+{'/','\\',':','\x80'..'\xFF'}):
         add(id, c.toLower)
         inc(pos)
       else:
         break
     case id
-    of "error": g.kind = gtRed
-    of "warning": g.kind = gtYellow
-    of "hint": g.kind = gtGreen
+    of "error:": g.kind = gtRed
+    of "warning:": g.kind = gtYellow
+    of "hint:": g.kind = gtGreen
     else:
       if dotpos >= 0 and dotpos < pos-1:
         g.kind = gtLink
@@ -508,7 +511,7 @@ proc consoleNextToken(g: var GeneralTokenizer) =
       else:
         g.kind = gtIdentifier
   of '[':
-    if g.buf[pos+1] in Letters:
+    if pos > 0 and g.buf[pos-1] == ' ' and g.buf[pos+1] in Letters:
       inc pos
       let rollback = pos
       while g.buf[pos] in Letters: inc pos
@@ -661,14 +664,15 @@ proc highlight(b: Buffer; first, last: int;
 proc isCriticalDelete*(b: Buffer; deleted: seq[Cell]) =
   discard
 
-proc highlightLine*(b: Buffer) =
+proc highlightLine*(b: Buffer; oldCursor: int) =
   # Updating everything turned out to be way too slow even for files of
   # moderate size.
   if b.lang != langNone:
     # move to the *start* of this line
-    var i = b.cursor
+    var i = oldCursor
     while i >= 1 and b[i-1] != '\L': dec i
     let first = i
+    i = b.cursor-1
     while b[i] != '\L': inc i
     let last = i
     let initialState = if first == 0: gtNone else: getCell(b, first-1).s

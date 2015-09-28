@@ -165,6 +165,9 @@ proc rawInsert*(b: Buffer; s: string) =
       for i in 1..tabWidth:
         b.front.add Cell(c: ' ')
         inc b.cursor
+    of '\0':
+      b.front.add Cell(c: '_')
+      inc b.cursor
     else:
       b.front.add Cell(c: s[i])
       inc b.cursor
@@ -230,7 +233,9 @@ proc saveAs*(b: Buffer; filename: string) =
   save(b)
 
 proc insert*(b: Buffer; s: string) =
-  if b.cursor <= b.readOnly: return
+  if b.cursor <= b.readOnly or s.len == 0: return
+  assert '\0' notin s
+  let oldCursor = b.cursor
   prepareForEdit(b)
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
   if b.actions.len > 0 and b.actions[^1].k == ins:
@@ -241,7 +246,7 @@ proc insert*(b: Buffer; s: string) =
   edit(b)
   rawInsert(b, s)
   b.desiredCol = getColumn(b)
-  highlightLine(b)
+  highlightLine(b, oldCursor)
 
 proc insertEnter*(b: Buffer) =
   # move to the *start* of this line
@@ -282,6 +287,7 @@ proc rawBackspace(b: Buffer; overrideUtf8=false): string =
 proc backspace*(b: Buffer; overrideUtf8=false) =
   if b.cursor <= 0: return
   if b.cursor-1 <= b.readOnly: return
+  let oldCursor = b.cursor
   prepareForEdit(b)
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
   let ch = b.rawBackspace(overrideUtf8)
@@ -292,9 +298,10 @@ proc backspace*(b: Buffer; overrideUtf8=false) =
   edit(b)
   if ch.len == 1 and ch[0] in Whitespace: b.actions[^1].k = delFinished
   b.desiredCol = getColumn(b)
-  highlightLine(b)
+  highlightLine(b, oldCursor)
 
 proc applyUndo(b: Buffer; a: Action) =
+  let oldCursor = b.cursor
   if a.k <= insFinished:
     b.cursor = a.pos + a.word.len
     prepareForEdit(b)
@@ -308,9 +315,10 @@ proc applyUndo(b: Buffer; a: Action) =
     for i in countdown(a.word.len-1, 0):
       b.front.add Cell(c: a.word[i])
     b.cursor += a.word.len
-  highlightLine(b)
+  highlightLine(b, oldCursor)
 
 proc applyRedo(b: Buffer; a: Action) =
+  let oldCursor = b.cursor
   if a.k <= insFinished:
     b.cursor = a.pos
     prepareForEdit(b)
@@ -324,7 +332,7 @@ proc applyRedo(b: Buffer; a: Action) =
     b.cursor = a.pos
     # reverse op of insert is delete:
     b.front.setLen(b.cursor)
-  highlightLine(b)
+  highlightLine(b, oldCursor)
 
 proc undo*(b: Buffer) =
   when defined(debugUndo):

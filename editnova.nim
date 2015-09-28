@@ -7,6 +7,7 @@ import languages
 
 
 # TODO:
+#  - syntax highlighting is wrong for edge cases (period refresh?)
 #  - support for range markers (required for selections)
 #  - select, copy, cut from clipboard
 #  - DEL key does nothing
