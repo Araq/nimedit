@@ -88,6 +88,24 @@ proc drawCursor(r: RendererPtr; dim: Rect; bg, color: Color; h: cint) =
   r.fillRect(d)
   r.setDrawColor(bg)
 
+proc tabFill(b: Buffer; buffer: var array[CharBufSize, char]; bufres: var int;
+             j: int) {.noinline.} =
+  var i = j
+  while i > 0 and b[i-1] != '\L':
+    dec i
+  var col = 0
+  while i < j:
+    i += graphemeLen(b, i)
+    inc col
+  buffer[bufres] = ' '
+  inc bufres
+  inc col
+  while (col mod b.tabSize) != 0 and bufres < high(buffer):
+    buffer[bufres] = ' '
+    inc bufres
+    inc col
+  buffer[bufres] = '\0'
+
 proc drawLine(r: RendererPtr; b: Buffer; i: int;
               dim: var Rect; bg, cursor: Color;
               blink: bool): int =
@@ -121,8 +139,11 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
         elif bufres == high(buffer) or cursorCheck():
           break
 
-        buffer[bufres] = cell.c
-        inc bufres
+        if cell.c == '\t':
+          tabFill(b, buffer, bufres, j)
+        else:
+          buffer[bufres] = cell.c
+          inc bufres
         inc j
 
       buffer[bufres] = '\0'
@@ -136,7 +157,6 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
         cb = false
   dim.y += maxh.cint+2
   dim.x = oldX
-  #echo dim
   if cursorDim.h > 0 and blink:
     r.drawCursor(cursorDim, bg, cursor, maxh.cint)
   result = j+1

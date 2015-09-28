@@ -248,8 +248,12 @@ proc insertEnter*(b: Buffer) =
   var i = b.cursor
   while i >= 1 and b[i-1] != '\L': dec i
   var toInsert = "\L"
-  while b[i] == ' ':
-    toInsert.add ' '
+  while true:
+    let c = b[i]
+    if c == ' ' or c == '\t':
+      toInsert.add c
+    else:
+      break
     inc i
   b.insert(toInsert)
 

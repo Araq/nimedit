@@ -7,9 +7,9 @@ import languages
 
 
 # TODO:
-#  - handle TABs properly
 #  - support for range markers (required for selections)
 #  - select, copy, cut from clipboard
+#  - DEL key does nothing
 #  - large file handling
 #  - show line numbers
 #  - show scroll bars; no horizontal scrolling though
@@ -264,6 +264,8 @@ proc mainProc(ed: Editor) =
           if (w.keysym.modstate and KMOD_CTRL) != 0:
             main = main.next
             active = main
+          elif active == main:
+            main.insert("\t")
           elif active == console:
             ed.con.tabPressed()
         else: discard
