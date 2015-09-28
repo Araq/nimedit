@@ -19,8 +19,8 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.heading = heading
   result.actions = @[]
   result.mgr = mgr
-  result.eofChar = '\L'
   result.readOnly = -2
+  result.tabSize = tabWidth
 
 proc clear*(result: Buffer) =
   result.front.setLen 0
@@ -190,12 +190,12 @@ proc loadFromFile*(b: Buffer; filename: string) =
       elif b.lineending.isNil:
         b.lineending = "\C\L"
     of '\t':
-      for i in 1..tabWidth:
-        b.front.add Cell(c: ' ')
+      if i > 0 and s[i-1] == ' ': b.tabSize = 8'i8
+      b.front.add Cell(c: '\t')
     else:
       b.front.add Cell(c: s[i])
   if b.lang != langNone:
-    highlightEverything(b, b.lang)
+    highlightEverything(b)
 
 proc save*(b: Buffer) =
   if b.filename.len == 0: b.filename = b.heading
@@ -241,6 +241,7 @@ proc insert*(b: Buffer; s: string) =
   edit(b)
   rawInsert(b, s)
   b.desiredCol = getColumn(b)
+  highlightUpdate(b)
 
 proc rawBackspace(b: Buffer; overrideUtf8=false): string =
   assert b.cursor == b.front.len
@@ -277,6 +278,7 @@ proc backspace*(b: Buffer; overrideUtf8=false) =
   edit(b)
   if ch.len == 1 and ch[0] in Whitespace: b.actions[^1].k = delFinished
   b.desiredCol = getColumn(b)
+  highlightUpdate(b)
 
 proc applyUndo(b: Buffer; a: Action) =
   if a.k <= insFinished:
@@ -292,6 +294,7 @@ proc applyUndo(b: Buffer; a: Action) =
     for i in countdown(a.word.len-1, 0):
       b.front.add Cell(c: a.word[i])
     b.cursor += a.word.len
+  highlightUpdate(b)
 
 proc applyRedo(b: Buffer; a: Action) =
   if a.k <= insFinished:
@@ -307,6 +310,7 @@ proc applyRedo(b: Buffer; a: Action) =
     b.cursor = a.pos
     # reverse op of insert is delete:
     b.front.setLen(b.cursor)
+  highlightUpdate(b)
 
 proc undo*(b: Buffer) =
   when defined(debugUndo):

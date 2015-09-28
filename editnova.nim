@@ -52,7 +52,7 @@ type
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
-proc setDefaults(ed: Editor; mgr: ptr StyleManager) =
+proc setDefaults(ed: Editor; mgr: ptr StyleManager; fontM: var FontManager) =
   ed.screenW = cint(650)
   ed.screenH = cint(780)
   ed.statusMsg = "Ready "
@@ -68,9 +68,7 @@ proc setDefaults(ed: Editor; mgr: ptr StyleManager) =
   ed.hist = CmdHistory(cmds: @[], suggested: -1)
   ed.con = newConsole(ed.console)
 
-  #ed.theme.fg = color(255, 255, 255, 0)
-  #r"C:\Windows\Fonts\cour.ttf"
-  ed.theme.font = loadFont("fonts/DejaVuSansMono.ttf", FontSize)
+  ed.theme.font = fontM.findFont(12)
   ed.theme.active[true] = parseColor"#FFA500"
   ed.theme.active[false] = parseColor"#C0C0C0"
   #ed.theme.bg = parseColor"#0c090a"
@@ -79,7 +77,6 @@ proc setDefaults(ed: Editor; mgr: ptr StyleManager) =
   ed.theme.cursor = ed.theme.fg
 
 proc destroy(ed: Editor) =
-  close(ed.theme.font)
   destroyRenderer ed.renderer
   destroy ed.window
 
@@ -165,8 +162,9 @@ proc drawBorder(ed: Editor; rect: Rect; active: bool) =
 
 proc mainProc(ed: Editor) =
   var mgr: StyleManager
-  setDefaults(ed, addr mgr)
-  highlighters.setStyles(mgr)
+  var fontM: FontManager = @[]
+  setDefaults(ed, addr mgr, fontM)
+  highlighters.setStyles(mgr, fontM)
 
   ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE)
@@ -347,7 +345,7 @@ proc mainProc(ed: Editor) =
                         ed.theme.font, ed.theme.fg)
     renderer.draw(statusBar, ed.screenH-FontSize-YGap*2)
     present(renderer)
-  freeFonts mgr
+  freeFonts fontM
   destroy ed
 
 if sdl2.init(INIT_VIDEO) != SdlSuccess:

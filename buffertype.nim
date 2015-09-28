@@ -23,10 +23,12 @@ type
     actions*: seq[Action]
     undoIdx*: int
     changed*: bool
+    tabSize*: int8  # some stupid documents mix tabs and spaces. In
+                    # these cases a tab is always 8 spaces, hence tabWidth is
+                    # buffer specific
     heading*: string
     filename*: string
     lang*: SourceLanguage
-    eofChar*: char
     next*, prev*: Buffer
     lineending*: string # CR-LF, CR or LF
 
@@ -38,7 +40,7 @@ proc getCell*(b: Buffer; i: Natural): Cell =
     if i <= b.back.high:
       result = b.back[b.back.high-i]
     else:
-      result = Cell(c: b.eofChar, s: StyleIdx(0))
+      result = Cell(c: '\L', s: StyleIdx(0))
 
 proc setCellStyle*(b: Buffer; i: Natural; s: StyleIdx) =
   if i < b.front.len:

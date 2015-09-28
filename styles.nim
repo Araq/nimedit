@@ -1,8 +1,9 @@
 
-# Handling of styles. Up to 255 different styles are supported.
+# Handling of styles.
 
 import sdl2, sdl2/ttf
-from strutils import parseHexInt
+from strutils import parseHexInt, toLower
+import languages
 
 const
   FontSize* = 15
@@ -10,7 +11,13 @@ const
 type
   FontStyle* {.pure.} = enum
     Normal, Bold, Italic, BoldItalic
-  StyleIdx* = distinct byte
+  AFont* = object
+    name: string
+    size: byte
+    fonts: array[FontStyle, FontPtr]
+  FontManager* = seq[AFont]
+
+  StyleIdx* = TokenClass
   FontAttr* = object
     color*: Color
     style*: FontStyle
@@ -20,72 +27,74 @@ type
     font*: FontPtr
     attr*: FontAttr
 
-  StyleManager* = object
-    a: array[0..255, Style]
-    L: int
-    fonts: array[FontStyle, FontPtr]
+  StyleManager* = array[TokenClass, Style]
+
+const
+  FontStyleToSuffix: array[FontStyle, string] = ["", "bd", "i", "bi"]
 
 proc fatal*(msg: string) {.noReturn.} =
   sdl2.quit()
   quit(msg)
 
 proc parseColor*(hex: string): Color =
-  let x = parseHexInt(hex)
+  let x = case hex.toLower
+          of "white": 0xffffff
+          of "orange": 0xFFA500
+          of "blue": 0x00FFFF
+          of "red": 0xFF0000
+          of "yellow": 0xFFFF00
+          of "pink": 0xFF00FF
+          of "gray": 0x808080
+          of "green": 0x00FF00
+          of "deeppink": 0xFF1493
+          else: parseHexInt(hex)
   result = color(x shr 16 and 0xff, x shr 8 and 0xff, x and 0xff, 0)
 
-proc loadFont*(path: string; size: byte): FontPtr =
+proc loadFont(path: string; size: byte): FontPtr =
   result = openFont(path, size.cint)
   if result.isNil:
     fatal("cannot load font " & path)
 
-proc setStyle*(s: var StyleManager; idx: StyleIdx; attr: FontAttr) =
-  s.L = idx.ord+1
-  if s.fonts[attr.style].isNil:
-    let suffix = case attr.style
-                 of FontStyle.Normal:
-                   ".ttf"
-                 of FontStyle.Bold:
-                   "-Bold.ttf"
-                 of FontStyle.Italic:
-                   "-Oblique.ttf"
-                 of FontStyle.BoldItalic:
-                   "-BoldOblique.ttf"
-    s.fonts[attr.style] = loadFont("fonts/DejaVuSansMono" & suffix, attr.size)
+proc fontByName*(m: var FontManager; name: string; size: byte;
+                 style: FontStyle): FontPtr =
+  for f in m:
+    if f.name == name and f.size == size: return f.fonts[style]
+  var location = "fonts/"
+  result = openFont(location & name & ".ttf", size.cint)
+  if result.isNil:
+    when defined(windows):
+      location = r"C:\Windows\Fonts\"
+      result = openFont(location & name & ".ttf", size.cint)
+    else:
+      discard "XXX implement for other OSes"
+  if result.isNil:
+    fatal("cannot load font: " & name)
+  m.setLen m.len+1
+  var p = addr m[^1]
+  p.name = name
+  p.size = size
+  p.fonts[FontStyle.Normal] = result
+  # now try to load the italic, bold etc versions, but if this fails, we
+  # map the missing style to the normal style:
+  for i in FontStyle.Bold .. FontStyle.BoldItalic:
+    p.fonts[i] = openFont(location & name & FontStyleToSuffix[i] & ".ttf",
+                          size.cint)
+    if p.fonts[i].isNil: p.fonts[i] = result
+  result = p.fonts[style]
 
-  s.a[idx.int] = Style(font: s.fonts[attr.style], attr: attr)
+proc freeFonts*(m: FontManager) =
+  for f in m:
+    for i in FontStyle.Bold .. FontStyle.BoldItalic:
+      # if italic etc is not simply mapped to normal, free it
+      if f.fonts[i] != f.fonts[FontStyle.Normal]: close(f.fonts[i])
+    close(f.fonts[FontStyle.Normal])
 
-when false:
-  proc getStyle*(s: var StyleManager; font: FontPtr; attr: FontAttr): StyleIdx =
-    for i in 0..<s.L:
-      let x = addr(s.a[i])
-      if x.font == font and x.attr == attr: return StyleIdx(i)
-    doAssert(s.L < 254, "too many different styles requested")
-    result = StyleIdx(s.L)
-    s.a[s.L] = Style(font: font, attr: attr)
-    inc s.L
+proc findFont*(m: var FontManager; size: byte; style=FontStyle.Normal): FontPtr =
+  fontByName(m, "DejaVuSansMono", size, style)
 
-  proc getStyle*(s: var StyleManager; attr: FontAttr): StyleIdx =
-    for i in 0..<s.L:
-      let x = addr(s.a[i])
-      if x.attr == attr: return StyleIdx(i)
-    doAssert(s.L < 254, "too many different styles requested")
-    result = StyleIdx(s.L)
-    let suffix = if attr.bold and attr.italic:
-                   "-BoldOblique.ttf"
-                 elif attr.bold:
-                   "-Bold.ttf"
-                 elif attr.italic:
-                   "-Oblique.ttf"
-                 else:
-                   ".ttf"
-    let font = loadFont("fonts/DejaVuSansMono" & suffix, attr.size)
-    s.a[s.L] = Style(font: font, attr: attr)
-    inc s.L
+proc setStyle*(s: var StyleManager; m: var FontManager;
+               idx: StyleIdx; attr: FontAttr) =
+  s[idx] = Style(font: findFont(m, attr.size, attr.style), attr: attr)
 
 proc getStyle*(s: StyleManager; i: StyleIdx): Style {.inline.} =
-  assert i.int < s.L
-  result = s.a[i.int]
-
-proc freeFonts*(s: StyleManager) =
-  for f in s.fonts:
-    if f != nil: close(f)
+  result = s[i]

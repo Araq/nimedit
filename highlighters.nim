@@ -39,19 +39,6 @@ const
     "template", "try", "tuple", "type", "using", "var", "when", "while", "with",
     "without", "xor", "yield"]
 
-proc initGeneralTokenizer*(g: var GeneralTokenizer, buf: Buffer) =
-  g.buf = buf
-  g.kind = low(TokenClass)
-  g.start = 0
-  g.length = 0
-  g.state = low(TokenClass)
-  var pos = 0                     # skip initial whitespace:
-  while g.buf[pos] in {' ', '\x09'..'\x0D'}: inc(pos)
-  g.pos = pos
-
-proc deinitGeneralTokenizer*(g: var GeneralTokenizer) =
-  discard
-
 proc nimGetKeyword(id: string): TokenClass =
   for k in nimKeywords:
     if cmpIgnoreStyle(id, k) == 0: return gtKeyword
@@ -59,20 +46,22 @@ proc nimGetKeyword(id: string): TokenClass =
 
 proc nimNumberPostfix(g: var GeneralTokenizer, position: int): int =
   var pos = position
-  if g.buf[pos] == '\'':
+  if g.buf[pos] == '\'': inc(pos)
+  case g.buf[pos]
+  of 'd', 'D':
+    g.kind = gtFloatNumber
     inc(pos)
-    case g.buf[pos]
-    of 'f', 'F':
-      g.kind = gtFloatNumber
-      inc(pos)
-      if g.buf[pos] in {'0'..'9'}: inc(pos)
-      if g.buf[pos] in {'0'..'9'}: inc(pos)
-    of 'i', 'I':
-      inc(pos)
-      if g.buf[pos] in {'0'..'9'}: inc(pos)
-      if g.buf[pos] in {'0'..'9'}: inc(pos)
-    else:
-      discard
+  of 'f', 'F':
+    g.kind = gtFloatNumber
+    inc(pos)
+    if g.buf[pos] in {'0'..'9'}: inc(pos)
+    if g.buf[pos] in {'0'..'9'}: inc(pos)
+  of 'i', 'I', 'u', 'U':
+    inc(pos)
+    if g.buf[pos] in {'0'..'9'}: inc(pos)
+    if g.buf[pos] in {'0'..'9'}: inc(pos)
+  else:
+    discard
   result = pos
 
 proc nimNumber(g: var GeneralTokenizer, position: int): int =
@@ -81,6 +70,7 @@ proc nimNumber(g: var GeneralTokenizer, position: int): int =
   g.kind = gtDecNumber
   while g.buf[pos] in decChars: inc(pos)
   if g.buf[pos] == '.':
+    if g.buf[pos+1] == '.': return pos
     g.kind = gtFloatNumber
     inc(pos)
     while g.buf[pos] in decChars: inc(pos)
@@ -105,7 +95,7 @@ proc nimNextToken(g: var GeneralTokenizer) =
   g.start = g.pos
   if g.state == gtStringLit:
     g.kind = gtStringLit
-    while true:
+    while pos < g.buf.len:
       case g.buf[pos]
       of '\\':
         g.kind = gtEscapeSequence
@@ -117,26 +107,26 @@ proc nimNextToken(g: var GeneralTokenizer) =
           if g.buf[pos] in hexChars: inc(pos)
         of '0'..'9':
           while g.buf[pos] in {'0'..'9'}: inc(pos)
-        of '\0':
-          g.state = gtNone
         else: inc(pos)
         break
-      of '\0', '\x0D', '\x0A':
+      of '\L', '\C':
         g.state = gtNone
         break
       of '\"':
         inc(pos)
         g.state = gtNone
         break
-      else: inc(pos)
+      else:
+        inc(pos)
   else:
     case g.buf[pos]
     of ' ', '\x09'..'\x0D':
       g.kind = gtWhitespace
       while g.buf[pos] in {' ', '\x09'..'\x0D'}: inc(pos)
     of '#':
-      g.kind = gtComment
-      while not (g.buf[pos] in {'\0', '\x0A', '\x0D'}): inc(pos)
+      if g.buf[pos+1] == '#': g.kind = gtLongComment
+      else: g.kind = gtComment
+      while g.buf[pos] != '\L': inc(pos)
     of 'a'..'z', 'A'..'Z', '_', '\x80'..'\xFF':
       var id = ""
       while g.buf[pos] in SymChars + {'_'}:
@@ -146,21 +136,19 @@ proc nimNextToken(g: var GeneralTokenizer) =
         if (g.buf[pos + 1] == '\"') and (g.buf[pos + 2] == '\"'):
           inc(pos, 3)
           g.kind = gtLongStringLit
-          while true:
-            case g.buf[pos]
-            of '\0':
-              break
-            of '\"':
+          while pos < g.buf.len:
+            if g.buf[pos] == '\"':
               inc(pos)
               if g.buf[pos] == '\"' and g.buf[pos+1] == '\"' and
                   g.buf[pos+2] != '\"':
                 inc(pos, 2)
                 break
-            else: inc(pos)
+            else:
+              inc(pos)
         else:
           g.kind = gtRawData
           inc(pos)
-          while not (g.buf[pos] in {'\0', '\x0A', '\x0D'}):
+          while g.buf[pos] != '\L':
             if g.buf[pos] == '"' and g.buf[pos+1] != '"': break
             inc(pos)
           if g.buf[pos] == '\"': inc(pos)
@@ -189,35 +177,34 @@ proc nimNextToken(g: var GeneralTokenizer) =
       g.kind = gtCharLit
       while true:
         case g.buf[pos]
-        of '\0', '\x0D', '\x0A':
+        of '\L':
           break
         of '\'':
           inc(pos)
           break
         of '\\':
           inc(pos, 2)
-        else: inc(pos)
+        else:
+          inc(pos)
     of '\"':
       inc(pos)
       if (g.buf[pos] == '\"') and (g.buf[pos + 1] == '\"'):
         inc(pos, 2)
         g.kind = gtLongStringLit
-        while true:
-          case g.buf[pos]
-          of '\0':
-            break
-          of '\"':
+        while pos < g.buf.len:
+          if g.buf[pos] == '\"':
             inc(pos)
             if g.buf[pos] == '\"' and g.buf[pos+1] == '\"' and
                 g.buf[pos+2] != '\"':
               inc(pos, 2)
               break
-          else: inc(pos)
+          else:
+            inc(pos)
       else:
         g.kind = gtStringLit
         while true:
           case g.buf[pos]
-          of '\0', '\x0D', '\x0A':
+          of '\L':
             break
           of '\"':
             inc(pos)
@@ -225,12 +212,11 @@ proc nimNextToken(g: var GeneralTokenizer) =
           of '\\':
             g.state = g.kind
             break
-          else: inc(pos)
+          else:
+            inc(pos)
     of '(', ')', '[', ']', '{', '}', '`', ':', ',', ';':
       inc(pos)
       g.kind = gtPunctuation
-    of '\0':
-      g.kind = gtEof
     else:
       if g.buf[pos] in OpChars:
         g.kind = gtOperator
@@ -239,8 +225,6 @@ proc nimNextToken(g: var GeneralTokenizer) =
         inc(pos)
         g.kind = gtNone
   g.length = pos - g.pos
-  if g.kind != gtEof and g.length <= 0:
-    assert false, "nimNextToken: produced an empty token"
   g.pos = pos
 
 proc generalNumber(g: var GeneralTokenizer, position: int): int =
@@ -267,22 +251,19 @@ proc generalStrLit(g: var GeneralTokenizer, position: int): int =
   g.kind = gtStringLit
   var c = g.buf[pos]
   inc(pos)                    # skip " or '
-  while true:
+  while pos < g.buf.len:
     case g.buf[pos]
-    of '\0':
-      break
     of '\\':
       inc(pos)
       case g.buf[pos]
-      of '\0':
-        break
       of '0'..'9':
         while g.buf[pos] in decChars: inc(pos)
       of 'x', 'X':
         inc(pos)
         if g.buf[pos] in hexChars: inc(pos)
         if g.buf[pos] in hexChars: inc(pos)
-      else: inc(pos, 2)
+      else:
+        inc(pos, 2)
     else:
       if g.buf[pos] == c:
         inc(pos)
@@ -347,11 +328,9 @@ proc clikeNextToken(g: var GeneralTokenizer, keywords: openArray[string],
           if g.buf[pos] in hexChars: inc(pos)
         of '0'..'9':
           while g.buf[pos] in {'0'..'9'}: inc(pos)
-        of '\0':
-          g.state = gtNone
         else: inc(pos)
         break
-      of '\0', '\x0D', '\x0A':
+      of '\L':
         g.state = gtNone
         break
       of '\"':
@@ -368,12 +347,12 @@ proc clikeNextToken(g: var GeneralTokenizer, keywords: openArray[string],
       inc(pos)
       if g.buf[pos] == '/':
         g.kind = gtComment
-        while not (g.buf[pos] in {'\0', '\x0A', '\x0D'}): inc(pos)
+        while g.buf[pos] != '\L': inc(pos)
       elif g.buf[pos] == '*':
         g.kind = gtLongComment
         var nested = 0
         inc(pos)
-        while true:
+        while pos < g.buf.len:
           case g.buf[pos]
           of '*':
             inc(pos)
@@ -385,8 +364,6 @@ proc clikeNextToken(g: var GeneralTokenizer, keywords: openArray[string],
             if g.buf[pos] == '*':
               inc(pos)
               if hasNestedComments in flags: inc(nested)
-          of '\0':
-            break
           else: inc(pos)
     of '#':
       inc(pos)
@@ -430,22 +407,19 @@ proc clikeNextToken(g: var GeneralTokenizer, keywords: openArray[string],
     of '\"':
       inc(pos)
       g.kind = gtStringLit
-      while true:
+      while pos < g.buf.len:
         case g.buf[pos]
-        of '\0':
-          break
         of '\"':
           inc(pos)
           break
         of '\\':
           g.state = g.kind
           break
-        else: inc(pos)
+        else:
+          inc(pos)
     of '(', ')', '[', ']', '{', '}', ':', ',', ';', '.':
       inc(pos)
       g.kind = gtPunctuation
-    of '\0':
-      g.kind = gtEof
     else:
       if g.buf[pos] in OpChars:
         g.kind = gtOperator
@@ -454,9 +428,87 @@ proc clikeNextToken(g: var GeneralTokenizer, keywords: openArray[string],
         inc(pos)
         g.kind = gtNone
   g.length = pos - g.pos
-  if g.kind != gtEof and g.length <= 0:
-    assert false, "clikeNextToken: produced an empty token"
   g.pos = pos
+
+proc consoleNextToken(g: var GeneralTokenizer) =
+  template fallback() =
+    g.kind = gtNone
+    if pos < g.buf.len: inc pos
+
+  template diff(col) =
+    if pos > 0 and g.buf[pos-1] == '\L':
+      g.kind = col
+      while g.buf[pos] != '\L': inc pos
+    else:
+      fallback()
+
+  const symChars = {'A'..'Z', 'a'..'z', '0'..'9', '_'}
+  var pos = g.pos
+  g.start = g.pos
+  case g.buf[pos]
+  of 'a'..'z', 'A'..'Z', '_', '/', '\\', '\x80'..'\xFF':
+    var id = ""
+    var dotPos = -1
+    while true:
+      let c = g.buf[pos]
+      if c == '.':
+        dotPos = pos
+        add(id, '.')
+      elif c in (symChars+{'/','\\','.',':','\x80'..'\xFF'}):
+        add(id, c.toLower)
+        inc(pos)
+      else:
+        break
+    case id
+    of "error": g.kind = gtRed
+    of "warning": g.kind = gtYellow
+    of "hint": g.kind = gtGreen
+    else:
+      if dotpos >= 0 and dotpos < pos-1:
+        g.kind = gtLink
+        # filenames can also have optional line information like (line, pos):
+        if g.buf[pos] == '(':
+          var p = pos+1
+          if g.buf[p] in Digits:
+            while g.buf[p] in Digits: inc p
+            if g.buf[p] == ',':
+              inc p
+              while g.buf[p] == ' ': inc p
+              while g.buf[p] in Digits: inc p
+            if g.buf[p] == ')': pos = p+1
+      else:
+        g.kind = gtIdentifier
+  of '[':
+    if g.buf[pos+1] in Letters:
+      inc pos
+      let rollback = pos
+      while g.buf[pos] in Letters: inc pos
+      if g.buf[pos] == ']':
+        inc pos
+        g.kind = gtRule
+      else:
+        g.kind = gtNone
+        pos = rollback
+    else:
+      fallback()
+  of '+': diff(gtGreen)
+  of '-': diff(gtRed)
+  of '@':
+    if g.buf[pos+1] == '@':
+      g.kind = gtDirective
+      inc pos, 2
+      while g.buf[pos] != '\L':
+        if g.buf[pos] == '@' and g.buf[pos+1] == '@':
+          inc pos, 2
+          break
+        inc pos
+    else:
+      fallback()
+  else:
+    fallback()
+  g.length = pos - g.pos
+  g.pos = pos
+
 
 proc cNextToken(g: var GeneralTokenizer) =
   const
@@ -514,79 +566,79 @@ proc getNextToken(g: var GeneralTokenizer, lang: SourceLanguage) =
   of langCsharp: csharpNextToken(g)
   of langC: cNextToken(g)
   of langJava: javaNextToken(g)
+  of langConsole: consoleNextToken(g)
 
-let
-  White = parseColor("#ffffff")
-  Orange = parseColor("#FFA500")
-  Blue = parseColor("#00FFFF")
-  Red = parseColor("#FF0000")
-  Yellow = parseColor("#FFFF00")
-  Pink = parseColor("#FF00FF")
-  Gray = parseColor("#808080")
-  Green = parseColor("#00FF00")
-  DeepPink = parseColor("#FF1493")
+proc setStyle(s: var StyleManager; m: var FontManager;
+              cls: TokenClass; col: string; style: FontStyle) =
+  s.setStyle m, cls, FontAttr(color: parseColor(col),
+                              style: style, size: FontSize)
 
-proc setStyle(s: var StyleManager; cls: TokenClass; color: Color;
-              style = FontStyle.Normal) =
-  s.setStyle StyleIdx(cls), FontAttr(color: color, style: style, size: FontSize)
+proc setStyles*(s: var StyleManager; m: var FontManager) =
+  template ss(key, val; style = FontStyle.Normal) =
+    s.setStyle m, key, val, style
 
-proc setStyles*(s: var StyleManager) =
-  s.setStyle gtEof, White
-  s.setStyle gtNone, White
-  s.setStyle gtWhitespace, White
-  s.setStyle gtDecNumber, Blue
-  s.setStyle gtBinNumber, Blue
-  s.setStyle gtHexNumber, Blue
-  s.setStyle gtOctNumber, Blue
-  s.setStyle gtFloatNumber, Blue
-  s.setStyle gtIdentifier, White
-  s.setStyle gtKeyword, White, FontStyle.Bold
-  s.setStyle gtStringLit, Orange
-  s.setStyle gtLongStringLit, Orange
-  s.setStyle gtCharLit, Orange
-  s.setStyle gtEscapeSequence, Gray
-  s.setStyle gtOperator, White
-  s.setStyle gtPunctuation, White
-  s.setStyle gtComment, Green, FontStyle.Italic
-  s.setStyle gtLongComment, DeepPink
-  s.setStyle gtRegularExpression, Pink
-  s.setStyle gtTagStart, Yellow
-  s.setStyle gtTagEnd, Yellow
-  s.setStyle gtKey, White
-  s.setStyle gtValue, Blue
-  s.setStyle gtRawData, Pink
-  s.setStyle gtAssembler, Pink
-  s.setStyle gtPreprocessor, Yellow
-  s.setStyle gtDirective, Yellow
-  s.setStyle gtCommand, Yellow
-  s.setStyle gtRule, Yellow
-  s.setStyle gtHyperlink, Blue
-  s.setStyle gtLabel, Blue
-  s.setStyle gtReference, Blue
-  s.setStyle gtOther, White
+  ss gtNone, "White"
+  ss gtWhitespace, "White"
+  ss gtDecNumber, "Blue"
+  ss gtBinNumber, "Blue"
+  ss gtHexNumber, "Blue"
+  ss gtOctNumber, "Blue"
+  ss gtFloatNumber, "Blue"
+  ss gtIdentifier, "White"
+  ss gtKeyword, "White", FontStyle.Bold
+  ss gtStringLit, "Orange"
+  ss gtLongStringLit, "Orange"
+  ss gtCharLit, "Orange"
+  ss gtEscapeSequence, "Gray"
+  ss gtOperator, "White"
+  ss gtPunctuation, "White"
+  ss gtComment, "Green", FontStyle.Italic
+  ss gtLongComment, "DeepPink"
+  ss gtRegularExpression, "Pink"
+  ss gtTagStart, "Yellow"
+  ss gtTagEnd, "Yellow"
+  ss gtKey, "White"
+  ss gtValue, "Blue"
+  ss gtRawData, "Pink"
+  ss gtAssembler, "Pink"
+  ss gtPreprocessor, "Yellow"
+  ss gtDirective, "Yellow"
+  ss gtCommand, "Yellow"
+  ss gtRule, "Yellow"
+  ss gtLink, "Blue", FontStyle.Bold
+  ss gtLabel, "Blue"
+  ss gtReference, "Blue"
+  ss gtOther, "White"
+  ss gtRed, "Red"
+  ss gtGreen, "Green"
+  ss gtYellow, "Yellow"
 
 
-proc highlightEverything*(buf: Buffer; lang: SourceLanguage) =
+proc highlightEverything*(b: Buffer; ) =
   var g: GeneralTokenizer
-  g.buf = buf
+  g.buf = b
   g.kind = low(TokenClass)
   g.start = 0
   g.length = 0
   g.state = low(TokenClass)
-  var pos = 0                     # skip initial whitespace:
-  while g.buf[pos] in {' ', '\x09'..'\x0D'}: inc(pos)
-  g.pos = pos
-  let oldEofChar = buf.eofChar
-  buf.eofChar = '\0'
+  g.pos = 0
   while true:
-    getNextToken(g, lang)
-    if g.kind == gtEof: break
+    getNextToken(g, b.lang)
+    if g.length == 0: break
     for i in 0 ..< g.length:
-      buf.setCellStyle(g.start+i, StyleIdx(g.kind))
-  buf.eofChar = oldEofChar
+      b.setCellStyle(g.start+i, StyleIdx(g.kind))
 
-proc highlightLine*(g: var GeneralTokenizer; lang: SourceLanguage) =
-  discard "XXX To implement"
+proc isCriticalDelete*(b: Buffer; deleted: seq[Cell]) =
+  discard
+
+proc highlightUpdate*(b: Buffer) =
+  # Update everything: way too slow even for moderate files!
+  if b.lang != langNone:
+    # move to the *start* of this line
+    var i = b.cursor
+    while i >= 1 and b[i-1] != '\L': dec i
+
+    highlightEverything(b)
 
 when isMainModule:
   var keywords: seq[string]
