@@ -89,18 +89,11 @@ proc runCmd(ed: Editor; cmd: string): bool =
       ed.main.save()
     prompt.clear()
   of "open", "o":
-    # XXX search if we have this file already open!
     var p = ""
     i = parseWord(cmd, p, i)
-    if p.len > 0:
-      let x = newBuffer(p.extractFilename, addr ed.mgr)
-      try:
-        x.loadFromFile(p)
-        insertBuffer(ed.main, x)
-        ed.active = ed.main
-      except IOError:
-        ed.statusMsg = "cannot open: " & p
+    if p.len > 0: openTab(ed, p)
     prompt.clear()
+    ed.active = ed.main
   of "lang":
     var lang = ""
     i = parseWord(cmd, lang, i)

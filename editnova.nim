@@ -1,7 +1,7 @@
 
 from strutils import contains, startsWith, repeatChar
 from parseutils import parseInt
-from os import extractFilename, splitFile
+from os import extractFilename, splitFile, expandFilename, cmpPaths
 import sdl2, sdl2/ttf
 import buffertype, buffer, styles, unicode, dialogs, highlighters, console
 import languages
@@ -9,23 +9,24 @@ import languages
 
 # TODO:
 #  - search&replace
+#  - more intelligent jumping around
+#  - minimap
+# BUGS:
+#  - 'undo' removes too much after a PASTE
+#  - insert from clipboard needs to be a single undo op
+
 #  - large file handling
 #  - show line numbers
-#  - show scroll bars; no horizontal scrolling though
-#  - minimap
+#  - show scroll bars
 #  - highlighting of ()s
 #  - highlighting of substring occurences
-#  - click in console jumps to file; intelligent file opening
-#  - more intelligent jumping around
+#  - click in console jumps to file
 #  - port to Mac
 
 # Optimizations:
 #  - cache font renderings
 #  - cache content for quick search&replace
 
-# BUGS:
-#  - 'undo' removes too much after a PASTE
-#  - insert from clipboard needs to be a single undo op
 
 const
   XGap = 5
@@ -131,6 +132,33 @@ template removeBuffer(n) =
     n.prev.next = n.next
     n = nxt
     dec ed.buffersCounter
+
+proc openTab(ed: Editor; filename: string) =
+  var fullpath: string
+  try:
+    fullpath = expandFilename(filename)
+  except OSError:
+    ed.statusMsg = getCurrentExceptionMsg()
+    return
+
+  # be intelligent:
+  var it = ed.main
+  while true:
+    if cmpPaths(it.filename, fullpath) == 0:
+      # just bring the existing tab into focus:
+      ed.main = it
+      return
+    it = it.next
+    if it == ed.main: break
+
+  let x = newBuffer(fullpath.extractFilename, addr ed.mgr)
+  try:
+    x.loadFromFile(fullpath)
+    insertBuffer(ed.main, x)
+    ed.active = ed.main
+  except IOError:
+    ed.statusMsg = "cannot open: " & filename
+
 
 include prompt
 
@@ -339,9 +367,7 @@ proc mainProc(ed: Editor) =
               else: ""
             let toOpen = chooseFilesToOpen(nil, previousLocation)
             for p in toOpen:
-              let x = newBuffer(p.extractFilename, addr ed.mgr)
-              x.loadFromFile(p)
-              insertBuffer(main, x)
+              ed.openTab(p)
             active = main
           elif w.keysym.sym == ord('s'):
             main.save()
