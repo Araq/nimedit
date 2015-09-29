@@ -9,10 +9,10 @@ import languages
 
 # TODO:
 #  - search&replace
-#  - more intelligent jumping around
 #  - minimap
 #  - click in console jumps to file
 #  - port to Mac
+#  - more intelligent showing of active tabs; select tab with mouse
 
 # BUGS:
 #  - 'undo' removes too much after a PASTE

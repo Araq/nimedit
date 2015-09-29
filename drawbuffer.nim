@@ -41,7 +41,6 @@ proc mouseSelectWholeLine(b: Buffer) =
   b.selected = Marker(a: first, b: b.cursor, s: mcSelected)
 
 proc mouseSelectCurrentToken(b: Buffer) =
-  const Letters = {'a'..'z', 'A'..'Z', '0'..'9', '_', '\128'..'\255'}
   var first = b.cursor
   var last = b.cursor
   if b[b.cursor] in Letters:
