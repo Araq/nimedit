@@ -253,9 +253,6 @@ proc insert*(b: Buffer; s: string) =
   b.desiredCol = getColumn(b)
   highlightLine(b, oldCursor)
 
-proc selectAll*(b: Buffer) =
-  b.selected = Marker(a: 0, b: b.len-1, s: mcSelected)
-
 proc insertEnter*(b: Buffer) =
   # move to the *start* of this line
   var i = b.cursor
@@ -314,6 +311,22 @@ proc deleteKey*(b: Buffer) =
   inc(b.cursor, L)
   backspace(b)
 
+proc selectAll*(b: Buffer) =
+  b.selected = Marker(a: 0, b: b.len-1, s: mcSelected)
+
+proc getSelectedText*(b: Buffer): string =
+  if b.selected.b < 0: return ""
+  result = newStringOfCap(b.selected.b - b.selected.a + 1)
+  for i in b.selected.a .. b.selected.b:
+    result.add b[i]
+
+proc removeSelectedText*(b: Buffer) =
+  if b.selected.b < 0: return
+  b.cursor = b.selected.b+1
+  while b.cursor >= b.selected.a+1:
+    backspace(b, true)
+  b.selected.b = -1
+
 proc applyUndo(b: Buffer; a: Action) =
   let oldCursor = b.cursor
   if a.k <= insFinished:
@@ -361,9 +374,9 @@ proc undo*(b: Buffer) =
     dec(b.undoIdx)
 
 proc redo*(b: Buffer) =
+  inc(b.undoIdx)
   when defined(debugUndo):
     echo "redo ----------------------------------------"
-    inc(b.undoIdx)
     for i, x in b.actions:
       if i == b.undoIdx:
         echo x, "*"

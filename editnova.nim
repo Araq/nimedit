@@ -7,9 +7,9 @@ import languages
 
 
 # TODO:
+#  - refine select operation
 #  - syntax highlighting is wrong for edge cases (periodic refresh?)
 #  - support for range markers (required for selections)
-#  - select, copy, cut from clipboard
 #  - large file handling
 #  - show line numbers
 #  - show scroll bars; no horizontal scrolling though
@@ -23,7 +23,7 @@ import languages
 #  - cache content for quick search&replace
 
 # BUGS:
-#  - 'undo' removes too much after a PASTE; 'redo' does not work anymore
+#  - 'undo' removes too much after a PASTE
 
 
 const
@@ -134,7 +134,7 @@ template removeBuffer(n) =
 proc runCmd(ed: Editor; cmd: string): bool =
   ed.promptCon.hist.addCmd(cmd)
   if cmd.startsWith("#"):
-    ed.theme.fg = parseColor(cmd)
+    ed.theme.bg = parseColor(cmd)
   cmd == "quit" or cmd == "q"
 
 proc hasConsole(ed: Editor): bool = ed.consoleRect.x >= 0
@@ -167,7 +167,7 @@ proc mainProc(ed: Editor) =
   var fontM: FontManager = @[]
   setDefaults(ed, addr mgr, fontM)
   highlighters.setStyles(mgr, fontM)
-  mgr.b[mcSelected] = parseColor("#000000")
+  mgr.b[mcSelected] = parseColor("#1d1d1d")
   mgr.b[mcHighlighted] = parseColor("#000000")
   mgr.b[mcSelected] = parseColor("#000000")
 
@@ -293,11 +293,16 @@ proc mainProc(ed: Editor) =
           elif w.keysym.sym == ord('h'):
             discard "replace"
           elif w.keysym.sym == ord('x'):
-            discard "cut"
+            let text = active.getSelectedText
+            if text.len > 0:
+              active.removeSelectedText()
+              discard sdl2.setClipboardText(text)
           elif w.keysym.sym == ord('c'):
-            discard "copy"
+            let text = active.getSelectedText
+            if text.len > 0:
+              discard sdl2.setClipboardText(text)
           elif w.keysym.sym == ord('v'):
-            let text = getClipboardText()
+            let text = sdl2.getClipboardText()
             active.insert($text)
             freeClipboardText(text)
           elif w.keysym.sym == ord('o'):

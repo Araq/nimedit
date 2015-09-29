@@ -215,7 +215,6 @@ proc setCursorFromMouse*(b: Buffer; dim: Rect; mouse: Point; clicks: int) =
   b.clicks = clicks
   # unselect on single mouse click:
   if clicks < 2:
-    b.selected.a = -1
     b.selected.b = -1
   when false:
     var i = 0
