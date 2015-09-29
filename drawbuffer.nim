@@ -240,5 +240,10 @@ proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
   while dim.y < dim.h and i <= len(b):
     i = r.drawLine(b, i, dim, bg, cursor, blink)
     inc b.span
+  # we need to tell the buffer how many lines *can* be shown to prevent
+  # that scrolling is triggered way too early:
+  while dim.y < dim.h:
+    inc dim.y, FontSize+2
+    inc b.span
   # if not found, ignore mouse request anyway:
   b.clicks = 0
