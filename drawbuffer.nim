@@ -10,7 +10,7 @@ proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
   assert msg[0] != '\0'
   var surf: SurfacePtr = renderUtf8Shaded(font, msg, fg, bg)
   if surf == nil:
-    echo("TTF_RenderText failed ##", msg, "##")
+    echo("TTF_RenderText failed")
     return
   result = createTextureFromSurface(r, surf)
   if result == nil:
@@ -35,13 +35,35 @@ proc whichColumn(b: Buffer; i: int; dim: Rect; font: FontPtr;
       return r
     inc j, L
 
+proc mouseSelectWholeLine(b: Buffer) =
+  var first = b.cursor
+  while first > 0 and b[first-1] != '\L': dec first
+  b.selected = Marker(a: first, b: b.cursor, s: mcSelected)
+
+proc mouseSelectCurrentToken(b: Buffer) =
+  const Letters = {'a'..'z', 'A'..'Z', '0'..'9', '_', '\128'..'\255'}
+  var first = b.cursor
+  var last = b.cursor
+  if b[b.cursor] in Letters:
+    while first > 0 and b[first-1] in Letters: dec first
+    while last < b.len and b[last+1] in Letters: inc last
+  else:
+    while first > 0 and b.getCell(first-1).s == b.getCell(b.cursor).s and
+                        b.getCell(first-1).c != '\L':
+      dec first
+    while last < b.len and b.getCell(last+1).s == b.getCell(b.cursor).s:
+      inc last
+  b.cursor = first
+  b.selected = Marker(a: first, b: last, s: mcSelected)
+
 proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: byte) =
   # requested cursor update?
-  if b.mouseX > 0:
+  if b.clicks > 0:
     if b.mouseX > dim.x and dim.y+maxh.cint > b.mouseY:
       b.cursor = i
       b.currentLine = max(b.firstLine + b.span, 0)
-      b.mouseX = 0
+      if b.clicks > 1: mouseSelectWholeLine(b)
+      b.clicks = 0
 
 proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect;
           font: FontPtr; msg: cstring) =
@@ -49,12 +71,13 @@ proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect;
   queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
 
   # requested cursor update?
-  if b.mouseX > 0:
+  if b.clicks > 0:
     let p = point(b.mouseX, b.mouseY)
     if d.contains(p):
       b.cursor = i - len(msg) + whichColumn(b, i-len(msg), d, font, msg)
       b.currentLine = max(b.firstLine + b.span, 0)
-      b.mouseX = 0
+      mouseSelectCurrentToken(b)
+      b.clicks = 0
 
   r.copy(tex, nil, addr d)
 
@@ -108,11 +131,19 @@ proc tabFill(b: Buffer; buffer: var array[CharBufSize, char]; bufres: var int;
     inc col
   buffer[bufres] = '\0'
 
+proc getBg(b: Buffer; i: int; bg: Color): Color =
+  if b.selected.a <= i and i <= b.selected.b: return b.mgr.b[mcSelected]
+  for m in items(b.markers):
+    if m.a <= i and i <= m.b:
+      return b.mgr.b[m.s]
+  return bg
+
 proc drawLine(r: RendererPtr; b: Buffer; i: int;
               dim: var Rect; bg, cursor: Color;
               blink: bool): int =
   var j = i
   var style = b.mgr[].getStyle(getCell(b, j).s)
+  var styleBg = getBg(b, j, bg)
   var maxh = style.attr.size
   let oldX = dim.x
 
@@ -130,13 +161,14 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
         if cell.c == '\L':
           buffer[bufres] = '\0'
           if bufres >= 1:
-            r.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color, bg)
+            r.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color,
+                       styleBg)
           mouseAfterNewLine(b, j, dim, maxh)
           if cursorCheck(): cursorDim = dim
           break outerLoop
 
         if cursorCheck(): cursorDim = dim
-        if b.mgr[].getStyle(cell.s) != style:
+        if b.mgr[].getStyle(cell.s) != style or getBg(b, j, bg) != styleBg:
           break
         elif bufres == high(buffer) or cursorCheck():
           break
@@ -150,8 +182,10 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
 
       buffer[bufres] = '\0'
       if bufres >= 1:
-        r.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color, bg)
+        r.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color,
+                   styleBg)
         style = b.mgr[].getStyle(getCell(b, j).s)
+        styleBg = getBg(b, j, bg)
         maxh = max(maxh, style.attr.size)
 
       if j == b.cursor:
@@ -175,16 +209,28 @@ proc getLineOffset(b: Buffer; lines: Natural): int =
         break
     inc result
 
-proc setCursorFromMouse*(b: Buffer; dim: Rect; mouse: Point) =
+proc setCursorFromMouse*(b: Buffer; dim: Rect; mouse: Point; clicks: int) =
   b.mouseX = mouse.x
   b.mouseY = mouse.y
+  b.clicks = clicks
+  # unselect on single mouse click:
+  if clicks < 2:
+    b.selected.a = -1
+    b.selected.b = -1
+  when false:
+    var i = 0
+    while i < b.markers.len:
+      if b.markers[i].s == mcSelected:
+        b.markers.del i
+      else:
+        inc i
 
 proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
            blink: bool) =
   # correct scrolling commands. Because of line continuations the maximal
   # view is (dim.h div FontSize+2) div 2
-  b.firstLine = clamp(b.firstLine, 0,
-                      max(0, b.numberOfLines - (dim.h div (FontSize+2)) div 2))
+  b.firstLine = clamp(b.firstLine, 0, max(0, b.numberOfLines-1))
+                     #max(0, b.numberOfLines - (dim.h div (FontSize+2)) div 2))
   #echo "FIRSTLINE ", b.firstLine, " ", b.numberOfLines
   # XXX cache line information
   var i = getLineOffset(b, b.firstLine) # b.lines[b.firstLine].offset
@@ -196,4 +242,4 @@ proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
     i = r.drawLine(b, i, dim, bg, cursor, blink)
     inc b.span
   # if not found, ignore mouse request anyway:
-  b.mouseX = 0
+  b.clicks = 0

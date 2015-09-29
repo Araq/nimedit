@@ -13,6 +13,9 @@ type
     langNone, langNim, langNimrod, langCpp, langCsharp, langC, langJava,
     langConsole
 
+  MarkerClass* = enum
+    mcSelected, mcHighlighted, mcBreakPoint
+
 const
   sourceLanguageToStr*: array[SourceLanguage, string] = ["none",
     "Nim", "Nimrod", "C++", "C#", "C", "Java", "Console"]

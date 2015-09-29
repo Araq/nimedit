@@ -17,7 +17,6 @@ type
     fonts: array[FontStyle, FontPtr]
   FontManager* = seq[AFont]
 
-  StyleIdx* = TokenClass
   FontAttr* = object
     color*: Color
     style*: FontStyle
@@ -27,7 +26,9 @@ type
     font*: FontPtr
     attr*: FontAttr
 
-  StyleManager* = array[TokenClass, Style]
+  StyleManager* = object
+    a*: array[TokenClass, Style]
+    b*: array[MarkerClass, Color]
 
 const
   FontStyleToSuffix: array[FontStyle, string] = ["", "bd", "i", "bi"]
@@ -93,8 +94,8 @@ proc findFont*(m: var FontManager; size: byte; style=FontStyle.Normal): FontPtr 
   fontByName(m, "DejaVuSansMono", size, style)
 
 proc setStyle*(s: var StyleManager; m: var FontManager;
-               idx: StyleIdx; attr: FontAttr) =
-  s[idx] = Style(font: findFont(m, attr.size, attr.style), attr: attr)
+               idx: TokenClass; attr: FontAttr) =
+  s.a[idx] = Style(font: findFont(m, attr.size, attr.style), attr: attr)
 
-proc getStyle*(s: StyleManager; i: StyleIdx): Style {.inline.} =
-  result = s[i]
+proc getStyle*(s: StyleManager; i: TokenClass): Style {.inline.} =
+  result = s.a[i]

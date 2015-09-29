@@ -21,16 +21,22 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.mgr = mgr
   result.readOnly = -1
   result.tabSize = tabWidth
+  result.markers = @[]
+  result.selected.a = -1
+  result.selected.b = -1
 
 proc clear*(result: Buffer) =
   result.front.setLen 0
   result.back.setLen 0
   result.actions.setLen 0
+  result.markers.setLen 0
   result.currentLine = 0
   result.firstLine = 0
   result.numberOfLines = 0
   result.desiredCol = 0
   result.cursor = 0
+  result.selected.a = -1
+  result.selected.b = -1
 
 proc fullText*(b: Buffer): string =
   result = newStringOfCap(b.front.len + b.back.len)
@@ -246,6 +252,9 @@ proc insert*(b: Buffer; s: string) =
   rawInsert(b, s)
   b.desiredCol = getColumn(b)
   highlightLine(b, oldCursor)
+
+proc selectAll*(b: Buffer) =
+  b.selected = Marker(a: 0, b: b.len-1, s: mcSelected)
 
 proc insertEnter*(b: Buffer) =
   # move to the *start* of this line

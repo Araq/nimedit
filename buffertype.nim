@@ -11,12 +11,15 @@ type
     word*: string
   Cell* = object
     c*: char
-    s*: StyleIdx
+    s*: TokenClass
+  Marker* = object
+    a*, b*: int
+    s*: MarkerClass
 
   Buffer* = ref object
     cursor*: int
     firstLine*, span*, numberOfLines*, currentLine*, desiredCol*: int
-    mouseX*, mouseY*, readOnly*: int
+    mouseX*, mouseY*, clicks*, readOnly*: int
     front*, back*: seq[Cell]
     mgr*: ptr StyleManager
     #lines: seq[Line]
@@ -26,6 +29,8 @@ type
     tabSize*: int8  # some stupid documents mix tabs and spaces. In
                     # these cases a tab is always 8 spaces, hence tabWidth is
                     # buffer specific
+    selected*: Marker
+    markers*: seq[Marker]
     heading*: string
     filename*: string
     lang*: SourceLanguage
@@ -40,9 +45,9 @@ proc getCell*(b: Buffer; i: Natural): Cell =
     if i <= b.back.high:
       result = b.back[b.back.high-i]
     else:
-      result = Cell(c: '\L', s: StyleIdx(0))
+      result = Cell(c: '\L', s: gtNone)
 
-proc setCellStyle*(b: Buffer; i: Natural; s: StyleIdx) =
+proc setCellStyle*(b: Buffer; i: Natural; s: TokenClass) =
   if i < b.front.len:
     b.front[i].s = s
   else:

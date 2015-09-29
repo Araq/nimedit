@@ -167,6 +167,9 @@ proc mainProc(ed: Editor) =
   var fontM: FontManager = @[]
   setDefaults(ed, addr mgr, fontM)
   highlighters.setStyles(mgr, fontM)
+  mgr.b[mcSelected] = parseColor("#000000")
+  mgr.b[mcHighlighted] = parseColor("#000000")
+  mgr.b[mcSelected] = parseColor("#000000")
 
   ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE)
@@ -199,17 +202,17 @@ proc mainProc(ed: Editor) =
         let p = point(w.x, w.y)
         if ed.mainRect.contains(p):
           if active == main:
-            main.setCursorFromMouse(ed.mainRect, p)
+            main.setCursorFromMouse(ed.mainRect, p, w.clicks.int)
           else:
             active = main
         elif ed.promptRect.contains(p):
           if active == prompt:
-            prompt.setCursorFromMouse(ed.promptRect, p)
+            prompt.setCursorFromMouse(ed.promptRect, p, w.clicks.int)
           else:
             active = prompt
         elif hasConsole(ed) and ed.consoleRect.contains(p):
           if active == console:
-            console.setCursorFromMouse(ed.consoleRect, p)
+            console.setCursorFromMouse(ed.consoleRect, p, w.clicks.int)
           else:
             active = console
       of MouseWheel:
@@ -279,14 +282,14 @@ proc mainProc(ed: Editor) =
               active.redo
             else:
               active.undo
+          elif w.keysym.sym == ord('a'):
+            active.selectAll()
           elif w.keysym.sym == ord('b'):
             ed.con.sendBreak()
           elif w.keysym.sym == ord('f'):
             discard "find"
           elif w.keysym.sym == ord('g'):
             discard "goto line"
-          elif w.keysym.sym == ord('a'):
-            discard "select all"
           elif w.keysym.sym == ord('h'):
             discard "replace"
           elif w.keysym.sym == ord('x'):

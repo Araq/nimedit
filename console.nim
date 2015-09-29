@@ -242,7 +242,6 @@ proc tabPressed*(c: Console) =
     let dots = splitPath(c.prefix)[0]
     for k, f in os.walkDir(os.getCurrentDir() / dots, relative=true):
       c.files.add dots / f
-  echo "prefix ", c.prefix
   suggestPath(c, b, c.prefix)
 
 proc cmdToArgs(cmd: string): tuple[exe: string, args: seq[string]] =
