@@ -296,7 +296,7 @@ proc execThreadProc() {.thread.} =
             started = true
             try:
               p = startProcess(bin, os.getCurrentDir(), args,
-                               options = {poStdErrToStdOut, poUsePath})
+                        options = {poStdErrToStdOut, poUsePath, poInteractive})
             except:
               started = false
               responses.send getCurrentExceptionMsg()

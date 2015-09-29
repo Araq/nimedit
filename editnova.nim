@@ -11,6 +11,9 @@ import languages
 #  - search&replace
 #  - more intelligent jumping around
 #  - minimap
+#  - click in console jumps to file
+#  - port to Mac
+
 # BUGS:
 #  - 'undo' removes too much after a PASTE
 #  - insert from clipboard needs to be a single undo op
@@ -20,12 +23,8 @@ import languages
 #  - show scroll bars
 #  - highlighting of ()s
 #  - highlighting of substring occurences
-#  - click in console jumps to file
-#  - port to Mac
-
 # Optimizations:
 #  - cache font renderings
-#  - cache content for quick search&replace
 
 
 const
