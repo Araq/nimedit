@@ -330,6 +330,7 @@ proc backspaceNoSelect(b: Buffer; overrideUtf8=false) =
   let ch = b.rawBackspace(overrideUtf8)
   if b.actions.len > 0 and b.actions[^1].k == dele:
     b.actions[^1].word.add ch
+    b.actions[^1].pos = b.cursor
   else:
     b.actions.add(Action(k: dele, pos: b.cursor, word: ch))
   edit(b)

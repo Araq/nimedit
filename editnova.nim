@@ -15,7 +15,6 @@ import languages
 #  - more intelligent showing of active tabs; select tab with mouse
 
 # BUGS:
-#  - 'undo' removes too much after a PASTE
 #  - insert from clipboard needs to be a single undo op
 
 #  - large file handling
