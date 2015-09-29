@@ -66,12 +66,43 @@ proc prepareForEdit(b: Buffer) =
   assert b.cursor == b.front.len
   b.changed = true
 
+proc upFirstLineOffset(b: Buffer) =
+  assert b.firstLineOffset == 0 or b[b.firstLineOffset-1] == '\L'
+  assert b.firstLineOffset > 0
+  var i = b.firstLineOffset-1
+  while i > 0 and b[i-1] != '\L': dec i
+  b.firstLineOffset = max(0, i)
+
+proc downFirstLineOffset(b: Buffer) =
+  assert b.firstLineOffset == 0 or b[b.firstLineOffset-1] == '\L'
+  var i = b.firstLineOffset
+  while b[i] != '\L': inc i
+  b.firstLineOffset = i+1
+
 proc scroll(b: Buffer; amount: int) =
+  assert amount == 1 or amount == -1
   inc b.currentLine, amount
   if b.currentLine < b.firstLine:
     b.firstLine = b.currentLine
+    upFirstLineOffset(b)
   elif b.currentLine > b.firstLine + b.span-1:
     inc b.firstLine
+    downFirstLineOffset(b)
+
+proc scrollLines*(b: Buffer; amount: int) =
+  let oldFirstLine = b.firstLine
+  b.firstLine = clamp(b.firstLine+amount, 0, max(0, b.numberOfLines-1))
+  # compute the real amount:
+  var amount = b.firstLine - oldFirstLine
+  if amount < 0:
+    while amount < 0:
+      upFirstLineOffset(b)
+      inc amount
+  elif amount > 0:
+    while amount > 0:
+      downFirstLineOffset(b)
+      dec amount
+  inc b.firstLine, amount
 
 proc getLine*(b: Buffer): int = b.currentLine
 proc getColumn*(b: Buffer): int =
@@ -427,6 +458,14 @@ proc insertEnter*(b: Buffer) =
       break
     inc i
   b.insert(toInsert)
+
+proc gotoLine*(b: Buffer; line: int) =
+  let line = line-1
+  if line >= 0 and line < b.numberOfLines:
+    b.cursor = getLineOffset(b, line)
+    b.currentLine = line
+    b.firstLine = max(0, line - (b.span div 2))
+    b.firstLineOffset = getLineOffset(b, b.firstLine)
 
 proc applyUndo(b: Buffer; a: Action) =
   let oldCursor = b.cursor

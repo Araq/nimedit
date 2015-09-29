@@ -40,10 +40,13 @@ type
     processRunning*: bool
     beforeSuggestionPos: int
 
+proc insertReadonly*(b: Buffer; s: string) =
+  b.readOnly = -1
+  b.insert(s)
+  b.readOnly = b.len-1
+
 proc insertReadonly*(c: Console; s: string) =
-  c.b.readOnly = -1
-  c.b.insert(s)
-  c.b.readOnly = c.b.len-1
+  insertReadonly(c.b, s)
 
 proc insertPrompt*(c: Console) =
   c.insertReadOnly(os.getCurrentDir() & ">")
@@ -141,8 +144,8 @@ proc parseEscape(s: string; w: var string; start=0): int =
     w.add('\\')
   result = pos
 
-proc parseWord(s: string; w: var string;
-               start=0; convToLower=false): int =
+proc parseWord*(s: string; w: var string;
+                start=0; convToLower=false): int =
   template conv(c): untyped = (if convToLower: c.toLower else: c)
   w.setLen(0)
   var i = start

@@ -19,6 +19,7 @@ type
   Buffer* = ref object
     cursor*: Natural
     firstLine*, span*, numberOfLines*, currentLine*, desiredCol*: int
+    firstLineOffset*: Natural
     mouseX*, mouseY*, clicks*, readOnly*: int
     front*, back*: seq[Cell]
     mgr*: ptr StyleManager

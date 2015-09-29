@@ -226,13 +226,12 @@ proc setCursorFromMouse*(b: Buffer; dim: Rect; mouse: Point; clicks: int) =
 
 proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
            blink: bool) =
-  # correct scrolling commands. Because of line continuations the maximal
-  # view is (dim.h div FontSize+2) div 2
-  b.firstLine = clamp(b.firstLine, 0, max(0, b.numberOfLines-1))
-                     #max(0, b.numberOfLines - (dim.h div (FontSize+2)) div 2))
-  #echo "FIRSTLINE ", b.firstLine, " ", b.numberOfLines
-  # XXX cache line information
-  var i = getLineOffset(b, b.firstLine) # b.lines[b.firstLine].offset
+  let realOffset = getLineOffset(b, b.firstLine)
+  if b.firstLineOffset != realOffset:
+    # XXX make this a real assertion when tested well
+    echo "real offset ", realOffset, " wrong ", b.firstLineOffset
+    assert false
+  var i = b.firstLineOffset
   var dim = dim
   b.span = 0
   i = r.drawLine(b, i, dim, bg, cursor, blink)

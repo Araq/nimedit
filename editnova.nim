@@ -1,5 +1,6 @@
 
 from strutils import contains, startsWith, repeatChar
+from parseutils import parseInt
 from os import extractFilename, splitFile
 import sdl2, sdl2/ttf
 import buffertype, buffer, styles, unicode, dialogs, highlighters, console
@@ -7,17 +8,16 @@ import languages
 
 
 # TODO:
-#  - syntax highlighting is wrong for edge cases (periodic refresh?)
+#  - search&replace
 #  - large file handling
 #  - show line numbers
 #  - show scroll bars; no horizontal scrolling though
 #  - minimap
 #  - highlighting of ()s
 #  - highlighting of substring occurences
-#  - search&replace
 #  - click in console jumps to file; intelligent file opening
-#  - ask for save changes when closing
 #  - more intelligent jumping around
+#  - port to Mac
 
 # Optimizations:
 #  - cache font renderings
@@ -50,17 +50,18 @@ type
     screenW, screenH: cint
     buffersCounter: int
     con, promptCon: Console
+    mgr: StyleManager
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
-proc setDefaults(ed: Editor; mgr: ptr StyleManager; fontM: var FontManager) =
+proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.screenW = cint(650)
   ed.screenH = cint(780)
   ed.statusMsg = "Ready "
 
-  ed.main = newBuffer(unkownName(), mgr)
-  ed.prompt = newBuffer("", mgr)
-  ed.console = newBuffer("", mgr)
+  ed.main = newBuffer(unkownName(), addr ed.mgr)
+  ed.prompt = newBuffer("", addr ed.mgr)
+  ed.console = newBuffer("", addr ed.mgr)
   ed.console.lang = langConsole
 
   ed.buffersCounter = 1
@@ -158,14 +159,21 @@ proc drawBorder(ed: Editor; rect: Rect; active: bool) =
   ed.drawBorder(rect.x - XGap, rect.y - YGap, rect.w + XGap, rect.h + YGap,
                 active)
 
+proc withUnsavedChanges(start: Buffer): Buffer =
+  result = start
+  while true:
+    if result.changed: return result
+    result = result.next
+    if result == start: break
+  return nil
+
 proc mainProc(ed: Editor) =
-  var mgr: StyleManager
   var fontM: FontManager = @[]
-  setDefaults(ed, addr mgr, fontM)
-  highlighters.setStyles(mgr, fontM)
-  mgr.b[mcSelected] = parseColor("#1d1d1d")
-  mgr.b[mcHighlighted] = parseColor("#000000")
-  mgr.b[mcSelected] = parseColor("#000000")
+  setDefaults(ed, fontM)
+  highlighters.setStyles(ed.mgr, fontM)
+  ed.mgr.b[mcSelected] = parseColor("#1d1d1d")
+  ed.mgr.b[mcHighlighted] = parseColor("#000000")
+  ed.mgr.b[mcSelected] = parseColor("#000000")
 
   ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE)
@@ -186,7 +194,11 @@ proc mainProc(ed: Editor) =
     let timeout = if ed.con.processRunning: 100.cint else: 500.cint
     if waitEventTimeout(e, timeout) == SdlSuccess:
       case e.kind
-      of QuitEvent: break
+      of QuitEvent:
+        let b = withUnsavedChanges(main)
+        if b == nil: break
+        main = b
+        ed.askForQuitTab()
       of WindowEvent:
         let w = e.window
         if w.event == WindowEvent_Resized:
@@ -217,7 +229,7 @@ proc mainProc(ed: Editor) =
         discard getMouseState(p.x, p.y)
         let a = if hasConsole(ed) and ed.consoleRect.contains(p): console
                 else: main
-        a.firstLine -= w.y*3
+        a.scrollLines(-w.y*3)
       of TextInput:
         let w = e.text
         active.insert($w.text)
@@ -262,8 +274,8 @@ proc mainProc(ed: Editor) =
           elif active == console:
             ed.con.downPressed()
           else:
-           active.deselect()
-           active.down((w.keysym.modstate and KMOD_CTRL) != 0)
+            active.deselect()
+            active.down((w.keysym.modstate and KMOD_CTRL) != 0)
         of SDL_SCANCODE_UP:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
             active.selectUp((w.keysym.modstate and KMOD_CTRL) != 0)
@@ -287,6 +299,8 @@ proc mainProc(ed: Editor) =
             ed.con.tabPressed()
           elif active == prompt:
             ed.promptCon.tabPressed()
+        of SDL_SCANCODE_F5:
+          highlightEverything(active)
         else: discard
         if (w.keysym.modstate and KMOD_CTRL) != 0:
           # CTRL+Z: undo
@@ -301,18 +315,11 @@ proc mainProc(ed: Editor) =
           elif w.keysym.sym == ord('b'):
             ed.con.sendBreak()
           elif w.keysym.sym == ord('f'):
-            let text = active.getSelectedText()
-            active = prompt
-            prompt.clear()
-            prompt.insert "find " & text
+            ed.findCmd()
           elif w.keysym.sym == ord('g'):
-            active = prompt
-            if prompt.len == 0:
-              prompt.insert "goto "
+            ed.gotoCmd()
           elif w.keysym.sym == ord('h'):
-            active = prompt
-            if prompt.len == 0:
-              prompt.insert "replace "
+            ed.replaceCmd()
           elif w.keysym.sym == ord('x'):
             let text = active.getSelectedText
             if text.len > 0:
@@ -332,18 +339,21 @@ proc mainProc(ed: Editor) =
               else: ""
             let toOpen = chooseFilesToOpen(nil, previousLocation)
             for p in toOpen:
-              let x = newBuffer(p.extractFilename, addr mgr)
+              let x = newBuffer(p.extractFilename, addr ed.mgr)
               x.loadFromFile(p)
               insertBuffer(main, x)
             active = main
           elif w.keysym.sym == ord('s'):
             main.save()
           elif w.keysym.sym == ord('n'):
-            let x = newBuffer(unkownName(), addr mgr)
+            let x = newBuffer(unkownName(), addr ed.mgr)
             insertBuffer(main, x)
             active = main
           elif w.keysym.sym == ord('q'):
-            removeBuffer(main)
+            if not main.changed:
+              removeBuffer(main)
+            else:
+              ed.askForQuitTab()
       else: discard
       # keydown means show the cursor:
       blink = 0
