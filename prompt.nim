@@ -61,7 +61,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
     if searchPhrase.len > 0:
       var searchOptions = ""
       i = parseWord(cmd, searchOptions, i)
-      #ed.main.findNext(searchPhrase)
+      ed.main.findNext(searchPhrase, parseSearchOptions searchOptions)
   of "replace", "r":
     var searchPhrase = ""
     i = parseWord(cmd, searchPhrase, i)
@@ -106,6 +106,15 @@ proc runCmd(ed: Editor; cmd: string): bool =
     i = parseWord(cmd, lang, i)
     ed.main.lang = getSourceLanguage(lang)
     highlightEverything(ed.main)
+    prompt.clear()
+  of "cr":
+    ed.main.lineending = "\C"
+    prompt.clear()
+  of "lf":
+    ed.main.lineending = "\L"
+    prompt.clear()
+  of "crlf":
+    ed.main.lineending = "\C\L"
     prompt.clear()
   else:
     ed.statusMsg = "wrong command, try: open|save|find|replace|..."

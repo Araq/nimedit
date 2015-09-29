@@ -23,13 +23,10 @@ type
     mouseX*, mouseY*, clicks*, readOnly*: int
     front*, back*: seq[Cell]
     mgr*: ptr StyleManager
-    #lines: seq[Line]
     actions*: seq[Action]
     undoIdx*: int
     changed*: bool
-    tabSize*: int8  # some stupid documents mix tabs and spaces. In
-                    # these cases a tab is always 8 spaces, hence tabWidth is
-                    # buffer specific
+    tabSize*: int8  # we detect the tabsize on loading a document
     selected*: Marker
     markers*: seq[Marker]
     heading*: string

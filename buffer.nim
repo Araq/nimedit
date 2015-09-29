@@ -10,6 +10,7 @@ const
   tabWidth = 2
 
 include drawbuffer
+include finder
 
 proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   new(result)
@@ -251,7 +252,7 @@ proc loadFromFile*(b: Buffer; filename: string) =
 proc save*(b: Buffer) =
   if b.filename.len == 0: b.filename = b.heading
   let f = open(b.filename, fmWrite)
-  if b.lineending.isNil:
+  if b.lineending.isNil or b.lineending.len == 0:
     b.lineending = "\L"
   let L = b.len
   var i = 0
