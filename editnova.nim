@@ -51,6 +51,7 @@ type
     buffersCounter: int
     con, promptCon: Console
     mgr: StyleManager
+    requestedShutdown, requestedShutdownNext: bool
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
@@ -222,6 +223,7 @@ proc mainProc(ed: Editor) =
     if waitEventTimeout(e, timeout) == SdlSuccess:
       case e.kind
       of QuitEvent:
+        ed.requestedShutdown = true
         let b = withUnsavedChanges(main)
         if b == nil: break
         main = b
@@ -389,6 +391,13 @@ proc mainProc(ed: Editor) =
       else:
         inc blink
         if blink >= 5: blink = 0
+    if ed.requestedShutdownNext:
+      ed.requestedShutdownNext = false
+      let b = withUnsavedChanges(main)
+      if b == nil: break
+      main = b
+      ed.askForQuitTab()
+
     update(ed.con)
     clear(renderer)
     let fileList = ed.renderText(

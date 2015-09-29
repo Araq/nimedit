@@ -36,16 +36,20 @@ proc runCmd(ed: Editor; cmd: string): bool =
     of 'a', 'A':
       ed.prompt.clear()
       ed.active = ed.main
+      ed.requestedShutdown = false
+      ed.requestedShutdownNext = false
     of 'n', 'N':
       ed.prompt.clear()
       ed.main.changed = false
       removeBuffer(ed.main)
       ed.active = ed.main
+      ed.requestedShutdownNext = true
     of 'y', 'Y':
       ed.prompt.clear()
       ed.main.save()
       removeBuffer(ed.main)
       ed.active = ed.main
+      ed.requestedShutdownNext = true
     else: discard
     return
 
