@@ -48,10 +48,16 @@ proc find(s: Buffer; sub: string, start: Natural; options: SearchOptions): int =
   result = findAux(s, sub, start, a, options)
 
 proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption]) =
+  assert searchTerm.len > 0
+  const Letters = {'a'..'z', '_', 'A'..'Z', '\128'..'\255', '0'..'9'}
+  template inWordBoundary(): untyped =
+    (i == 0 or b[i-1] notin Letters) and
+      (last >= b.len or b[last] notin Letters)
   var i = 0
   while true:
     i = find(b, searchTerm, i, options)
     if i < 0: break
-    b.markers.add(Marker(a: i, b: i+searchTerm.len-1, s: mcHighlighted))
-    inc i
-
+    var last = i+searchTerm.len
+    if wordBoundary notin options or inWordBoundary():
+      b.markers.add(Marker(a: i, b: last-1, s: mcHighlighted))
+    inc i, searchTerm.len
