@@ -179,10 +179,20 @@ proc rawInsert*(b: Buffer; s: string) =
       inc b.cursor
 
 proc loadFromFile*(b: Buffer; filename: string) =
+  template detectTabSize() =
+    if b.tabSize < 0:
+      var j = i+1
+      while j < s.len and s[j] == ' ':
+        if b.tabSize < 0: b.tabSize = 1
+        else: inc b.tabSize
+        inc j
+
   clear(b)
   b.filename = filename
   b.lang = fileExtToLanguage(splitFile(filename).ext)
   let s = readFile(filename)
+  # detect tabSize from file:
+  b.tabSize = -1
   for i in 0..<s.len:
     case s[i]
     of '\L':
@@ -190,6 +200,7 @@ proc loadFromFile*(b: Buffer; filename: string) =
       inc b.numberOfLines
       if b.lineending.isNil:
         b.lineending = "\L"
+      detectTabSize()
     of '\C':
       if i < s.len-1 and s[i+1] != '\L':
         b.front.add Cell(c: '\L')
@@ -203,6 +214,7 @@ proc loadFromFile*(b: Buffer; filename: string) =
       b.front.add Cell(c: '\t')
     else:
       b.front.add Cell(c: s[i])
+  if b.tabSize < 0: b.tabSize = tabWidth
   highlightEverything(b)
 
 proc save*(b: Buffer) =
@@ -238,35 +250,6 @@ proc saveAs*(b: Buffer; filename: string) =
   b.lang = fileExtToLanguage(splitFile(filename).ext)
   save(b)
 
-proc insert*(b: Buffer; s: string) =
-  if b.cursor <= b.readOnly or s.len == 0: return
-  let oldCursor = b.cursor
-  prepareForEdit(b)
-  setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
-  if b.actions.len > 0 and b.actions[^1].k == ins:
-    b.actions[^1].word.add s
-  else:
-    b.actions.add(Action(k: ins, pos: b.cursor, word: s))
-  if s[^1] in Whitespace: b.actions[^1].k = insFinished
-  edit(b)
-  rawInsert(b, s)
-  b.desiredCol = getColumn(b)
-  highlightLine(b, oldCursor)
-
-proc insertEnter*(b: Buffer) =
-  # move to the *start* of this line
-  var i = b.cursor
-  while i >= 1 and b[i-1] != '\L': dec i
-  var toInsert = "\L"
-  while true:
-    let c = b[i]
-    if c == ' ' or c == '\t':
-      toInsert.add c
-    else:
-      break
-    inc i
-  b.insert(toInsert)
-
 proc rawBackspace(b: Buffer; overrideUtf8=false): string =
   assert b.cursor == b.front.len
   var x = 0
@@ -289,7 +272,7 @@ proc rawBackspace(b: Buffer; overrideUtf8=false): string =
   b.cursor -= result.len
   b.front.setLen(b.cursor)
 
-proc backspace*(b: Buffer; overrideUtf8=false) =
+proc backspaceNoSelect(b: Buffer; overrideUtf8=false) =
   if b.cursor <= 0: return
   if b.cursor-1 <= b.readOnly: return
   let oldCursor = b.cursor
@@ -305,12 +288,6 @@ proc backspace*(b: Buffer; overrideUtf8=false) =
   b.desiredCol = getColumn(b)
   highlightLine(b, oldCursor)
 
-proc deleteKey*(b: Buffer) =
-  if b.cursor >= b.len: return
-  let (r, L) = lastRune(b, b.cursor+1)
-  inc(b.cursor, L)
-  backspace(b)
-
 proc selectAll*(b: Buffer) =
   b.selected = Marker(a: 0, b: b.len-1, s: mcSelected)
 
@@ -323,9 +300,133 @@ proc getSelectedText*(b: Buffer): string =
 proc removeSelectedText*(b: Buffer) =
   if b.selected.b < 0: return
   b.cursor = b.selected.b+1
-  while b.cursor >= b.selected.a+1:
-    backspace(b, true)
+  while b.cursor > b.selected.a:
+    backspaceNoSelect(b, true)
   b.selected.b = -1
+
+proc deselect*(b: Buffer) {.inline.} = b.selected.b = -1
+
+proc selectLeft*(b: Buffer; jump: bool) =
+  if b.cursor > 0:
+    if b.selected.b < 0: b.selected.b = b.cursor
+    left(b, jump)
+    b.selected.a = b.cursor
+
+proc selectUp*(b: Buffer; jump: bool) =
+  if b.cursor > 0:
+    if b.selected.b < 0: b.selected.b = b.cursor
+    up(b, jump)
+    b.selected.a = b.cursor
+
+proc selectRight*(b: Buffer; jump: bool) =
+  if b.cursor < b.len:
+    if b.selected.b < 0: b.selected.a = b.cursor
+    right(b, jump)
+    let (_, L) = lastRune(b, b.cursor-1)
+    b.selected.b = b.cursor-L
+
+proc selectDown*(b: Buffer; jump: bool) =
+  if b.cursor < b.len:
+    if b.selected.b < 0: b.selected.a = b.cursor
+    down(b, jump)
+    let (_, L) = lastRune(b, b.cursor-1)
+    b.selected.b = b.cursor-L
+
+proc backspace*(b: Buffer; overrideUtf8=false) =
+  if b.selected.b < 0:
+    backspaceNoSelect(b, overrideUtf8)
+  else:
+    removeSelectedText(b)
+
+proc deleteKey*(b: Buffer) =
+  if b.selected.b < 0:
+    if b.cursor >= b.len: return
+    let (r, L) = lastRune(b, b.cursor+1)
+    inc(b.cursor, L)
+    backspace(b)
+  else:
+    removeSelectedText(b)
+
+proc insertNoSelect(b: Buffer; s: string) =
+  if b.cursor <= b.readOnly or s.len == 0: return
+  let oldCursor = b.cursor
+  prepareForEdit(b)
+  setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
+  if b.actions.len > 0 and b.actions[^1].k == ins:
+    b.actions[^1].word.add s
+  else:
+    b.actions.add(Action(k: ins, pos: b.cursor, word: s))
+  if s[^1] in Whitespace: b.actions[^1].k = insFinished
+  edit(b)
+  rawInsert(b, s)
+  b.desiredCol = getColumn(b)
+  highlightLine(b, oldCursor)
+
+proc insert*(b: Buffer; s: string) =
+  removeSelectedText(b)
+  insertNoSelect(b, s)
+
+proc dedentSingleLine(b: Buffer; i: int) =
+  if b[i] == '\t':
+    b.cursor = i+1
+    backspaceNoSelect(b)
+    if b.selected.b >= 0: dec b.selected.b
+  elif b[i] == ' ':
+    var spaces = 1
+    while spaces < b.tabSize and b[i+spaces] == ' ':
+      inc spaces
+    b.cursor = i+spaces
+    for j in 1..spaces:
+      backspaceNoSelect(b)
+      if b.selected.b >= 0: dec b.selected.b
+
+proc dedent*(b: Buffer) =
+  if b.selected.b < 0:
+    var i = b.cursor
+    while i >= 1 and b[i-1] != '\L': dec i
+    dedentSingleLine(b, i)
+  else:
+    var i = b.selected.a
+    while i >= 1 and b[i-1] != '\L': dec i
+    while i <= b.selected.b:
+      dedentSingleLine(b, i)
+      inc i
+      while i < b.len-1 and b[i] != '\L': inc i
+      if b[i] == '\L': inc i
+
+proc indentSingleLine(b: Buffer; i: int) =
+  b.cursor = i
+  for j in 1..b.tabSize:
+    # XXX proper undo handling
+    insertNoSelect(b, " ")
+    assert b.selected.b >= 0
+    inc b.selected.b
+
+proc indent*(b: Buffer) =
+  if b.selected.b < 0:
+    insert(b, "\t")
+  else:
+    var i = b.selected.a
+    while i >= 1 and b[i-1] != '\L': dec i
+    while i <= b.selected.b:
+      indentSingleLine(b, i)
+      inc i
+      while i < b.len-1 and b[i] != '\L': inc i
+      if b[i] == '\L': inc i
+
+proc insertEnter*(b: Buffer) =
+  # move to the *start* of this line
+  var i = b.cursor
+  while i >= 1 and b[i-1] != '\L': dec i
+  var toInsert = "\L"
+  while true:
+    let c = b[i]
+    if c == ' ' or c == '\t':
+      toInsert.add c
+    else:
+      break
+    inc i
+  b.insert(toInsert)
 
 proc applyUndo(b: Buffer; a: Action) =
   let oldCursor = b.cursor

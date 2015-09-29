@@ -645,7 +645,7 @@ proc highlight(b: Buffer; first, last: int;
 proc isCriticalDelete*(b: Buffer; deleted: seq[Cell]) =
   discard
 
-proc highlightLine*(b: Buffer; oldCursor: int) =
+proc highlightLine*(b: Buffer; oldCursor: Natural) =
   # Updating everything turned out to be way too slow even for files of
   # moderate size.
   if b.lang != langNone:
@@ -653,7 +653,7 @@ proc highlightLine*(b: Buffer; oldCursor: int) =
     var i = oldCursor
     while i >= 1 and b[i-1] != '\L': dec i
     let first = i
-    i = b.cursor-1
+    i = b.cursor
     while b[i] != '\L': inc i
     let last = i
     let initialState = if first == 0: gtNone else: getCell(b, first-1).s

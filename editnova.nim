@@ -7,9 +7,7 @@ import languages
 
 
 # TODO:
-#  - refine select operation
 #  - syntax highlighting is wrong for edge cases (periodic refresh?)
-#  - support for range markers (required for selections)
 #  - large file handling
 #  - show line numbers
 #  - show scroll bars; no horizontal scrolling though
@@ -17,6 +15,9 @@ import languages
 #  - highlighting of ()s
 #  - highlighting of substring occurences
 #  - search&replace
+#  - click in console jumps to file; intelligent file opening
+#  - ask for save changes when closing
+#  - more intelligent jumping around
 
 # Optimizations:
 #  - cache font renderings
@@ -24,7 +25,7 @@ import languages
 
 # BUGS:
 #  - 'undo' removes too much after a PASTE
-
+#  - insert from clipboard needs to be a single undo op
 
 const
   XGap = 5
@@ -130,12 +131,7 @@ template removeBuffer(n) =
     n = nxt
     dec ed.buffersCounter
 
-
-proc runCmd(ed: Editor; cmd: string): bool =
-  ed.promptCon.hist.addCmd(cmd)
-  if cmd.startsWith("#"):
-    ed.theme.bg = parseColor(cmd)
-  cmd == "quit" or cmd == "q"
+include prompt
 
 proc hasConsole(ed: Editor): bool = ed.consoleRect.x >= 0
 
@@ -237,7 +233,6 @@ proc mainProc(ed: Editor) =
             main.insertEnter()
           elif active==prompt:
             if ed.runCmd(prompt.fullText): break
-            prompt.clear
           elif active==console:
             enterPressed(ed.con)
         of SDL_SCANCODE_ESCAPE:
@@ -247,28 +242,47 @@ proc mainProc(ed: Editor) =
           else:
             if active==main: active = prompt
             else: active = main
-        of SDL_SCANCODE_RIGHT: active.right((w.keysym.modstate and KMOD_CTRL) != 0)
-        of SDL_SCANCODE_LEFT: active.left((w.keysym.modstate and KMOD_CTRL) != 0)
+        of SDL_SCANCODE_RIGHT:
+          if (w.keysym.modstate and KMOD_SHIFT) != 0:
+            active.selectRight((w.keysym.modstate and KMOD_CTRL) != 0)
+          else:
+            active.deselect()
+            active.right((w.keysym.modstate and KMOD_CTRL) != 0)
+        of SDL_SCANCODE_LEFT:
+          if (w.keysym.modstate and KMOD_SHIFT) != 0:
+            active.selectLeft((w.keysym.modstate and KMOD_CTRL) != 0)
+          else:
+            active.deselect()
+            active.left((w.keysym.modstate and KMOD_CTRL) != 0)
         of SDL_SCANCODE_DOWN:
-          if active==prompt:
+          if (w.keysym.modstate and KMOD_SHIFT) != 0:
+            active.selectDown((w.keysym.modstate and KMOD_CTRL) != 0)
+          elif active==prompt:
             ed.promptCon.downPressed()
           elif active == console:
             ed.con.downPressed()
           else:
-            active.down((w.keysym.modstate and KMOD_CTRL) != 0)
+           active.deselect()
+           active.down((w.keysym.modstate and KMOD_CTRL) != 0)
         of SDL_SCANCODE_UP:
-          if active==prompt:
+          if (w.keysym.modstate and KMOD_SHIFT) != 0:
+            active.selectUp((w.keysym.modstate and KMOD_CTRL) != 0)
+          elif active==prompt:
             ed.promptCon.upPressed()
           elif active == console:
             ed.con.upPressed()
           else:
+            active.deselect()
             active.up((w.keysym.modstate and KMOD_CTRL) != 0)
         of SDL_SCANCODE_TAB:
           if (w.keysym.modstate and KMOD_CTRL) != 0:
             main = main.next
             active = main
           elif active == main:
-            main.insert("\t")
+            if (w.keysym.modstate and KMOD_SHIFT) != 0:
+              main.dedent()
+            else:
+              main.indent()
           elif active == console:
             ed.con.tabPressed()
           elif active == prompt:
@@ -287,11 +301,18 @@ proc mainProc(ed: Editor) =
           elif w.keysym.sym == ord('b'):
             ed.con.sendBreak()
           elif w.keysym.sym == ord('f'):
-            discard "find"
+            let text = active.getSelectedText()
+            active = prompt
+            prompt.clear()
+            prompt.insert "find " & text
           elif w.keysym.sym == ord('g'):
-            discard "goto line"
+            active = prompt
+            if prompt.len == 0:
+              prompt.insert "goto "
           elif w.keysym.sym == ord('h'):
-            discard "replace"
+            active = prompt
+            if prompt.len == 0:
+              prompt.insert "replace "
           elif w.keysym.sym == ord('x'):
             let text = active.getSelectedText
             if text.len > 0:
@@ -355,7 +376,8 @@ proc mainProc(ed: Editor) =
 
     let statusBar = ed.renderText(ed.statusMsg & main.filename &
                         repeatChar(10) & "Ln: " & $(getLine(main)+1) &
-                                        " Col: " & $(getColumn(main)+1),
+                                        " Col: " & $(getColumn(main)+1) &
+                                        " \\t: " & $main.tabSize,
                         ed.theme.font, ed.theme.fg)
     renderer.draw(statusBar, ed.screenH-FontSize-YGap*2)
     present(renderer)

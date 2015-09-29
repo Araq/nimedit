@@ -17,7 +17,7 @@ type
     s*: MarkerClass
 
   Buffer* = ref object
-    cursor*: int
+    cursor*: Natural
     firstLine*, span*, numberOfLines*, currentLine*, desiredCol*: int
     mouseX*, mouseY*, clicks*, readOnly*: int
     front*, back*: seq[Cell]

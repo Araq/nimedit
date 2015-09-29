@@ -132,7 +132,7 @@ proc tabFill(b: Buffer; buffer: var array[CharBufSize, char]; bufres: var int;
   buffer[bufres] = '\0'
 
 proc getBg(b: Buffer; i: int; bg: Color): Color =
-  if b.selected.a <= i and i <= b.selected.b: return b.mgr.b[mcSelected]
+  if i <= b.selected.b and b.selected.a <= i: return b.mgr.b[mcSelected]
   for m in items(b.markers):
     if m.a <= i and i <= m.b:
       return b.mgr.b[m.s]
