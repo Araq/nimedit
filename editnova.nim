@@ -8,11 +8,12 @@ import languages
 
 
 # TODO:
-#  - search&replace
+#  - search&replace: we need a way to select highlighted matches
 #  - minimap
 #  - click in console jumps to file
 #  - port to Mac
 #  - more intelligent showing of active tabs; select tab with mouse
+#  - better line wrapping
 
 # Optional:
 #  - large file handling
@@ -75,7 +76,7 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.theme.active[true] = parseColor"#FFA500"
   ed.theme.active[false] = parseColor"#C0C0C0"
   #ed.theme.bg = parseColor"#0c090a"
-  ed.theme.bg = parseColor"#2d2d2d"
+  ed.theme.bg = color(41, 41, 41, 0) #parseColor"#2d2d2d"
   ed.theme.fg = parseColor"#fafafa"
   ed.theme.cursor = ed.theme.fg
 

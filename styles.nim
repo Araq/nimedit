@@ -66,6 +66,12 @@ proc fontByName*(m: var FontManager; name: string; size: byte;
     when defined(windows):
       location = r"C:\Windows\Fonts\"
       result = openFont(location & name & ".ttf", size.cint)
+    elif defined(macosx):
+      location = r"/System/Library/Fonts/"
+      result = openFont(location & name & ".ttf", size.cint)
+    elif defined(linux):
+      location = r"/usr/share/fonts/truetype/msttcorefonts"
+      result = openFont(location & name & ".ttf", size.cint)
     else:
       discard "XXX implement for other OSes"
   if result.isNil:
