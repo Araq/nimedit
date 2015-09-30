@@ -14,9 +14,7 @@ import languages
 #  - port to Mac
 #  - more intelligent showing of active tabs; select tab with mouse
 
-# BUGS:
-#  - insert from clipboard needs to be a single undo op
-
+# Optional:
 #  - large file handling
 #  - show line numbers
 #  - show scroll bars
@@ -359,7 +357,7 @@ proc mainProc(ed: Editor) =
               discard sdl2.setClipboardText(text)
           elif w.keysym.sym == ord('v'):
             let text = sdl2.getClipboardText()
-            active.insert($text)
+            active.insertFromClipboard($text)
             freeClipboardText(text)
           elif w.keysym.sym == ord('o'):
             let previousLocation =

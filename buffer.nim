@@ -350,8 +350,19 @@ proc getSelectedText*(b: Buffer): string =
 proc removeSelectedText*(b: Buffer) =
   if b.selected.b < 0: return
   b.cursor = b.selected.b+1
+  let oldCursor = b.cursor
+  setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
+  b.actions.add(Action(k: delFinished, pos: b.cursor, word: ""))
+  edit(b)
   while b.cursor > b.selected.a:
-    backspaceNoSelect(b, true)
+    if b.cursor <= 0: break
+    if b.cursor-1 <= b.readOnly: break
+    prepareForEdit(b)
+    let ch = b.rawBackspace(overrideUtf8=true)
+    b.actions[^1].word.add ch
+    b.actions[^1].pos = b.cursor
+  b.desiredCol = getColumn(b)
+  highlightLine(b, oldCursor)
   b.selected.b = -1
 
 proc deselect*(b: Buffer) {.inline.} = b.selected.b = -1
@@ -397,16 +408,16 @@ proc deleteKey*(b: Buffer) =
   else:
     removeSelectedText(b)
 
-proc insertNoSelect(b: Buffer; s: string) =
+proc insertNoSelect(b: Buffer; s: string; singleUndoOp=false) =
   if b.cursor <= b.readOnly or s.len == 0: return
   let oldCursor = b.cursor
   prepareForEdit(b)
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
-  if b.actions.len > 0 and b.actions[^1].k == ins:
+  if b.actions.len > 0 and b.actions[^1].k == ins and not singleUndoOp:
     b.actions[^1].word.add s
   else:
     b.actions.add(Action(k: ins, pos: b.cursor, word: s))
-  if s[^1] in Whitespace: b.actions[^1].k = insFinished
+  if s[^1] in Whitespace or singleUndoOp: b.actions[^1].k = insFinished
   edit(b)
   rawInsert(b, s)
   b.desiredCol = getColumn(b)
@@ -415,6 +426,10 @@ proc insertNoSelect(b: Buffer; s: string) =
 proc insert*(b: Buffer; s: string) =
   removeSelectedText(b)
   insertNoSelect(b, s)
+
+proc insertFromClipboard*(b: Buffer; s: string) =
+  removeSelectedText(b)
+  insertNoSelect(b, s, true)
 
 proc dedentSingleLine(b: Buffer; i: int) =
   if b[i] == '\t':
@@ -510,8 +525,11 @@ proc applyRedo(b: Buffer; a: Action) =
     prepareForEdit(b)
     # reverse op of delete is insert:
     for i in countup(0, a.word.len-1):
-      b.front.add Cell(c: a.word[i])
-    b.cursor += a.word.len
+      # this is the simples solution to get rid of the CRs that might
+      # have been inserted in the buffer:
+      if a.word[i] != '\C':
+        b.front.add Cell(c: a.word[i])
+        inc b.cursor
   else:
     b.cursor = a.pos + a.word.len
     prepareForEdit(b)
