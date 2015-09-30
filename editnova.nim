@@ -1,19 +1,22 @@
 
-from strutils import contains, startsWith, repeatChar
+import strutils
 from parseutils import parseInt
-from os import extractFilename, splitFile, expandFilename, cmpPaths
+from os import extractFilename, splitFile, expandFilename, cmpPaths, `/`
 import sdl2, sdl2/ttf
-import buffertype, buffer, styles, unicode, dialogs, highlighters, console
-import languages
+import buffertype, buffer, styles, unicode, highlighters, console
+import languages, themes, nimscriptsupport
+
+when defined(windows):
+  import dialogs
 
 
 # TODO:
-#  - search&replace: we need a way to select highlighted matches
-#  - minimap
+#  - search&replace: we need a way to deselect highlighted matches
 #  - click in console jumps to file
 #  - port to Mac
 #  - more intelligent showing of active tabs; select tab with mouse
 #  - better line wrapping
+#  - Nimscript support
 
 # Optional:
 #  - large file handling
@@ -21,35 +24,27 @@ import languages
 #  - show scroll bars
 #  - highlighting of ()s
 #  - highlighting of substring occurences
+#  - minimap
 # Optimizations:
 #  - cache font renderings
 
-
-const
-  XGap = 5
-  YGap = 5
-
 type
-  Theme = object
-    bg, fg, cursor: Color
-    uiA, uiB: Color
-    active: array[bool, Color]
-    font: FontPtr # default font
-
   Editor = ref object
     active, main, prompt, console: Buffer # active points to either
                                           # main, prompt or console
     mainRect, promptRect, consoleRect: Rect
     statusMsg: string
+    uiFont: FontPtr
 
     renderer: RendererPtr
     window: WindowPtr
-    theme: Theme
+    theme: InternalTheme
     screenW, screenH: cint
     buffersCounter: int
     con, promptCon: Console
     mgr: StyleManager
     requestedShutdown, requestedShutdownNext: bool
+    cfgPath: string
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
@@ -72,13 +67,14 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.con.insertPrompt()
   ed.promptCon = newConsole(ed.prompt)
 
-  ed.theme.font = fontM.fontByName("Arial", 12)
+  ed.uiFont = fontM.fontByName("Arial", 12)
   ed.theme.active[true] = parseColor"#FFA500"
   ed.theme.active[false] = parseColor"#C0C0C0"
   #ed.theme.bg = parseColor"#0c090a"
-  ed.theme.bg = color(41, 41, 41, 0) #parseColor"#2d2d2d"
+  ed.theme.bg = parseColor"#292929"
   ed.theme.fg = parseColor"#fafafa"
   ed.theme.cursor = ed.theme.fg
+  ed.cfgPath = os.getAppDir() / "nimscript" / "colors.nims"
 
 proc destroy(ed: Editor) =
   destroyRenderer ed.renderer
@@ -163,18 +159,21 @@ include prompt
 proc hasConsole(ed: Editor): bool = ed.consoleRect.x >= 0
 
 proc layout(ed: Editor) =
-  ed.mainRect = rect(15, YGap*3+FontSize,
+  let yGap = ed.theme.uiYGap
+  let xGap = ed.theme.uiXGap
+  let fontSize = ed.theme.editorFontSize.int
+  ed.mainRect = rect(15, yGap*3+fontSize,
                         ed.screenW - 15*2,
-                        ed.screenH - 7*FontSize - YGap*2)
-  ed.promptRect = rect(15, FontSize+YGap*3 + ed.screenH - 7*FontSize,
+                        ed.screenH - 7*fontSize - yGap*2)
+  ed.promptRect = rect(15, fontSize+yGap*3 + ed.screenH - 7*fontSize,
                           ed.screenW - 15*2,
-                          FontSize+YGap*2)
-  if ed.screenW > 900:
+                          fontSize+yGap*2)
+  if ed.screenW > ed.theme.consoleAfter:
     # enable the console:
     let d = ed.screenW div 2
     ed.mainRect.w = d - 15
     ed.consoleRect = ed.mainRect
-    ed.consoleRect.x += ed.mainRect.w + XGap*2
+    ed.consoleRect.x += ed.mainRect.w + xGap.cint*2
   else:
     # disable console:
     ed.consoleRect.x = -1
@@ -182,7 +181,9 @@ proc layout(ed: Editor) =
     if ed.active == ed.console: ed.active = ed.main
 
 proc drawBorder(ed: Editor; rect: Rect; active: bool) =
-  ed.drawBorder(rect.x - XGap, rect.y - YGap, rect.w + XGap, rect.h + YGap,
+  let yGap = ed.theme.uiYGap
+  let xGap = ed.theme.uiXGap
+  ed.drawBorder(rect.x - xGap, rect.y - yGap, rect.w + xGap, rect.h + yGap,
                 active)
 
 proc withUnsavedChanges(start: Buffer): Buffer =
@@ -194,12 +195,19 @@ proc withUnsavedChanges(start: Buffer): Buffer =
   return nil
 
 proc mainProc(ed: Editor) =
+  setupNimscript()
   var fontM: FontManager = @[]
   setDefaults(ed, fontM)
-  highlighters.setStyles(ed.mgr, fontM)
-  ed.mgr.b[mcSelected] = parseColor("#1d1d1d")
-  ed.mgr.b[mcHighlighted] = parseColor("#000000")
-  ed.mgr.b[mcSelected] = parseColor("#000000")
+  when false:
+    highlighters.setStyles(ed.mgr, fontM)
+    ed.mgr.b[mcSelected] = parseColor("#1d1d1d")
+    ed.mgr.b[mcHighlighted] = parseColor("#000000")
+
+  template loadTheme() =
+    loadTheme(ed.cfgPath, ed.theme, ed.mgr, fontM)
+    ed.uiFont = fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)
+
+  loadTheme()
 
   ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE)
@@ -341,6 +349,8 @@ proc mainProc(ed: Editor) =
             active.selectAll()
           elif w.keysym.sym == ord('b'):
             ed.con.sendBreak()
+          elif w.keysym.sym == ord('e'):
+            ed.runScriptCmd()
           elif w.keysym.sym == ord('f'):
             ed.findCmd()
           elif w.keysym.sym == ord('g'):
@@ -361,15 +371,21 @@ proc mainProc(ed: Editor) =
             active.insertFromClipboard($text)
             freeClipboardText(text)
           elif w.keysym.sym == ord('o'):
-            let previousLocation =
-              if main.filename.len > 0: main.filename.splitFile.dir
-              else: ""
-            let toOpen = chooseFilesToOpen(nil, previousLocation)
-            for p in toOpen:
-              ed.openTab(p)
-            active = main
+            when defined(windows):
+              let previousLocation =
+                if main.filename.len > 0: main.filename.splitFile.dir
+                else: ""
+              let toOpen = chooseFilesToOpen(nil, previousLocation)
+              for p in toOpen:
+                ed.openTab(p)
+              active = main
           elif w.keysym.sym == ord('s'):
             main.save()
+            if cmpPaths(main.filename, ed.cfgPath) == 0:
+              echo "load Theme!"
+              loadTheme()
+            else:
+              echo main.filename, " ", ed.cfgPath
           elif w.keysym.sym == ord('n'):
             let x = newBuffer(unkownName(), addr ed.mgr)
             insertBuffer(main, x)
@@ -400,8 +416,8 @@ proc mainProc(ed: Editor) =
     clear(renderer)
     let fileList = ed.renderText(
       main.heading & (if main.changed: "*" else: ""),
-      ed.theme.font, ed.theme.fg)
-    renderer.draw(fileList, YGap)
+      ed.uiFont, ed.theme.fg)
+    renderer.draw(fileList, ed.theme.uiYGap)
 
     renderer.draw(main, ed.mainRect, ed.theme.bg, ed.theme.cursor,
                   blink==0 and active==main)
@@ -420,8 +436,9 @@ proc mainProc(ed: Editor) =
                         repeatChar(10) & "Ln: " & $(getLine(main)+1) &
                                         " Col: " & $(getColumn(main)+1) &
                                         " \\t: " & $main.tabSize,
-                        ed.theme.font, ed.theme.fg)
-    renderer.draw(statusBar, ed.screenH-FontSize-YGap*2)
+                        ed.uiFont, ed.theme.fg)
+    renderer.draw(statusBar,
+      ed.screenH - ed.theme.editorFontSize.cint - ed.theme.uiYGap*2)
     present(renderer)
   freeFonts fontM
   destroy ed

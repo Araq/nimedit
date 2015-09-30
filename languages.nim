@@ -1,20 +1,10 @@
 
-type
-  TokenClass* = enum
-    gtNone, gtWhitespace, gtDecNumber, gtBinNumber, gtHexNumber,
-    gtOctNumber, gtFloatNumber, gtIdentifier, gtKeyword, gtStringLit,
-    gtLongStringLit, gtCharLit, gtEscapeSequence, # escape sequence like \xff
-    gtOperator, gtPunctuation, gtComment, gtLongComment, gtRegularExpression,
-    gtTagStart, gtTagEnd, gtKey, gtValue, gtRawData, gtAssembler,
-    gtPreprocessor, gtDirective, gtCommand, gtRule, gtLink, gtLabel,
-    gtReference, gtOther, gtGreen, gtYellow, gtRed
+import common
 
+type
   SourceLanguage* = enum
     langNone, langNim, langNimrod, langCpp, langCsharp, langC, langJava,
     langConsole
-
-  MarkerClass* = enum
-    mcSelected, mcHighlighted, mcBreakPoint
 
 const
   sourceLanguageToStr*: array[SourceLanguage, string] = ["none",

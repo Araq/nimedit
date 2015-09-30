@@ -3,15 +3,13 @@
 
 import sdl2, sdl2/ttf
 from strutils import parseHexInt, toLower
-import languages
-
-const
-  FontSize* = 15
+import languages, common
 
 type
-  FontStyle* {.pure.} = enum
-    Normal, Bold, Italic, BoldItalic
-  AFont* = object
+  MarkerClass* = enum
+    mcSelected, mcHighlighted, mcBreakPoint
+
+  AFont = object
     name: string
     size: byte
     fonts: array[FontStyle, FontPtr]
@@ -49,6 +47,10 @@ proc parseColor*(hex: string): Color =
           of "green": 0x00FF00
           of "deeppink": 0xFF1493
           else: parseHexInt(hex)
+  result = color(x shr 16 and 0xff, x shr 8 and 0xff, x and 0xff, 0)
+
+proc colorFromInt*(x: BiggestInt): Color =
+  let x = x.int
   result = color(x shr 16 and 0xff, x shr 8 and 0xff, x and 0xff, 0)
 
 proc loadFont(path: string; size: byte): FontPtr =

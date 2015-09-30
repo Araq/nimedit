@@ -1,24 +1,39 @@
 
+proc singleQuoted(s: string): string =
+  if find(s, {'\L', '\C'}) >= 0:
+    result = escape(s)
+  elif find(s, {' ', '\t'}) >= 0:
+    result = '\'' & s.replace("'", "''") & '\''
+  else:
+    result = s
 
 proc findCmd(ed: Editor) =
   let prompt = ed.prompt
   let text = ed.active.getSelectedText()
   ed.active = prompt
   prompt.clear()
-  prompt.insert "find " & text
+  prompt.insert "find " & text.singleQuoted
 
 proc replaceCmd(ed: Editor) =
   let prompt = ed.prompt
   let text = ed.active.getSelectedText()
   ed.active = prompt
   prompt.clear()
-  prompt.insert "replace " & text & " "
+  prompt.insert "replace " & text.singleQuoted & " "
 
 proc gotoCmd(ed: Editor) =
   let prompt = ed.prompt
   ed.active = prompt
   prompt.clear()
   prompt.insert "goto "
+
+proc runScriptCmd(ed: Editor) =
+  let prompt = ed.prompt
+  let text = ed.active.getSelectedText()
+  ed.active = prompt
+  prompt.clear()
+  prompt.insert "e " & text.singleQuoted & " "
+
 
 const saveChanges = "Closing tab: Save changes ([y]es/[n]o/[a]bort)? "
 
@@ -77,10 +92,17 @@ proc runCmd(ed: Editor; cmd: string): bool =
     discard "too implement"
   of "goto", "g":
     var line = ""
-    i = parseWord(cmd, line, i)
+    i = parseWord(cmd, line, i, true)
     if line.len > 0:
-      var lineAsInt: int
-      if parseutils.parseInt(line, lineAsInt) > 0:
+      var lineAsInt = -1
+      case line
+      of "end", "last", "ending", "e":
+        lineAsInt = high(int)
+      of "begin", "start", "first", "b":
+        lineAsInt = 1
+      else:
+        discard parseutils.parseInt(line, lineAsInt)
+      if lineAsInt >= 0:
         ed.main.gotoLine(lineAsInt)
         ed.active = ed.main
     prompt.clear()

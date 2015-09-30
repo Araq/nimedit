@@ -1,5 +1,5 @@
 
-import styles, languages
+import styles, languages, common
 
 type
   ActionKind* = enum
@@ -43,7 +43,7 @@ proc getCell*(b: Buffer; i: Natural): Cell =
     if i <= b.back.high:
       result = b.back[b.back.high-i]
     else:
-      result = Cell(c: '\L', s: gtNone)
+      result = Cell(c: '\L')
 
 proc setCellStyle*(b: Buffer; i: Natural; s: TokenClass) =
   if i < b.front.len:

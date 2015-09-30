@@ -240,8 +240,9 @@ proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
     inc b.span
   # we need to tell the buffer how many lines *can* be shown to prevent
   # that scrolling is triggered way too early:
+  let fontSize = b.mgr[].getStyle(TokenClass.None).attr.size.int
   while dim.y < dim.h:
-    inc dim.y, FontSize+2
+    inc dim.y, fontSize+2
     inc b.span
   # if not found, ignore mouse request anyway:
   b.clicks = 0

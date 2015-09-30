@@ -1,7 +1,7 @@
 # Implementation uses a gap buffer with explicit undo stack.
 
 import strutils, unicode
-import styles, highlighters
+import styles, highlighters, common
 import sdl2, sdl2/ttf
 import buffertype, unihelp, languages
 from os import splitFile
@@ -369,13 +369,13 @@ proc deselect*(b: Buffer) {.inline.} = b.selected.b = -1
 
 proc selectLeft*(b: Buffer; jump: bool) =
   if b.cursor > 0:
-    if b.selected.b < 0: b.selected.b = b.cursor
+    if b.selected.b < 0: b.selected.b = b.cursor-1
     left(b, jump)
     b.selected.a = b.cursor
 
 proc selectUp*(b: Buffer; jump: bool) =
   if b.cursor > 0:
-    if b.selected.b < 0: b.selected.b = b.cursor
+    if b.selected.b < 0: b.selected.b = b.cursor-1
     up(b, jump)
     b.selected.a = b.cursor
 
@@ -494,12 +494,11 @@ proc insertEnter*(b: Buffer) =
   b.insert(toInsert)
 
 proc gotoLine*(b: Buffer; line: int) =
-  let line = line-1
-  if line >= 0 and line < b.numberOfLines:
-    b.cursor = getLineOffset(b, line)
-    b.currentLine = line
-    b.firstLine = max(0, line - (b.span div 2))
-    b.firstLineOffset = getLineOffset(b, b.firstLine)
+  let line = clamp(line-1, 0, b.numberOfLines-1)
+  b.cursor = getLineOffset(b, line)
+  b.currentLine = line
+  b.firstLine = max(0, line - (b.span div 2))
+  b.firstLineOffset = getLineOffset(b, b.firstLine)
 
 proc applyUndo(b: Buffer; a: Action) =
   let oldCursor = b.cursor
