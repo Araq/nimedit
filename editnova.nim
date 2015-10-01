@@ -403,6 +403,7 @@ proc mainProc(ed: Editor) =
               loadTheme()
             elif cmpPaths(main.filename, ed.cfgActions) == 0:
               loadActions(ed.cfgActions)
+            ed.statusMsg = readyMsg
           elif w.keysym.sym == ord('n'):
             let x = newBuffer(unkownName(), addr ed.mgr)
             insertBuffer(main, x)

@@ -85,7 +85,8 @@ proc scroll(b: Buffer; amount: int) =
   assert amount == 1 or amount == -1
   inc b.currentLine, amount
   if b.currentLine < b.firstLine:
-    b.firstLine = b.currentLine
+    assert b.firstLine == b.currentLine+1
+    dec b.firstLine
     upFirstLineOffset(b)
   elif b.currentLine > b.firstLine + b.span-2:
     inc b.firstLine
@@ -506,10 +507,19 @@ proc indent*(b: Buffer) =
       while i < b.len-1 and b[i] != '\L': inc i
       if b[i] == '\L': inc i
 
+proc getLineFromOffset(b: Buffer; pos: int): Natural =
+  result = 0
+  var pos = pos
+  # do not count the newline at the very end at b[pos]:
+  if pos >= 0 and b[pos] == '\L': dec pos
+  while pos >= 0:
+    if b[pos] == '\L': inc result
+    dec pos
+
 proc gotoPos*(b: Buffer; pos: int) =
   let pos = clamp(pos, 0, b.len)
   b.cursor = pos
-  b.currentLine = getLineOffset(b, pos)
+  b.currentLine = getLineFromOffset(b, pos)
   # don't jump needlessly around if the line is still in the view:
   if b.currentLine >= b.firstLine+1 and b.currentLine < b.firstLine + b.span-1:
     discard "still in view"
