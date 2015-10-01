@@ -339,7 +339,6 @@ proc mainProc(ed: Editor) =
               main.shiftTabPressed()
             else:
               main.tabPressed()
-            handleEvent("onTabPressed")
           elif active == console:
             ed.con.tabPressed()
           elif active == prompt:

@@ -103,8 +103,6 @@ proc handleEvent*(procname: string) =
   let a = getAction(procname)
   if a != nil:
     discard vm.execProc(vm.globalCtx, a, [])
-  else:
-    echo "no handler registered for event ", procname
 
 proc supportsAction*(procname: string): bool = getAction(procname) != nil
 

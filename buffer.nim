@@ -242,6 +242,11 @@ proc rawInsert*(b: Buffer; s: string) =
       updateMarkers(b, 1)
       inc b.cursor
 
+proc rawInsert(b: Buffer; c: Cell) =
+  b.front.add c
+  updateMarkers(b, 1)
+  inc b.cursor
+
 proc loadFromFile*(b: Buffer; filename: string) =
   template detectTabSize() =
     if b.tabSize < 0:
@@ -314,7 +319,7 @@ proc saveAs*(b: Buffer; filename: string) =
   b.lang = fileExtToLanguage(splitFile(filename).ext)
   save(b)
 
-proc rawBackspace(b: Buffer; overrideUtf8=false): string =
+proc rawBackspace(b: Buffer; overrideUtf8=false; undoAction: var string) =
   assert b.cursor == b.front.len
   var x = 0
   let ch = b.front[b.cursor-1].c
@@ -330,13 +335,11 @@ proc rawBackspace(b: Buffer; overrideUtf8=false): string =
       if L > 1 and isCombining(r): discard
       else: break
   # we need to reverse this string here:
-  result = newString(x)
-  var j = 0
-  for i in countdown(b.front.len-1, b.front.len-x):
-    result[j] = b.front[i].c
-    inc j
-  updateMarkers(b, -result.len)
-  b.cursor -= result.len
+  if not undoAction.isNil:
+    for i in countdown(b.front.len-1, b.front.len-x):
+      undoAction.add b.front[i].c
+  updateMarkers(b, -x)
+  b.cursor -= x
   b.front.setLen(b.cursor)
 
 proc backspaceNoSelect(b: Buffer; overrideUtf8=false) =
@@ -345,14 +348,17 @@ proc backspaceNoSelect(b: Buffer; overrideUtf8=false) =
   let oldCursor = b.cursor
   prepareForEdit(b)
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
-  let ch = b.rawBackspace(overrideUtf8)
-  if b.actions.len > 0 and b.actions[^1].k == dele:
-    b.actions[^1].word.add ch
-    b.actions[^1].pos = b.cursor
-  else:
-    b.actions.add(Action(k: dele, pos: b.cursor, word: ch))
+  var ah = b.actions.high
+  if ah == -1 or b.actions[ah].k != dele:
+    setLen(b.actions, ah+2)
+    inc ah
+    b.actions[ah].word = ""
+    b.actions[ah].k = dele
+  b.rawBackspace(overrideUtf8, b.actions[ah].word)
+  b.actions[ah].pos = b.cursor
   edit(b)
-  if ch.len == 1 and ch[0] in Whitespace: b.actions[^1].k = delFinished
+  if b.actions[ah].word.len == 1 and b.actions[ah].word[0] in Whitespace:
+    b.actions[ah].k = delFinished
   b.desiredCol = getColumn(b)
   highlightLine(b, oldCursor)
 
@@ -376,8 +382,7 @@ proc removeSelectedText(b: Buffer; selectedA, selectedB: var int) =
     if b.cursor <= 0: break
     if b.cursor-1 <= b.readOnly: break
     prepareForEdit(b)
-    let ch = b.rawBackspace(overrideUtf8=true)
-    b.actions[^1].word.add ch
+    b.rawBackspace(overrideUtf8=true, b.actions[^1].word)
     b.actions[^1].pos = b.cursor
   b.desiredCol = getColumn(b)
   highlightLine(b, oldCursor)
@@ -423,7 +428,7 @@ proc backspace*(b: Buffer; overrideUtf8=false) =
 proc deleteKey*(b: Buffer) =
   if b.selected.b < 0:
     if b.cursor >= b.len: return
-    let (r, L) = lastRune(b, b.cursor+1)
+    let (_, L) = lastRune(b, b.cursor+1)
     inc(b.cursor, L)
     backspace(b)
   else:
@@ -503,7 +508,7 @@ proc indent*(b: Buffer) =
       if b[i] == '\L': inc i
 
 proc gotoPos*(b: Buffer; pos: int) =
-  let pos = clamp(pos, 0, b.len-1)
+  let pos = clamp(pos, 0, b.len)
   b.cursor = pos
   b.currentLine = getLineOffset(b, pos)
   # don't jump needlessly around if the line is still in the view:
@@ -569,38 +574,51 @@ proc gotoLine*(b: Buffer; line: int) =
 proc applyUndo(b: Buffer; a: Action) =
   let oldCursor = b.cursor
   if a.k <= insFinished:
-    b.cursor = a.pos + a.word.len
+    #b.cursor = a.pos + a.word.len
+    #b.cursor = a.pos
+    gotoPos(b, a.pos + a.word.len)
     prepareForEdit(b)
-    b.cursor = a.pos
     # reverse op of insert is delete:
-    b.front.setLen(b.cursor)
+    var dummy: string = nil
+    for i in 1..a.word.len:
+      b.rawBackspace(overrideUtf8=true, dummy)
+    #b.front.setLen(b.cursor)
   else:
-    b.cursor = a.pos
+    #b.cursor = a.pos
+    gotoPos(b, a.pos)
     prepareForEdit(b)
     # reverse op of delete is insert:
     for i in countdown(a.word.len-1, 0):
-      b.front.add Cell(c: a.word[i])
-    b.cursor += a.word.len
+      b.rawInsert Cell(c: a.word[i])
+      #b.front.add Cell(c: a.word[i])
+    gotoPos(b, b.cursor + a.word.len)
   highlightLine(b, oldCursor)
 
 proc applyRedo(b: Buffer; a: Action) =
   let oldCursor = b.cursor
   if a.k <= insFinished:
-    b.cursor = a.pos
+    #b.cursor = a.pos
+    gotoPos(b, a.pos)
     prepareForEdit(b)
     # reverse op of delete is insert:
     for i in countup(0, a.word.len-1):
       # this is the simples solution to get rid of the CRs that might
       # have been inserted in the buffer:
       if a.word[i] != '\C':
-        b.front.add Cell(c: a.word[i])
-        inc b.cursor
+        b.rawInsert Cell(c: a.word[i])
+        #b.front.add Cell(c: a.word[i])
+        #inc b.cursor
   else:
-    b.cursor = a.pos + a.word.len
+    #b.cursor = a.pos + a.word.len
+    gotoPos(b, a.pos + a.word.len)
     prepareForEdit(b)
-    b.cursor = a.pos
+    #b.cursor = a.pos
+    #gotoPos(b, a.pos)
     # reverse op of insert is delete:
-    b.front.setLen(b.cursor)
+    var dummy: string = nil
+    for i in 1..a.word.len:
+      b.rawBackspace(overrideUtf8=true, dummy)
+    #b.front.setLen(b.cursor)
   highlightLine(b, oldCursor)
 
 proc undo*(b: Buffer) =
