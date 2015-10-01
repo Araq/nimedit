@@ -11,3 +11,11 @@ proc doQuote*(selected: string): string =
   for x in split(selected):
     if result.len > 0: result.add ", "
     result.add escape(x)
+
+proc commas*(selected: string): string =
+  result = ""
+  for x in split(selected):
+    if result.len > 0: result.add ", "
+    result.add x
+
+

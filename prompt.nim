@@ -29,7 +29,6 @@ proc gotoCmd(ed: Editor) =
 
 proc runScriptCmd(ed: Editor) =
   let prompt = ed.prompt
-  let text = ed.active.getSelectedText()
   ed.active = prompt
   prompt.clear()
   prompt.insert "e "

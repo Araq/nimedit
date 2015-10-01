@@ -181,8 +181,7 @@ proc up*(b: Buffer; jump: bool) =
       i += graphemeLen(b, i)
       dec col
     scroll(b, -1)
-  b.cursor = i
-  if b.cursor < 0: b.cursor = 0
+  b.cursor = max(0, i)
 
 proc down*(b: Buffer; jump: bool) =
   var col = b.desiredCol
@@ -574,30 +573,24 @@ proc gotoLine*(b: Buffer; line: int) =
 proc applyUndo(b: Buffer; a: Action) =
   let oldCursor = b.cursor
   if a.k <= insFinished:
-    #b.cursor = a.pos + a.word.len
-    #b.cursor = a.pos
     gotoPos(b, a.pos + a.word.len)
     prepareForEdit(b)
     # reverse op of insert is delete:
     var dummy: string = nil
     for i in 1..a.word.len:
       b.rawBackspace(overrideUtf8=true, dummy)
-    #b.front.setLen(b.cursor)
   else:
-    #b.cursor = a.pos
     gotoPos(b, a.pos)
     prepareForEdit(b)
     # reverse op of delete is insert:
     for i in countdown(a.word.len-1, 0):
       b.rawInsert Cell(c: a.word[i])
-      #b.front.add Cell(c: a.word[i])
     gotoPos(b, b.cursor + a.word.len)
   highlightLine(b, oldCursor)
 
 proc applyRedo(b: Buffer; a: Action) =
   let oldCursor = b.cursor
   if a.k <= insFinished:
-    #b.cursor = a.pos
     gotoPos(b, a.pos)
     prepareForEdit(b)
     # reverse op of delete is insert:
@@ -606,19 +599,13 @@ proc applyRedo(b: Buffer; a: Action) =
       # have been inserted in the buffer:
       if a.word[i] != '\C':
         b.rawInsert Cell(c: a.word[i])
-        #b.front.add Cell(c: a.word[i])
-        #inc b.cursor
   else:
-    #b.cursor = a.pos + a.word.len
     gotoPos(b, a.pos + a.word.len)
     prepareForEdit(b)
-    #b.cursor = a.pos
-    #gotoPos(b, a.pos)
     # reverse op of insert is delete:
     var dummy: string = nil
     for i in 1..a.word.len:
       b.rawBackspace(overrideUtf8=true, dummy)
-    #b.front.setLen(b.cursor)
   highlightLine(b, oldCursor)
 
 proc undo*(b: Buffer) =

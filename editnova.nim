@@ -11,10 +11,9 @@ when defined(windows):
 
 
 # TODO:
-#  - markers need to be updated on insert and deletes
+#  - undo&redo screw up the current line number
 #  - regex search&replace
 #  - click in console jumps to file
-#  - port to Mac: Make Apple-Key the same as CTRL
 #  - more intelligent showing of active tabs; select tab with mouse
 #  - better line wrapping
 
@@ -30,6 +29,9 @@ when defined(windows):
 
 const
   readyMsg = "Ready."
+
+  controlKey = when defined(macosx): KMOD_GUI or KMOD_CTRL else: KMOD_CTRL
+
 
 type
   EditorState = enum
@@ -51,7 +53,7 @@ type
     buffersCounter: int
     con, promptCon: Console
     mgr: StyleManager
-    cfgPath: string
+    cfgColors, cfgActions: string
     state: EditorState
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
@@ -82,7 +84,8 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.theme.bg = parseColor"#292929"
   ed.theme.fg = parseColor"#fafafa"
   ed.theme.cursor = ed.theme.fg
-  ed.cfgPath = os.getAppDir() / "nimscript" / "colors.nims"
+  ed.cfgColors = os.getAppDir() / "nimscript" / "colors.nims"
+  ed.cfgActions = os.getAppDir() / "nimscript" / "actions.nims"
 
 proc destroy(ed: Editor) =
   destroyRenderer ed.renderer
@@ -110,12 +113,12 @@ proc renderText(ed: Editor;
   freeSurface(surf)
   return texture
 
-proc draw(renderer: RendererPtr; image: TexturePtr; y: int) =
+proc draw(renderer: RendererPtr; image: TexturePtr; x, y: int) =
   var
     iW: cint
     iH: cint
   queryTexture(image, nil, nil, addr(iW), addr(iH))
-  let r = rect(15, y.cint, iW, iH)
+  let r = rect(x.cint, y.cint, iW, iH)
   copy(renderer, image, nil, unsafeAddr r)
   destroy image
 
@@ -143,6 +146,7 @@ proc openTab(ed: Editor; filename: string) =
     ed.statusMsg = getCurrentExceptionMsg()
     return
 
+  ed.statusMsg = readyMsg
   # be intelligent:
   var it = ed.main
   while true:
@@ -202,21 +206,23 @@ proc withUnsavedChanges(start: Buffer): Buffer =
     if result == start: break
   return nil
 
+proc displayNL(s: string): string =
+  if s.len == 0: return "LF"
+  case s
+  of "\C\L": return "CRLF"
+  of "\C": return "CR"
+  else: return "LF"
+
 proc mainProc(ed: Editor) =
-  setupNimscript()
   var fontM: FontManager = @[]
   setDefaults(ed, fontM)
-  when false:
-    highlighters.setStyles(ed.mgr, fontM)
-    ed.mgr.b[mcSelected] = parseColor("#1d1d1d")
-    ed.mgr.b[mcHighlighted] = parseColor("#000000")
+  setupNimscript(ed.cfgColors, ed.cfgActions)
 
   template loadTheme() =
-    loadTheme(ed.cfgPath, ed.theme, ed.mgr, fontM)
+    loadTheme(ed.cfgColors, ed.theme, ed.mgr, fontM)
     ed.uiFont = fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)
 
   loadTheme()
-  loadActions(os.getAppDir() / "nimscript" / "actions.nims")
 
   ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE)
@@ -300,38 +306,38 @@ proc mainProc(ed: Editor) =
             else: active = main
         of SDL_SCANCODE_RIGHT:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            active.selectRight((w.keysym.modstate and KMOD_CTRL) != 0)
+            active.selectRight((w.keysym.modstate and controlKey) != 0)
           else:
             active.deselect()
-            active.right((w.keysym.modstate and KMOD_CTRL) != 0)
+            active.right((w.keysym.modstate and controlKey) != 0)
         of SDL_SCANCODE_LEFT:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            active.selectLeft((w.keysym.modstate and KMOD_CTRL) != 0)
+            active.selectLeft((w.keysym.modstate and controlKey) != 0)
           else:
             active.deselect()
-            active.left((w.keysym.modstate and KMOD_CTRL) != 0)
+            active.left((w.keysym.modstate and controlKey) != 0)
         of SDL_SCANCODE_DOWN:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            active.selectDown((w.keysym.modstate and KMOD_CTRL) != 0)
+            active.selectDown((w.keysym.modstate and controlKey) != 0)
           elif active==prompt:
             ed.promptCon.downPressed()
           elif active == console:
             ed.con.downPressed()
           else:
             active.deselect()
-            active.down((w.keysym.modstate and KMOD_CTRL) != 0)
+            active.down((w.keysym.modstate and controlKey) != 0)
         of SDL_SCANCODE_UP:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            active.selectUp((w.keysym.modstate and KMOD_CTRL) != 0)
+            active.selectUp((w.keysym.modstate and controlKey) != 0)
           elif active==prompt:
             ed.promptCon.upPressed()
           elif active == console:
             ed.con.upPressed()
           else:
             active.deselect()
-            active.up((w.keysym.modstate and KMOD_CTRL) != 0)
+            active.up((w.keysym.modstate and controlKey) != 0)
         of SDL_SCANCODE_TAB:
-          if (w.keysym.modstate and KMOD_CTRL) != 0:
+          if (w.keysym.modstate and controlKey) != 0:
             main = main.next
             active = main
           elif active == main:
@@ -346,7 +352,7 @@ proc mainProc(ed: Editor) =
         of SDL_SCANCODE_F5:
           highlightEverything(active)
         else: discard
-        if (w.keysym.modstate and KMOD_CTRL) != 0:
+        if (w.keysym.modstate and controlKey) != 0:
           # CTRL+Z: undo
           # CTRL+shift+Z: redo
           if w.keysym.sym == ord('z'):
@@ -393,8 +399,10 @@ proc mainProc(ed: Editor) =
               active = main
           elif w.keysym.sym == ord('s'):
             main.save()
-            if cmpPaths(main.filename, ed.cfgPath) == 0:
+            if cmpPaths(main.filename, ed.cfgColors) == 0:
               loadTheme()
+            elif cmpPaths(main.filename, ed.cfgActions) == 0:
+              loadActions(ed.cfgActions)
           elif w.keysym.sym == ord('n'):
             let x = newBuffer(unkownName(), addr ed.mgr)
             insertBuffer(main, x)
@@ -426,7 +434,7 @@ proc mainProc(ed: Editor) =
     let fileList = ed.renderText(
       main.heading & (if main.changed: "*" else: ""),
       ed.uiFont, ed.theme.fg)
-    renderer.draw(fileList, ed.theme.uiYGap)
+    renderer.draw(fileList, 15, ed.theme.uiYGap)
 
     renderer.draw(main, ed.mainRect, ed.theme.bg, ed.theme.cursor,
                   blink==0 and active==main)
@@ -441,14 +449,19 @@ proc mainProc(ed: Editor) =
                   blink==0 and active==prompt)
     ed.drawBorder(ed.promptRect, active==prompt)
 
-    let statusBar = ed.renderText(ed.statusMsg & main.filename &
-                        repeatChar(10) & "Ln: " & $(getLine(main)+1) &
-                                        " Col: " & $(getColumn(main)+1) &
-                                        " \\t: " & $main.tabSize,
+    let statusBar = ed.renderText(ed.statusMsg & "     " & main.filename,
                         ed.uiFont,
                         if ed.statusMsg == readyMsg: ed.theme.fg else: color(0xff, 0x44, 0x44, 0))
-    renderer.draw(statusBar,
-      ed.screenH - ed.theme.editorFontSize.cint - ed.theme.uiYGap*2)
+    let bottom = ed.screenH - ed.theme.editorFontSize.cint - ed.theme.uiYGap*2
+
+    let position = ed.renderText("Ln: " & $(getLine(main)+1) &
+                                 " Col: " & $(getColumn(main)+1) &
+                                 " \\t: " & $main.tabSize &
+                                 " \\n: " & main.lineending.displayNL,
+                                 ed.uiFont, ed.theme.fg)
+    renderer.draw(statusBar, 15, bottom)
+    renderer.draw(position, ed.screenW - 12*ed.theme.uiFontSize.int, bottom)
+
     present(renderer)
   freeFonts fontM
   destroy ed

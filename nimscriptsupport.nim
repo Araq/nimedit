@@ -24,7 +24,7 @@ proc getIdent(n: PNode): int =
   else: -1
 
 var
-  actionsModule: PSym
+  actionsModule, colorsModule: PSym
 
 proc getAction(x: string): PSym = strTableGet(actionsModule.tab, getIdent(x))
 
@@ -78,7 +78,7 @@ proc extractStyles(result: var StyleManager; fm: var FontManager;
   else:
     raiseVariableError("tokens", "array[TokenClass, (Color, FontStyle)]")
 
-proc setupNimscript*() =
+proc setupNimscript*(colorsScript, actionsScript: string) =
   passes.gIncludeFile = includeModule
   passes.gImportModule = importModule
 
@@ -93,11 +93,18 @@ proc setupNimscript*() =
   registerPass(semPass)
   registerPass(evalPass)
 
+  colorsModule = makeModule(colorsScript)
+  incl(colorsModule.flags, sfMainModule)
+  vm.globalCtx = setupVM(colorsModule, colorsScript)
+  compileSystemModule()
 
-proc loadActions*(scriptName: string) =
-  var m = makeModule(scriptName)
-  processModule(m, llStreamOpen(scriptName, fmRead), nil)
-  actionsModule = m
+  actionsModule = makeModule(actionsScript)
+  processModule(actionsModule, llStreamOpen(actionsScript, fmRead), nil)
+
+
+proc loadActions*(actionsScript: string) =
+  resetModule(actionsModule)
+  processModule(actionsModule, llStreamOpen(actionsScript, fmRead), nil)
 
 proc handleEvent*(procname: string) =
   let a = getAction(procname)
@@ -113,16 +120,12 @@ proc runTransformator*(procname, selectedText: string): string =
     if res.isStrLit:
       result = res.strVal
 
-proc loadTheme*(scriptName: string; result: var InternalTheme;
+proc loadTheme*(colorsScript: string; result: var InternalTheme;
                 sm: var StyleManager; fm: var FontManager) =
-  #setDefaultLibpath()
-  var m = makeModule(scriptName)
-  incl(m.flags, sfMainModule)
+  let m = colorsModule
+  resetModule(m)
 
-  vm.globalCtx = setupVM(m, scriptName)
-
-  compileSystemModule()
-  processModule(m, llStreamOpen(scriptName, fmRead), nil)
+  processModule(m, llStreamOpen(colorsScript, fmRead), nil)
 
   template trivialField(field) =
     getGlobal("theme", astToStr field, result.field)
@@ -151,7 +154,3 @@ proc loadTheme*(scriptName: string; result: var InternalTheme;
   trivialField consoleAfter
 
   extractStyles sm, fm, result.editorFontSize
-
-  # ensure everything can be called again:
-  #resetAllModulesHard()
-  #vm.globalCtx = nil

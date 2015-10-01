@@ -207,7 +207,12 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
   # no match, just suggest something, but ignore crap starting with a dot:
   if sug < 0:
     sug = 0
-    while sug < c.files.high and c.files[sug][0] == '.': inc sug
+    while sug < c.files.high:
+      if c.files[sug][0] == '.': inc sug
+      elif c.files[sug] == "nimcache": inc sug
+      elif c.files[sug].endsWith(".exe"): inc sug
+      else: break
+  if sug >% c.files.high: return
   # these inserts&deletes do not count as changed event:
   let oldChanged = b.changed
   for i in 0..<c.beforeSuggestionPos: backspace(b, overrideUtf8=true)
