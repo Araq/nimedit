@@ -76,9 +76,13 @@ proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
 
 proc doReplace*(b: Buffer): bool =
   if b.activeMarker < b.markers.len:
-    removeSelectedText(b, b.markers[b.activeMarker].a,
-                          b.markers[b.activeMarker].b)
-    let r = b.markers[b.activeMarker].replacement
-    if r.len > 0: insert(b, r)
+    # we have to copy it here and delete it immediately so that the updates
+    # to b.markers that 'removeSelectedText' and 'insert' perform do not
+    # affect us:
+    let m = b.markers[b.activeMarker]
+    var x = m.a
+    var y = m.b
     b.markers.delete b.activeMarker
+    removeSelectedText(b, x, y)
+    if m.replacement.len > 0: insert(b, m.replacement)
     result = true

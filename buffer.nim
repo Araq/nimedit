@@ -201,6 +201,16 @@ proc down*(b: Buffer; jump: bool) =
   if b.cursor > L: b.cursor = L
   if b.cursor < 0: b.cursor = 0
 
+proc updateMarkers(b: Buffer; cursorMovement: int) =
+  for x in mitems(b.markers):
+    if x.b < b.cursor+cursorMovement:
+      discard
+    elif b.cursor+cursorMovement in x.a..x.b:
+      x.b += cursorMovement
+    else:
+      x.a += cursorMovement
+      x.b += cursorMovement
+
 proc rawInsert*(b: Buffer; s: string) =
   for i in 0..<s.len:
     case s[i]
@@ -208,22 +218,27 @@ proc rawInsert*(b: Buffer; s: string) =
       b.front.add Cell(c: '\L')
       inc b.numberOfLines
       scroll(b, 1)
+      updateMarkers(b, 1)
       inc b.cursor
     of '\C':
       if i < s.len-1 and s[i+1] != '\L':
         b.front.add Cell(c: '\L')
         inc b.numberOfLines
         scroll(b, 1)
+        updateMarkers(b, 1)
         inc b.cursor
     of '\t':
       for i in 1..tabWidth:
         b.front.add Cell(c: ' ')
+        updateMarkers(b, 1)
         inc b.cursor
     of '\0':
       b.front.add Cell(c: '_')
+      updateMarkers(b, 1)
       inc b.cursor
     else:
       b.front.add Cell(c: s[i])
+      updateMarkers(b, 1)
       inc b.cursor
 
 proc loadFromFile*(b: Buffer; filename: string) =
@@ -304,7 +319,9 @@ proc rawBackspace(b: Buffer; overrideUtf8=false): string =
   let ch = b.front[b.cursor-1].c
   if ch.ord < 128 or overrideUtf8:
     x = 1
-    if ch == '\L': dec b.numberOfLines
+    if ch == '\L':
+      dec b.numberOfLines
+      scroll(b, -1)
   else:
     while true:
       let (r, L) = lastRune(b, b.cursor-1-x)
@@ -317,6 +334,7 @@ proc rawBackspace(b: Buffer; overrideUtf8=false): string =
   for i in countdown(b.front.len-1, b.front.len-x):
     result[j] = b.front[i].c
     inc j
+  updateMarkers(b, -result.len)
   b.cursor -= result.len
   b.front.setLen(b.cursor)
 
@@ -497,7 +515,7 @@ proc gotoPos*(b: Buffer; pos: int) =
 proc gotoFirstMarker*(b: Buffer): bool =
   b.activeMarker = 0
   if b.activeMarker < b.markers.len:
-    gotoPos(b, b.markers[b.activeMarker].b)
+    gotoPos(b, b.markers[b.activeMarker].b+1)
     result = true
 
 proc gotoNextMarker*(b: Buffer) =
@@ -505,14 +523,14 @@ proc gotoNextMarker*(b: Buffer) =
   if b.activeMarker >= b.markers.len:
     b.activeMarker = 0
   if b.activeMarker < b.markers.len:
-    gotoPos(b, b.markers[b.activeMarker].b)
+    gotoPos(b, b.markers[b.activeMarker].b+1)
 
 proc gotoPrevMarker*(b: Buffer) =
   dec b.activeMarker
   if b.activeMarker > 0:
     b.activeMarker = b.markers.high
   if b.activeMarker < b.markers.len:
-    gotoPos(b, b.markers[b.activeMarker].b)
+    gotoPos(b, b.markers[b.activeMarker].b+1)
 
 proc tabPressed*(b: Buffer) =
   #if b.markers.len == 0:

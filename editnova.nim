@@ -12,8 +12,9 @@ when defined(windows):
 
 # TODO:
 #  - markers need to be updated on insert and deletes
+#  - regex search&replace
 #  - click in console jumps to file
-#  - port to Mac
+#  - port to Mac: Make Apple-Key the same as CTRL
 #  - more intelligent showing of active tabs; select tab with mouse
 #  - better line wrapping
 #  - Nimscript support
