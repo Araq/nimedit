@@ -14,7 +14,7 @@ type
     s*: TokenClass
   Marker* = object
     a*, b*: int
-    s*: MarkerClass
+    replacement*: string
 
   Buffer* = ref object
     cursor*: Natural
@@ -27,8 +27,9 @@ type
     undoIdx*: int
     changed*: bool
     tabSize*: int8  # we detect the tabsize on loading a document
-    selected*: Marker
+    selected*: tuple[a, b: int]
     markers*: seq[Marker]
+    activeMarker*: int
     heading*: string
     filename*: string
     lang*: SourceLanguage

@@ -38,7 +38,7 @@ proc whichColumn(b: Buffer; i: int; dim: Rect; font: FontPtr;
 proc mouseSelectWholeLine(b: Buffer) =
   var first = b.cursor
   while first > 0 and b[first-1] != '\L': dec first
-  b.selected = Marker(a: first, b: b.cursor, s: mcSelected)
+  b.selected = (first, b.cursor)
 
 proc mouseSelectCurrentToken(b: Buffer) =
   var first = b.cursor
@@ -53,7 +53,7 @@ proc mouseSelectCurrentToken(b: Buffer) =
     while last < b.len and b.getCell(last+1).s == b.getCell(b.cursor).s:
       inc last
   b.cursor = first
-  b.selected = Marker(a: first, b: last, s: mcSelected)
+  b.selected = (first, last)
 
 proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: byte) =
   # requested cursor update?
@@ -134,7 +134,7 @@ proc getBg(b: Buffer; i: int; bg: Color): Color =
   if i <= b.selected.b and b.selected.a <= i: return b.mgr.b[mcSelected]
   for m in items(b.markers):
     if m.a <= i and i <= m.b:
-      return b.mgr.b[m.s]
+      return b.mgr.b[mcHighlighted]
   return bg
 
 proc drawLine(r: RendererPtr; b: Buffer; i: int;
@@ -215,13 +215,6 @@ proc setCursorFromMouse*(b: Buffer; dim: Rect; mouse: Point; clicks: int) =
   # unselect on single mouse click:
   if clicks < 2:
     b.selected.b = -1
-  when false:
-    var i = 0
-    while i < b.markers.len:
-      if b.markers[i].s == mcSelected:
-        b.markers.del i
-      else:
-        inc i
 
 proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
            blink: bool) =

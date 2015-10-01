@@ -11,7 +11,7 @@ when defined(windows):
 
 
 # TODO:
-#  - search&replace: we need a way to deselect highlighted matches
+#  - markers need to be updated on insert and deletes
 #  - click in console jumps to file
 #  - port to Mac
 #  - more intelligent showing of active tabs; select tab with mouse
@@ -28,7 +28,15 @@ when defined(windows):
 # Optimizations:
 #  - cache font renderings
 
+const
+  readyMsg = "Ready."
+
 type
+  EditorState = enum
+    requestedNothing,
+    requestedShutdown, requestedShutdownNext,
+    requestedReplace
+
   Editor = ref object
     active, main, prompt, console: Buffer # active points to either
                                           # main, prompt or console
@@ -43,15 +51,15 @@ type
     buffersCounter: int
     con, promptCon: Console
     mgr: StyleManager
-    requestedShutdown, requestedShutdownNext: bool
     cfgPath: string
+    state: EditorState
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
 proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.screenW = cint(650)
   ed.screenH = cint(780)
-  ed.statusMsg = "Ready "
+  ed.statusMsg = readyMsg
 
   ed.main = newBuffer(unkownName(), addr ed.mgr)
   ed.prompt = newBuffer("", addr ed.mgr)
@@ -229,7 +237,7 @@ proc mainProc(ed: Editor) =
     if waitEventTimeout(e, timeout) == SdlSuccess:
       case e.kind
       of QuitEvent:
-        ed.requestedShutdown = true
+        ed.state = requestedShutdown
         let b = withUnsavedChanges(main)
         if b == nil: break
         main = b
@@ -267,7 +275,7 @@ proc mainProc(ed: Editor) =
         a.scrollLines(-w.y*3)
       of TextInput:
         let w = e.text
-        active.insert($w.text)
+        active.insertSingleKey($w.text)
       of KeyDown:
         let w = e.key
         case w.keysym.scancode
@@ -327,9 +335,9 @@ proc mainProc(ed: Editor) =
             active = main
           elif active == main:
             if (w.keysym.modstate and KMOD_SHIFT) != 0:
-              main.dedent()
+              main.shiftTabPressed()
             else:
-              main.indent()
+              main.tabPressed()
           elif active == console:
             ed.con.tabPressed()
           elif active == prompt:
@@ -368,8 +376,11 @@ proc mainProc(ed: Editor) =
               discard sdl2.setClipboardText(text)
           elif w.keysym.sym == ord('v'):
             let text = sdl2.getClipboardText()
-            active.insertFromClipboard($text)
+            active.insert($text)
             freeClipboardText(text)
+          elif w.keysym.sym == ord('u'):
+            main.markers.setLen 0
+            if ed.state == requestedReplace: ed.state = requestedNothing
           elif w.keysym.sym == ord('o'):
             when defined(windows):
               let previousLocation =
@@ -382,10 +393,7 @@ proc mainProc(ed: Editor) =
           elif w.keysym.sym == ord('s'):
             main.save()
             if cmpPaths(main.filename, ed.cfgPath) == 0:
-              echo "load Theme!"
               loadTheme()
-            else:
-              echo main.filename, " ", ed.cfgPath
           elif w.keysym.sym == ord('n'):
             let x = newBuffer(unkownName(), addr ed.mgr)
             insertBuffer(main, x)
@@ -405,8 +413,8 @@ proc mainProc(ed: Editor) =
       else:
         inc blink
         if blink >= 5: blink = 0
-    if ed.requestedShutdownNext:
-      ed.requestedShutdownNext = false
+    if ed.state == requestedShutdownNext:
+      ed.state = requestedShutdown
       let b = withUnsavedChanges(main)
       if b == nil: break
       main = b
@@ -436,7 +444,8 @@ proc mainProc(ed: Editor) =
                         repeatChar(10) & "Ln: " & $(getLine(main)+1) &
                                         " Col: " & $(getColumn(main)+1) &
                                         " \\t: " & $main.tabSize,
-                        ed.uiFont, ed.theme.fg)
+                        ed.uiFont,
+                        if ed.statusMsg == readyMsg: ed.theme.fg else: color(0xff, 0x44, 0x44, 0))
     renderer.draw(statusBar,
       ed.screenH - ed.theme.editorFontSize.cint - ed.theme.uiYGap*2)
     present(renderer)

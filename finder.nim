@@ -47,17 +47,38 @@ proc find(s: Buffer; sub: string, start: Natural; options: SearchOptions): int =
   preprocessSub(sub, a, options)
   result = findAux(s, sub, start, a, options)
 
-proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption]) =
+proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
+               toReplaceWith: string = nil) =
   assert searchTerm.len > 0
   const Letters = {'a'..'z', '_', 'A'..'Z', '\128'..'\255', '0'..'9'}
   template inWordBoundary(): untyped =
     (i == 0 or b[i-1] notin Letters) and
       (last >= b.len or b[last] notin Letters)
-  var i = 0
+  b.markers.setLen 0
+  # from cursor to the end:
+  var i = b.cursor.int
   while true:
     i = find(b, searchTerm, i, options)
     if i < 0: break
     var last = i+searchTerm.len
     if wordBoundary notin options or inWordBoundary():
-      b.markers.add(Marker(a: i, b: last-1, s: mcHighlighted))
+      b.markers.add(Marker(a: i, b: last-1, replacement: toReplaceWith))
     inc i, searchTerm.len
+  # from the beginning up to the cursor:
+  i = 0
+  while true:
+    i = find(b, searchTerm, i, options)
+    if i >= b.cursor or i < 0: break
+    var last = i+searchTerm.len
+    if wordBoundary notin options or inWordBoundary():
+      b.markers.add(Marker(a: i, b: last-1, replacement: toReplaceWith))
+    inc i, searchTerm.len
+
+proc doReplace*(b: Buffer): bool =
+  if b.activeMarker < b.markers.len:
+    removeSelectedText(b, b.markers[b.activeMarker].a,
+                          b.markers[b.activeMarker].b)
+    let r = b.markers[b.activeMarker].replacement
+    if r.len > 0: insert(b, r)
+    b.markers.delete b.activeMarker
+    result = true

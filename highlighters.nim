@@ -581,53 +581,6 @@ proc getNextToken(g: var GeneralTokenizer, lang: SourceLanguage) =
   of langJava: javaNextToken(g)
   of langConsole: consoleNextToken(g)
 
-when false:
-  proc setStyle(s: var StyleManager; m: var FontManager;
-                cls: TokenClass; col: string; style: FontStyle) =
-    s.setStyle m, cls, FontAttr(color: parseColor(col),
-                                style: style, size: FontSize)
-
-  proc setStyles*(s: var StyleManager; m: var FontManager) =
-    template ss(key, val; style = FontStyle.Normal) =
-      s.setStyle m, key, val, style
-
-    ss TokenClass.None, "White"
-    ss TokenClass.Whitespace, "White"
-    ss TokenClass.DecNumber, "Blue"
-    ss TokenClass.BinNumber, "Blue"
-    ss TokenClass.HexNumber, "Blue"
-    ss TokenClass.OctNumber, "Blue"
-    ss TokenClass.FloatNumber, "Blue"
-    ss TokenClass.Identifier, "White"
-    ss TokenClass.Keyword, "White", FontStyle.Bold
-    ss TokenClass.StringLit, "Orange"
-    ss TokenClass.LongStringLit, "Orange"
-    ss TokenClass.CharLit, "Orange"
-    ss TokenClass.EscapeSequence, "Gray"
-    ss TokenClass.Operator, "White"
-    ss TokenClass.Punctuation, "White"
-    ss TokenClass.Comment, "Green", FontStyle.Italic
-    ss TokenClass.LongComment, "DeepPink"
-    ss TokenClass.RegularExpression, "Pink"
-    ss TokenClass.TagStart, "Yellow"
-    ss TokenClass.TagEnd, "Yellow"
-    ss TokenClass.Key, "White"
-    ss TokenClass.Value, "Blue"
-    ss TokenClass.RawData, "Pink"
-    ss TokenClass.Assembler, "Pink"
-    ss TokenClass.Preprocessor, "Yellow"
-    ss TokenClass.Directive, "Yellow"
-    ss TokenClass.Command, "Yellow"
-    ss TokenClass.Rule, "Yellow"
-    ss TokenClass.Link, "Blue", FontStyle.Bold
-    ss TokenClass.Label, "Blue"
-    ss TokenClass.Reference, "Blue"
-    ss TokenClass.Other, "White"
-    ss TokenClass.Red, "Red"
-    ss TokenClass.Green, "Green"
-    ss TokenClass.Yellow, "Yellow"
-
-
 proc highlight(b: Buffer; first, last: int;
                initialState: TokenClass) =
   var g: GeneralTokenizer

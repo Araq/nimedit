@@ -35,44 +35,66 @@ proc runScriptCmd(ed: Editor) =
   prompt.insert "e " & text.singleQuoted & " "
 
 
-const saveChanges = "Closing tab: Save changes ([y]es/[n]o/[a]bort)? "
+const
+  saveChanges = "Closing tab: Save changes? [yes|no|abort]"
+  askForReplace = "Replace? [yes|no|abort|all]"
 
 proc askForQuitTab(ed: Editor) =
   let prompt = ed.prompt
   prompt.clear()
-  prompt.insert saveChanges
+  ed.statusMsg = saveChanges
   ed.active = prompt
 
 proc runCmd(ed: Editor; cmd: string): bool =
   let prompt = ed.prompt
-  if cmd.startsWith(saveChanges):
-    let action = cmd[^1]
-    case action
-    of 'a', 'A':
-      ed.prompt.clear()
-      ed.active = ed.main
-      ed.requestedShutdown = false
-      ed.requestedShutdownNext = false
-    of 'n', 'N':
-      ed.prompt.clear()
-      ed.main.changed = false
-      removeBuffer(ed.main)
-      ed.active = ed.main
-      ed.requestedShutdownNext = true
-    of 'y', 'Y':
-      ed.prompt.clear()
-      ed.main.save()
-      removeBuffer(ed.main)
-      ed.active = ed.main
-      ed.requestedShutdownNext = true
-    else: discard
-    return
 
   ed.promptCon.hist.addCmd(cmd)
+
+  template unmark() =
+    ed.active = ed.main
+    ed.state = requestedNothing
+    ed.statusMsg = readyMsg
+    ed.main.markers.setLen 0
 
   var action = ""
   var i = parseWord(cmd, action, 0, true)
   case action
+  of "yes", "y":
+    if ed.state == requestedShutdown:
+      ed.prompt.clear()
+      ed.main.save()
+      removeBuffer(ed.main)
+      ed.active = ed.main
+      ed.state = requestedShutdownNext
+    elif ed.state == requestedReplace:
+      if ed.main.doReplace():
+        ed.main.gotoNextMarker()
+      else:
+        ed.statusMsg = readyMsg
+        ed.state = requestedNothing
+        ed.active = ed.main
+  of "no", "n":
+    if ed.state == requestedShutdown:
+      ed.prompt.clear()
+      ed.main.changed = false
+      removeBuffer(ed.main)
+      ed.active = ed.main
+      ed.state = requestedShutdownNext
+    elif ed.state == requestedReplace:
+      ed.main.gotoNextMarker()
+  of "abort", "a":
+    ed.prompt.clear()
+    ed.active = ed.main
+    ed.state = requestedNothing
+  of "all":
+    if ed.state == requestedReplace:
+      ed.main.activeMarker = 0
+      while ed.main.doReplace():
+        ed.main.gotoNextMarker()
+      ed.statusMsg = readyMsg
+      ed.prompt.clear()
+      ed.active = ed.main
+      ed.state = requestedNothing
   of "quit", "q": result = true
   of "find", "f":
     var searchPhrase = ""
@@ -81,6 +103,17 @@ proc runCmd(ed: Editor; cmd: string): bool =
       var searchOptions = ""
       i = parseWord(cmd, searchOptions, i)
       ed.main.findNext(searchPhrase, parseSearchOptions searchOptions)
+      if ed.main.gotoFirstMarker():
+        ed.prompt.clear()
+        ed.prompt.insert("next")
+      else:
+        ed.statusMsg = "Match not found."
+    else:
+      unmark()
+  of "next":
+    ed.main.gotoNextMarker()
+  of "prev":
+    ed.main.gotoPrevMarker()
   of "replace", "r":
     var searchPhrase = ""
     i = parseWord(cmd, searchPhrase, i)
@@ -89,7 +122,16 @@ proc runCmd(ed: Editor; cmd: string): bool =
       i = parseWord(cmd, toReplaceWith, i)
       var searchOptions = ""
       i = parseWord(cmd, searchOptions, i)
-    discard "too implement"
+      ed.main.findNext(searchPhrase, parseSearchOptions searchOptions,
+                       toReplaceWith)
+      if ed.main.gotoFirstMarker():
+        ed.prompt.clear()
+        ed.state = requestedReplace
+        ed.statusMsg = askForReplace
+      else:
+        ed.statusMsg = "Match not found."
+    else:
+      unmark()
   of "goto", "g":
     var line = ""
     i = parseWord(cmd, line, i, true)

@@ -11,7 +11,6 @@ const
   Letters = {'a'..'z', 'A'..'Z', '0'..'9', '_', '\128'..'\255'}
 
 include drawbuffer
-include finder
 
 proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   new(result)
@@ -339,7 +338,7 @@ proc backspaceNoSelect(b: Buffer; overrideUtf8=false) =
   highlightLine(b, oldCursor)
 
 proc selectAll*(b: Buffer) =
-  b.selected = Marker(a: 0, b: b.len-1, s: mcSelected)
+  b.selected = (0, b.len-1)
 
 proc getSelectedText*(b: Buffer): string =
   if b.selected.b < 0: return ""
@@ -347,14 +346,14 @@ proc getSelectedText*(b: Buffer): string =
   for i in b.selected.a .. b.selected.b:
     result.add b[i]
 
-proc removeSelectedText*(b: Buffer) =
-  if b.selected.b < 0: return
-  b.cursor = b.selected.b+1
+proc removeSelectedText(b: Buffer; selectedA, selectedB: var int) =
+  if selectedB < 0: return
+  b.cursor = selectedB+1
   let oldCursor = b.cursor
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
   b.actions.add(Action(k: delFinished, pos: b.cursor, word: ""))
   edit(b)
-  while b.cursor > b.selected.a:
+  while b.cursor > selectedA:
     if b.cursor <= 0: break
     if b.cursor-1 <= b.readOnly: break
     prepareForEdit(b)
@@ -363,7 +362,10 @@ proc removeSelectedText*(b: Buffer) =
     b.actions[^1].pos = b.cursor
   b.desiredCol = getColumn(b)
   highlightLine(b, oldCursor)
-  b.selected.b = -1
+  selectedB = -1
+
+proc removeSelectedText*(b: Buffer) =
+  removeSelectedText(b, b.selected.a, b.selected.b)
 
 proc deselect*(b: Buffer) {.inline.} = b.selected.b = -1
 
@@ -423,13 +425,15 @@ proc insertNoSelect(b: Buffer; s: string; singleUndoOp=false) =
   b.desiredCol = getColumn(b)
   highlightLine(b, oldCursor)
 
-proc insert*(b: Buffer; s: string) =
+proc insertSingleKey*(b: Buffer; s: string) =
   removeSelectedText(b)
   insertNoSelect(b, s)
 
-proc insertFromClipboard*(b: Buffer; s: string) =
+proc insert*(b: Buffer; s: string) =
   removeSelectedText(b)
   insertNoSelect(b, s, true)
+
+include finder
 
 proc dedentSingleLine(b: Buffer; i: int) =
   if b[i] == '\t':
@@ -478,6 +482,49 @@ proc indent*(b: Buffer) =
       inc i
       while i < b.len-1 and b[i] != '\L': inc i
       if b[i] == '\L': inc i
+
+proc gotoPos*(b: Buffer; pos: int) =
+  let pos = clamp(pos, 0, b.len-1)
+  b.cursor = pos
+  b.currentLine = getLineOffset(b, pos)
+  # don't jump needlessly around if the line is still in the view:
+  if b.currentLine >= b.firstLine+1 and b.currentLine < b.firstLine + b.span-1:
+    discard "still in view"
+  else:
+    b.firstLine = max(0, b.currentLine - (b.span div 2))
+    b.firstLineOffset = getLineOffset(b, b.firstLine)
+
+proc gotoFirstMarker*(b: Buffer): bool =
+  b.activeMarker = 0
+  if b.activeMarker < b.markers.len:
+    gotoPos(b, b.markers[b.activeMarker].b)
+    result = true
+
+proc gotoNextMarker*(b: Buffer) =
+  inc b.activeMarker
+  if b.activeMarker >= b.markers.len:
+    b.activeMarker = 0
+  if b.activeMarker < b.markers.len:
+    gotoPos(b, b.markers[b.activeMarker].b)
+
+proc gotoPrevMarker*(b: Buffer) =
+  dec b.activeMarker
+  if b.activeMarker > 0:
+    b.activeMarker = b.markers.high
+  if b.activeMarker < b.markers.len:
+    gotoPos(b, b.markers[b.activeMarker].b)
+
+proc tabPressed*(b: Buffer) =
+  #if b.markers.len == 0:
+  indent(b)
+  #else:
+  #  gotoNextMarker(b)
+
+proc shiftTabPressed*(b: Buffer) =
+  #if b.markers.len == 0:
+  dedent(b)
+  #else:
+  #  gotoPrevMarker(b)
 
 proc insertEnter*(b: Buffer) =
   # move to the *start* of this line
