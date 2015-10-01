@@ -23,7 +23,7 @@ proc getIdent(n: PNode): int =
   else: -1
 
 proc getGlobal(varname, field: string): PNode =
-  let n = vm.globalCtx.getGlobalValue(getCompilerProc varname)
+  let n = vm.globalCtx.getGlobalValue(getNimScriptSymbol varname)
   if n.kind != nkObjConstr:
     raiseVariableError(varname, "object")
   for i in 1..< n.len:
@@ -60,7 +60,7 @@ proc getGlobal(varname, field: string; result: var type(parseColor"")) =
 
 proc extractStyles(result: var StyleManager; fm: var FontManager;
                    fontSize: byte) =
-  let n = vm.globalCtx.getGlobalValue(getCompilerProc "tokens")
+  let n = vm.globalCtx.getGlobalValue(getNimScriptSymbol "tokens")
   if n.kind == nkBracket and n.len == int(high(TokenClass))+1:
     for i, x in n.sons:
       if x.kind == nkPar and x.len == 2 and x[0].isIntLit and x[1].isIntLit:

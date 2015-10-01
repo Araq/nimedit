@@ -20,5 +20,5 @@ type
     consoleAfter*: Natural
 
 var
-  theme* {.compilerProc.}: Theme
-  tokens* {.compilerProc.}: array[TokenClass, (Color, FontStyle)]
+  theme* {.exportNims.}: Theme
+  tokens* {.exportNims.}: array[TokenClass, (Color, FontStyle)]
