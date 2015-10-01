@@ -86,7 +86,7 @@ proc scroll(b: Buffer; amount: int) =
   if b.currentLine < b.firstLine:
     b.firstLine = b.currentLine
     upFirstLineOffset(b)
-  elif b.currentLine > b.firstLine + b.span-1:
+  elif b.currentLine > b.firstLine + b.span-2:
     inc b.firstLine
     downFirstLineOffset(b)
 
