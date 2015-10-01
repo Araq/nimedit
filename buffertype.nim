@@ -18,7 +18,8 @@ type
 
   Buffer* = ref object
     cursor*: Natural
-    firstLine*, span*, numberOfLines*, currentLine*, desiredCol*: int
+    firstLine*, currentLine*, desiredCol*, numberOfLines*: Natural
+    span*: int
     firstLineOffset*: Natural
     mouseX*, mouseY*, clicks*, readOnly*: int
     front*, back*: seq[Cell]

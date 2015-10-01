@@ -32,7 +32,7 @@ proc runScriptCmd(ed: Editor) =
   let text = ed.active.getSelectedText()
   ed.active = prompt
   prompt.clear()
-  prompt.insert "e " & text.singleQuoted & " "
+  prompt.insert "e "
 
 
 const
@@ -59,6 +59,20 @@ proc runCmd(ed: Editor; cmd: string): bool =
   var action = ""
   var i = parseWord(cmd, action, 0, true)
   case action
+  of "exec", "e":
+    var procName = ""
+    i = parseWord(cmd, procName, i)
+    if procname.len > 0:
+      if supportsAction(procName):
+        let x = runTransformator(procName, ed.main.getSelectedText())
+        if not x.isNil:
+          ed.main.removeSelectedText()
+          ed.main.insert(x)
+      else:
+        ed.statusMsg = "Unknown command: " & procname
+    ed.prompt.clear()
+    ed.active = ed.main
+    ed.state = requestedNothing
   of "yes", "y":
     if ed.state == requestedShutdown:
       ed.prompt.clear()

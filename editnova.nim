@@ -17,7 +17,6 @@ when defined(windows):
 #  - port to Mac: Make Apple-Key the same as CTRL
 #  - more intelligent showing of active tabs; select tab with mouse
 #  - better line wrapping
-#  - Nimscript support
 
 # Optional:
 #  - large file handling
@@ -217,6 +216,7 @@ proc mainProc(ed: Editor) =
     ed.uiFont = fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)
 
   loadTheme()
+  loadActions(os.getAppDir() / "nimscript" / "actions.nims")
 
   ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE)
@@ -339,6 +339,7 @@ proc mainProc(ed: Editor) =
               main.shiftTabPressed()
             else:
               main.tabPressed()
+            handleEvent("onTabPressed")
           elif active == console:
             ed.con.tabPressed()
           elif active == prompt:

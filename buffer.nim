@@ -68,8 +68,9 @@ proc prepareForEdit(b: Buffer) =
   b.changed = true
 
 proc upFirstLineOffset(b: Buffer) =
-  assert b.firstLineOffset == 0 or b[b.firstLineOffset-1] == '\L'
+  if b.firstLineOffset == 0: return
   assert b.firstLineOffset > 0
+  assert b[b.firstLineOffset-1] == '\L'
   var i = b.firstLineOffset-1
   while i > 0 and b[i-1] != '\L': dec i
   b.firstLineOffset = max(0, i)

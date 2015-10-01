@@ -3,7 +3,8 @@ import
   compiler/ast, compiler/modules, compiler/passes, compiler/passaux,
   compiler/condsyms, compiler/options, compiler/sem, compiler/semdata,
   compiler/llstream, compiler/vm, compiler/vmdef, compiler/commands,
-  compiler/msgs, compiler/magicsys, compiler/lists, compiler/idents
+  compiler/msgs, compiler/magicsys, compiler/lists, compiler/idents,
+  compiler/astalgo
 
 from compiler/scriptconfig import setupVM
 
@@ -21,6 +22,11 @@ proc getIdent(n: PNode): int =
   if n.kind == nkIdent: n.ident.id
   elif n.kind == nkSym: n.sym.name.id
   else: -1
+
+var
+  actionsModule: PSym
+
+proc getAction(x: string): PSym = strTableGet(actionsModule.tab, getIdent(x))
 
 proc getGlobal(varname, field: string): PNode =
   let n = vm.globalCtx.getGlobalValue(getNimScriptSymbol varname)
@@ -78,6 +84,7 @@ proc setupNimscript*() =
 
   options.libpath = os.findExe("nim").splitPath()[0] /../ "lib"
   appendStr(searchPaths, options.libpath)
+  appendStr(searchPaths, options.libpath / "pure")
 
   initDefines()
   defineSymbol("nimscript")
@@ -86,12 +93,34 @@ proc setupNimscript*() =
   registerPass(semPass)
   registerPass(evalPass)
 
+
+proc loadActions*(scriptName: string) =
+  var m = makeModule(scriptName)
+  processModule(m, llStreamOpen(scriptName, fmRead), nil)
+  actionsModule = m
+
+proc handleEvent*(procname: string) =
+  let a = getAction(procname)
+  if a != nil:
+    discard vm.execProc(vm.globalCtx, a, [])
+  else:
+    echo "no handler registered for event ", procname
+
+proc supportsAction*(procname: string): bool = getAction(procname) != nil
+
+proc runTransformator*(procname, selectedText: string): string =
+  let a = getAction(procname)
+  if a != nil:
+    let res = vm.execProc(vm.globalCtx, a, [newStrNode(nkStrLit, selectedText)])
+    if res.isStrLit:
+      result = res.strVal
+
 proc loadTheme*(scriptName: string; result: var InternalTheme;
                 sm: var StyleManager; fm: var FontManager) =
   #setDefaultLibpath()
-
   var m = makeModule(scriptName)
   incl(m.flags, sfMainModule)
+
   vm.globalCtx = setupVM(m, scriptName)
 
   compileSystemModule()
@@ -126,5 +155,5 @@ proc loadTheme*(scriptName: string; result: var InternalTheme;
   extractStyles sm, fm, result.editorFontSize
 
   # ensure everything can be called again:
-  resetAllModulesHard()
-  vm.globalCtx = nil
+  #resetAllModulesHard()
+  #vm.globalCtx = nil
