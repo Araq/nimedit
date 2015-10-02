@@ -158,13 +158,21 @@ proc runCmd(ed: Editor; cmd: string): bool =
       else:
         discard parseutils.parseInt(line, lineAsInt)
       if lineAsInt >= 0:
-        ed.main.gotoLine(lineAsInt)
+        var col = -1
+        i = parseWord(cmd, line, i, true)
+        discard parseutils.parseInt(line, col)
+        ed.main.gotoLine(lineAsInt, col)
         ed.active = ed.main
     prompt.clear()
   of "save", "s":
     var p = ""
     i = parseWord(cmd, p, i)
     if p.len > 0:
+      ed.statusMsg = readyMsg
+      try:
+        p = expandFilename(p)
+      except OSError:
+        ed.statusMsg = getCurrentExceptionMsg()
       ed.main.saveAs(p)
     else:
       ed.main.save()

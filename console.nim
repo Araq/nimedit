@@ -342,6 +342,46 @@ proc sendBreak*(c: Console) =
   if c.processRunning:
     requests.send EndToken
 
+proc extractFilePosition*(b: Buffer): (string, int, int) =
+  ## Line is -1 if not an interpretable file position.
+  template parseNumber(line) =
+    while b[i] in Digits:
+      line = line * 10 + (b[i].ord - '0'.ord)
+      inc i
+
+  # assume the cursor is under 'Hint:', 'Error:' etc. This is how the message
+  # might look like:  foo.nim(3, 4) Error: bla bla bla.
+  # As a nice benefit, the same parsing also detects Nim stack traces. :-)
+  var i = b.cursor
+  while i > 0 and b[i-1] != '\L': dec i
+  result = ("", -1, -1)
+  while b[i] == ' ': inc i
+  while i < b.len and b[i] != ' ':
+    if b[i] == '(': break
+    elif b[i] == ':' and b[i+1] != '\\': break
+    result[0].add b[i]
+    inc i
+  var line, col: int
+  if b[i] == '(' and b[i+1] in Digits:
+    inc i
+    parseNumber(line)
+    if b[i] == ',':
+      inc i
+      while b[i] == ' ': inc i
+      parseNumber(col)
+      if b[i] == ')':
+        result[1] = line
+        result[2] = col
+  elif b[i] == ':' and b[i+1] in Digits:
+    inc i
+    parseNumber(line)
+    if b[i] == ':':
+      inc i
+      parseNumber(col)
+      if b[i] == ':':
+        result[1] = line
+        result[2] = col
+
 proc enterPressed*(c: Console) =
   c.files.setLen 0
   let cmd = getCommand(c)

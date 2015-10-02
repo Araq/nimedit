@@ -11,11 +11,12 @@ when defined(windows):
 
 
 # TODO:
-#  - undo&redo screw up the current line number
-#  - regex search&replace
-#  - click in console jumps to file
+#  - "save as" needs to check if such a file already exists
+#  - indent and dedent need to be bulk operations
+#  - regex search&replace; nah, just make it scriptable properly instead
 #  - more intelligent showing of active tabs; select tab with mouse
 #  - better line wrapping
+#  - nimsuggest integration
 
 # Optional:
 #  - large file handling
@@ -138,13 +139,13 @@ template removeBuffer(n) =
     n = nxt
     dec ed.buffersCounter
 
-proc openTab(ed: Editor; filename: string) =
+proc openTab(ed: Editor; filename: string): bool {.discardable.} =
   var fullpath: string
   try:
     fullpath = expandFilename(filename)
   except OSError:
     ed.statusMsg = getCurrentExceptionMsg()
-    return
+    return false
 
   ed.statusMsg = readyMsg
   # be intelligent:
@@ -153,7 +154,7 @@ proc openTab(ed: Editor; filename: string) =
     if cmpPaths(it.filename, fullpath) == 0:
       # just bring the existing tab into focus:
       ed.main = it
-      return
+      return true
     it = it.next
     if it == ed.main: break
 
@@ -162,6 +163,7 @@ proc openTab(ed: Editor; filename: string) =
     x.loadFromFile(fullpath)
     insertBuffer(ed.main, x)
     ed.active = ed.main
+    result = true
   except IOError:
     ed.statusMsg = "cannot open: " & filename
 
@@ -234,8 +236,17 @@ proc mainProc(ed: Editor) =
   template console: expr = ed.console
 
   var blink = 1
+  var clickOnFilename = false
   layout(ed)
   while true:
+    # we need to wait for the next frame until the cursor has moved to the
+    # right position:
+    if clickOnFilename:
+      clickOnFilename = false
+      let (file, line, col) = console.extractFilePosition()
+      if file.len > 0 and line > 0:
+        if ed.openTab(file): gotoLine(main, line, col)
+
     var e = Event(kind: UserEvent5)
     # if we have an external process running in the background, we have a
     # much shorter timeout. Nevertheless this should not affect our blinking
@@ -271,6 +282,7 @@ proc mainProc(ed: Editor) =
         elif hasConsole(ed) and ed.consoleRect.contains(p):
           if active == console:
             console.setCursorFromMouse(ed.consoleRect, p, w.clicks.int)
+            clickOnFilename = w.clicks.int >= 2
           else:
             active = console
       of MouseWheel:

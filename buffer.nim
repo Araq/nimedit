@@ -316,7 +316,11 @@ proc save*(b: Buffer) =
 
 proc saveAs*(b: Buffer; filename: string) =
   b.filename = filename
-  b.lang = fileExtToLanguage(splitFile(filename).ext)
+  b.heading = os.extractFilename(filename)
+  let newlang = fileExtToLanguage(splitFile(filename).ext)
+  if b.lang != newlang:
+    b.lang = newlang
+    highlightEverything(b)
   save(b)
 
 proc rawBackspace(b: Buffer; overrideUtf8=false; undoAction: var string) =
@@ -573,12 +577,17 @@ proc insertEnter*(b: Buffer) =
     inc i
   b.insert(toInsert)
 
-proc gotoLine*(b: Buffer; line: int) =
+proc gotoLine*(b: Buffer; line, col: int) =
   let line = clamp(line-1, 0, b.numberOfLines-1)
   b.cursor = getLineOffset(b, line)
   b.currentLine = line
   b.firstLine = max(0, line - (b.span div 2))
   b.firstLineOffset = getLineOffset(b, b.firstLine)
+  if col > 0:
+    var c = 1
+    while c <= col and b[b.cursor] != '\L':
+      rawRight(b)
+      inc c
 
 proc applyUndo(b: Buffer; a: Action) =
   let oldCursor = b.cursor
