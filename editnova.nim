@@ -11,7 +11,6 @@ when defined(windows):
 
 
 # TODO:
-#  - "save as" needs to check if such a file already exists
 #  - indent and dedent need to be bulk operations
 #  - regex search&replace; nah, just make it scriptable properly instead
 #  - more intelligent showing of active tabs; select tab with mouse

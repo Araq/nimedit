@@ -55,6 +55,10 @@ proc runCmd(ed: Editor; cmd: string): bool =
     ed.statusMsg = readyMsg
     ed.main.markers.setLen 0
 
+  template success() =
+    prompt.clear()
+    ed.active = ed.main
+
   var action = ""
   var i = parseWord(cmd, action, 0, true)
   case action
@@ -173,10 +177,21 @@ proc runCmd(ed: Editor; cmd: string): bool =
         p = expandFilename(p)
       except OSError:
         ed.statusMsg = getCurrentExceptionMsg()
-      ed.main.saveAs(p)
+      if ed.statusMsg == readyMsg:
+        var answer = ""
+        i = parseWord(cmd, answer, i, true)
+        if cmpPaths(ed.main.filename, p) == 0 or
+            not os.fileExists(p) or answer[0] == 'y':
+          ed.main.saveAs(p)
+          success()
+        elif answer[0] == 'n':
+          success()
+        else:
+          ed.statusMsg = "File already exists. Overwrite? [yes|no]"
+          ed.prompt.insert(" no")
     else:
       ed.main.save()
-    prompt.clear()
+      success()
   of "open", "o":
     var p = ""
     i = parseWord(cmd, p, i)
