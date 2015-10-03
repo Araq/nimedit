@@ -15,6 +15,8 @@ when defined(windows):
 #  - regex search&replace; nah, just make it scriptable properly instead
 #  - session of file list
 #  - better line wrapping
+#  - basic auto-complete (use identifiers in active buffers of the same
+#                         language)
 #  - nimsuggest integration
 #  - show declarations in a minimap
 

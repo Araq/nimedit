@@ -59,6 +59,21 @@ proc drawTextWithBorder*(t: InternalTheme; text: string; active: bool;
     result.h += 2
     drawBorder(t, result, active, 4)
 
+proc swapBuffers(a, b: Buffer) =
+  #  a.prev | a | b | b.next
+  #           |-->
+  if a != b:
+    let bn = b.next
+    let ap = a.prev
+    a.prev.next = b
+    a.next = bn
+    a.prev = b
+
+    if b.next != a.prev:
+      b.next.prev = a
+    b.next = a
+    b.prev = ap
+
 proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
                  screenW: cint; e: var Event;
                  active: Buffer): Buffer =
@@ -87,6 +102,18 @@ proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
         let p = point(w.x, w.y)
         if rect.contains(p):
           result = it
+    elif e.kind == MouseMotion:
+      let w = e.motion
+      if (w.state and BUTTON_LMASK) != 0:
+        let p = point(w.x, w.y)
+        if rect.contains(p):
+          if w.xrel >= 4:
+            if it == tabs: tabs = it.next
+            swapBuffers(it, it.next)
+          elif w.xrel <= -4:
+            if it == tabs: tabs = it.prev
+            swapBuffers(it.prev, it)
+
     inc xx, rect.w + t.uiYGap*2
     it = it.next
     if it == tabs: break
