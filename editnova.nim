@@ -14,7 +14,6 @@ when defined(windows):
 #  - indent and dedent need to be bulk operations
 #  - regex search&replace; nah, just make it scriptable properly instead
 #  - session of file list
-#  - more intelligent showing of active tabs; select tab with mouse
 #  - better line wrapping
 #  - nimsuggest integration
 #  - show declarations in a minimap
@@ -105,6 +104,10 @@ template insertBuffer(head, n) =
 template removeBuffer(n) =
   if ed.buffersCounter > 1:
     let nxt = n.next
+    if n == ed.bar:
+      ed.bar = nxt
+    if n == ed.active:
+      ed.active = nxt
     n.next.prev = n.prev
     n.prev.next = n.next
     n = nxt
