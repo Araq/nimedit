@@ -4,7 +4,7 @@ from parseutils import parseInt
 from os import extractFilename, splitFile, expandFilename, cmpPaths, `/`
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
-import languages, themes, nimscriptsupport
+import languages, themes, nimscriptsupport, tabbar
 
 when defined(windows):
   import dialogs
@@ -13,9 +13,11 @@ when defined(windows):
 # TODO:
 #  - indent and dedent need to be bulk operations
 #  - regex search&replace; nah, just make it scriptable properly instead
+#  - session of file list
 #  - more intelligent showing of active tabs; select tab with mouse
 #  - better line wrapping
 #  - nimsuggest integration
+#  - show declarations in a minimap
 
 # Optional:
 #  - large file handling
@@ -55,6 +57,7 @@ type
     mgr: StyleManager
     cfgColors, cfgActions: string
     state: EditorState
+    bar: TabBar
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
@@ -90,43 +93,6 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
 proc destroy(ed: Editor) =
   destroyRenderer ed.renderer
   destroy ed.window
-
-proc rect(x,y,w,h: int): Rect = sdl2.rect(x.cint, y.cint, w.cint, h.cint)
-
-proc drawBorder(ed: Editor; x, y, w, h: int; b: bool) =
-  #ed.renderer.setDrawColor(ed.theme.active[b])
-  when false:
-    var r = rect(x, y, w, h)
-    ed.renderer.drawRect(r)
-    var r2 = rect(x+1, y+1, w-2, h-2)
-    ed.renderer.drawRect(r2)
-  let p = Pixel(col: ed.theme.active[b], thickness: 2,
-                #gradient: ed.theme.active[b])
-                gradient: color(0xff, 0xff, 0xff, 0))
-  ed.renderer.roundedRect(x, y, x+w-1, y+h-1, 8, p)
-  #ed.renderer.roundedRect(x+1, y+1, x+w, y+h, 8, ed.theme.active[b])
-  ed.renderer.setDrawColor(ed.theme.bg)
-
-proc renderText(ed: Editor;
-                message: string; font: FontPtr; color: Color): TexturePtr =
-  var surf: SurfacePtr = renderUtf8Shaded(font, message, color, ed.theme.bg)
-  if surf == nil:
-    echo("TTF_RenderText")
-    return nil
-  var texture: TexturePtr = createTextureFromSurface(ed.renderer, surf)
-  if texture == nil:
-    echo("CreateTexture")
-  freeSurface(surf)
-  return texture
-
-proc draw(renderer: RendererPtr; image: TexturePtr; x, y: int) =
-  var
-    iW: cint
-    iH: cint
-  queryTexture(image, nil, nil, addr(iW), addr(iH))
-  let r = rect(x.cint, y.cint, iW, iH)
-  copy(renderer, image, nil, unsafeAddr r)
-  destroy image
 
 template insertBuffer(head, n) =
   n.next = head
@@ -199,12 +165,6 @@ proc layout(ed: Editor) =
     # if the console is disabled, it cannot have the focus:
     if ed.active == ed.console: ed.active = ed.main
 
-proc drawBorder(ed: Editor; rect: Rect; active: bool) =
-  let yGap = ed.theme.uiYGap
-  let xGap = ed.theme.uiXGap
-  ed.drawBorder(rect.x - xGap, rect.y - yGap, rect.w + xGap, rect.h + yGap,
-                active)
-
 proc withUnsavedChanges(start: Buffer): Buffer =
   result = start
   while true:
@@ -234,6 +194,9 @@ proc mainProc(ed: Editor) =
   ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE)
   ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
+  ed.theme.renderer = ed.renderer
+  ed.theme.uiFontPtr = ed.uiFont
+  ed.bar = ed.main
   template prompt: expr = ed.prompt
   template active: expr = ed.active
   template main: expr = ed.main
@@ -449,34 +412,39 @@ proc mainProc(ed: Editor) =
 
     update(ed.con)
     clear(renderer)
-    let fileList = ed.renderText(
-      main.heading & (if main.changed: "*" else: ""),
-      ed.uiFont, ed.theme.fg)
-    renderer.draw(fileList, 15, ed.theme.uiYGap)
+    when false:
+      let fileList = ed.renderText(
+        main.heading & (if main.changed: "*" else: ""),
+        ed.uiFont, ed.theme.fg)
+      renderer.draw(fileList, 15, ed.theme.uiYGap)
+    let activeTab = drawTabBar(ed.bar, ed.theme, ed.screenW, e, ed.main)
+    if activeTab != nil:
+      main = activeTab
+      active = main
 
     renderer.draw(main, ed.mainRect, ed.theme.bg, ed.theme.cursor,
                   blink==0 and active==main)
-    ed.drawBorder(ed.mainRect, active==main)
+    ed.theme.drawBorder(ed.mainRect, active==main)
 
     if ed.hasConsole:
       renderer.draw(console, ed.consoleRect, ed.theme.bg, ed.theme.cursor,
                     blink==0 and active==console)
-      ed.drawBorder(ed.consoleRect, active==console)
+      ed.theme.drawBorder(ed.consoleRect, active==console)
 
     renderer.draw(prompt, ed.promptRect, ed.theme.bg, ed.theme.cursor,
                   blink==0 and active==prompt)
-    ed.drawBorder(ed.promptRect, active==prompt)
+    ed.theme.drawBorder(ed.promptRect, active==prompt)
 
-    let statusBar = ed.renderText(ed.statusMsg & "     " & main.filename,
+    let statusBar = ed.theme.renderText(ed.statusMsg & "     " & main.filename,
                         ed.uiFont,
                         if ed.statusMsg == readyMsg: ed.theme.fg else: color(0xff, 0x44, 0x44, 0))
     let bottom = ed.screenH - ed.theme.editorFontSize.cint - ed.theme.uiYGap*2
 
-    let position = ed.renderText("Ln: " & $(getLine(main)+1) &
-                                 " Col: " & $(getColumn(main)+1) &
-                                 " \\t: " & $main.tabSize &
-                                 " \\n: " & main.lineending.displayNL,
-                                 ed.uiFont, ed.theme.fg)
+    let position = ed.theme.renderText("Ln: " & $(getLine(main)+1) &
+                                       " Col: " & $(getColumn(main)+1) &
+                                       " \\t: " & $main.tabSize &
+                                       " \\n: " & main.lineending.displayNL,
+                                       ed.uiFont, ed.theme.fg)
     renderer.draw(statusBar, 15, bottom)
     renderer.draw(position, ed.screenW - 12*ed.theme.uiFontSize.int, bottom)
 
