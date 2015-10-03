@@ -2,7 +2,7 @@
 import strutils
 from parseutils import parseInt
 from os import extractFilename, splitFile, expandFilename, cmpPaths, `/`
-import sdl2, sdl2/ttf
+import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
 import languages, themes, nimscriptsupport
 
@@ -94,11 +94,17 @@ proc destroy(ed: Editor) =
 proc rect(x,y,w,h: int): Rect = sdl2.rect(x.cint, y.cint, w.cint, h.cint)
 
 proc drawBorder(ed: Editor; x, y, w, h: int; b: bool) =
-  ed.renderer.setDrawColor(ed.theme.active[b])
-  var r = rect(x, y, w, h)
-  ed.renderer.drawRect(r)
-  var r2 = rect(x+1, y+1, w-2, h-2)
-  ed.renderer.drawRect(r2)
+  #ed.renderer.setDrawColor(ed.theme.active[b])
+  when false:
+    var r = rect(x, y, w, h)
+    ed.renderer.drawRect(r)
+    var r2 = rect(x+1, y+1, w-2, h-2)
+    ed.renderer.drawRect(r2)
+  let p = Pixel(col: ed.theme.active[b], thickness: 2,
+                #gradient: ed.theme.active[b])
+                gradient: color(0xff, 0xff, 0xff, 0))
+  ed.renderer.roundedRect(x, y, x+w-1, y+h-1, 8, p)
+  #ed.renderer.roundedRect(x+1, y+1, x+w, y+h, 8, ed.theme.active[b])
   ed.renderer.setDrawColor(ed.theme.bg)
 
 proc renderText(ed: Editor;
