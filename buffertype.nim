@@ -5,9 +5,11 @@ type
   ActionKind* = enum
     ins, insFinished, dele, delFinished
 
-  Action* = object
+  Action* = object  # we group undo actions by a document version, so that
+                    # operations like 'indent' which consist of multiple
+                    # deletes and inserts are undone by a single undo command.
     k*: ActionKind
-    pos*: int
+    pos*, version*: int
     word*: string
   Cell* = object
     c*: char
@@ -22,6 +24,7 @@ type
     span*: int
     firstLineOffset*: Natural
     mouseX*, mouseY*, clicks*, readOnly*: int
+    version*: int  # document version; used to group undo actions
     front*, back*: seq[Cell]
     mgr*: ptr StyleManager
     actions*: seq[Action]

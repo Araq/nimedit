@@ -11,7 +11,6 @@ when defined(windows):
 
 
 # TODO:
-#  - indent and dedent need to be bulk operations
 #  - regex search&replace; nah, just make it scriptable properly instead
 #  - session of file list
 #  - better line wrapping
@@ -438,7 +437,7 @@ proc mainProc(ed: Editor) =
 
     let statusBar = ed.theme.renderText(ed.statusMsg & "     " & main.filename,
                         ed.uiFont,
-                        if ed.statusMsg == readyMsg: ed.theme.fg else: color(0xff, 0x44, 0x44, 0))
+      if ed.statusMsg == readyMsg: ed.theme.fg else: color(0xff, 0x44, 0x44, 0))
     let bottom = ed.screenH - ed.theme.editorFontSize.cint - ed.theme.uiYGap*2
 
     let position = ed.theme.renderText("Ln: " & $(getLine(main)+1) &

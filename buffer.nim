@@ -358,6 +358,7 @@ proc backspaceNoSelect(b: Buffer; overrideUtf8=false) =
     inc ah
     b.actions[ah].word = ""
     b.actions[ah].k = dele
+    b.actions[ah].version = b.version
   b.rawBackspace(overrideUtf8, b.actions[ah].word)
   b.actions[ah].pos = b.cursor
   edit(b)
@@ -424,6 +425,7 @@ proc selectDown*(b: Buffer; jump: bool) =
     b.selected.b = b.cursor-L
 
 proc backspace*(b: Buffer; overrideUtf8=false) =
+  inc b.version
   if b.selected.b < 0:
     backspaceNoSelect(b, overrideUtf8)
   else:
@@ -446,7 +448,7 @@ proc insertNoSelect(b: Buffer; s: string; singleUndoOp=false) =
   if b.actions.len > 0 and b.actions[^1].k == ins and not singleUndoOp:
     b.actions[^1].word.add s
   else:
-    b.actions.add(Action(k: ins, pos: b.cursor, word: s))
+    b.actions.add(Action(k: ins, pos: b.cursor, word: s, version: b.version))
   if s[^1] in Whitespace or singleUndoOp: b.actions[^1].k = insFinished
   edit(b)
   rawInsert(b, s)
@@ -454,10 +456,12 @@ proc insertNoSelect(b: Buffer; s: string; singleUndoOp=false) =
   highlightLine(b, oldCursor)
 
 proc insertSingleKey*(b: Buffer; s: string) =
+  inc b.version
   removeSelectedText(b)
   insertNoSelect(b, s)
 
 proc insert*(b: Buffer; s: string) =
+  inc b.version
   removeSelectedText(b)
   insertNoSelect(b, s, true)
 
@@ -478,6 +482,7 @@ proc dedentSingleLine(b: Buffer; i: int) =
       if b.selected.b >= 0: dec b.selected.b
 
 proc dedent*(b: Buffer) =
+  inc b.version
   if b.selected.b < 0:
     var i = b.cursor
     while i >= 1 and b[i-1] != '\L': dec i
@@ -494,14 +499,15 @@ proc dedent*(b: Buffer) =
 proc indentSingleLine(b: Buffer; i: int) =
   b.cursor = i
   for j in 1..b.tabSize:
-    # XXX proper undo handling
     insertNoSelect(b, " ")
     assert b.selected.b >= 0
     inc b.selected.b
 
 proc indent*(b: Buffer) =
+  inc b.version
   if b.selected.b < 0:
-    insert(b, "\t")
+    for j in 1..b.tabSize:
+      insertNoSelect(b, " ")
   else:
     var i = b.selected.a
     while i >= 1 and b[i-1] != '\L': dec i
@@ -604,7 +610,6 @@ proc applyUndo(b: Buffer; a: Action) =
     # reverse op of delete is insert:
     for i in countdown(a.word.len-1, 0):
       b.rawInsert Cell(c: a.word[i])
-    gotoPos(b, b.cursor + a.word.len)
   highlightLine(b, oldCursor)
 
 proc applyRedo(b: Buffer; a: Action) =
@@ -627,6 +632,8 @@ proc applyRedo(b: Buffer; a: Action) =
       b.rawBackspace(overrideUtf8=true, dummy)
   highlightLine(b, oldCursor)
 
+template canUndo(): untyped = (b.undoIdx >= 0 and b.undoIdx < b.actions.len)
+
 proc undo*(b: Buffer) =
   when defined(debugUndo):
     echo "undo ----------------------------------------"
@@ -635,9 +642,14 @@ proc undo*(b: Buffer) =
         echo x, "*"
       else:
         echo x
-  if b.undoIdx >= 0 and b.undoIdx < b.actions.len:
+
+  if canUndo():
+    let v = b.actions[b.undoIdx].version
     applyUndo(b, b.actions[b.undoIdx])
     dec(b.undoIdx)
+    while canUndo() and b.actions[b.undoIdx].version == v:
+      applyUndo(b, b.actions[b.undoIdx])
+      dec(b.undoIdx)
 
 proc redo*(b: Buffer) =
   inc(b.undoIdx)
@@ -648,7 +660,12 @@ proc redo*(b: Buffer) =
         echo x, "*"
       else:
         echo x
-  if b.undoIdx >= 0 and b.undoIdx < b.actions.len:
+  if canUndo():
+    let v = b.actions[b.undoIdx].version
     applyRedo(b, b.actions[b.undoIdx])
+    while b.undoIdx+1 >= 0 and b.undoIdx+1 < b.actions.len and
+        b.actions[b.undoIdx+1].version == v:
+      inc(b.undoIdx)
+      applyRedo(b, b.actions[b.undoIdx])
   else:
     dec b.undoIdx
