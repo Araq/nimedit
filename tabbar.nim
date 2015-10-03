@@ -114,6 +114,6 @@ proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
             if it == tabs: tabs = it.prev
             swapBuffers(it.prev, it)
 
-    inc xx, rect.w + t.uiYGap*2
+    inc xx, rect.w + t.uiXGap*2
     it = it.next
     if it == tabs: break

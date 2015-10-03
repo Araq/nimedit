@@ -204,6 +204,14 @@ proc runCmd(ed: Editor; cmd: string): bool =
     ed.main.lang = getSourceLanguage(lang)
     highlightEverything(ed.main)
     prompt.clear()
+  of "config", "conf", "cfg":
+    openTab(ed, ed.cfgColors)
+    prompt.clear()
+    ed.active = ed.main
+  of "script", "scripts":
+    openTab(ed, ed.cfgActions)
+    prompt.clear()
+    ed.active = ed.main
   of "cr":
     ed.main.lineending = "\C"
     prompt.clear()

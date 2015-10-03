@@ -26,7 +26,6 @@ when defined(windows):
 #  - show scroll bars
 #  - highlighting of ()s
 #  - highlighting of substring occurences
-#  - minimap
 # Optimizations:
 #  - cache font renderings
 
@@ -218,7 +217,9 @@ proc mainProc(ed: Editor) =
       clickOnFilename = false
       let (file, line, col) = console.extractFilePosition()
       if file.len > 0 and line > 0:
-        if ed.openTab(file): gotoLine(main, line, col)
+        if ed.openTab(file):
+          gotoLine(main, line, col)
+          active = main
 
     var e = Event(kind: UserEvent5)
     # if we have an external process running in the background, we have a
@@ -417,11 +418,6 @@ proc mainProc(ed: Editor) =
 
     update(ed.con)
     clear(renderer)
-    when false:
-      let fileList = ed.renderText(
-        main.heading & (if main.changed: "*" else: ""),
-        ed.uiFont, ed.theme.fg)
-      renderer.draw(fileList, 15, ed.theme.uiYGap)
     let activeTab = drawTabBar(ed.bar, ed.theme, ed.screenW, e, ed.main)
     if activeTab != nil:
       main = activeTab
