@@ -18,6 +18,7 @@ type
     uiXGap*: Natural
     uiYGap*: Natural
     consoleAfter*: Natural
+    consoleWidth*: Natural
 
 var
   theme* {.exportNims.}: Theme

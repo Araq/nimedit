@@ -152,5 +152,6 @@ proc loadTheme*(colorsScript: string; result: var InternalTheme;
   trivialField uiFontSize
   trivialField tabWidth
   trivialField consoleAfter
+  trivialField consoleWidth
 
   extractStyles sm, fm, result.editorFontSize

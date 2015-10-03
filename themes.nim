@@ -15,5 +15,6 @@ type
     cursorWidth*: range[0..30]
     tabWidth*: Natural
     consoleAfter*: Natural
+    consoleWidth*: Natural
     renderer*: RendererPtr
     uiFontPtr*: FontPtr

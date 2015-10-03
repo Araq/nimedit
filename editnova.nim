@@ -18,6 +18,8 @@ when defined(windows):
 #                         language)
 #  - nimsuggest integration
 #  - show declarations in a minimap
+#  - input of ( [ { with selected text should wrap the text in the parenthesis
+#  - debugger support!
 
 # Optional:
 #  - large file handling
@@ -157,11 +159,12 @@ proc layout(ed: Editor) =
   ed.promptRect = rect(15, fontSize+yGap*3 + ed.screenH - 7*fontSize,
                           ed.screenW - 15*2,
                           fontSize+yGap*2)
-  if ed.screenW > ed.theme.consoleAfter:
+  if ed.screenW > ed.theme.consoleAfter and ed.theme.consoleAfter >= 0:
     # enable the console:
-    let d = ed.screenW div 2
+    let d = ed.screenW * (100 - ed.theme.consoleWidth.cint) div 100
     ed.mainRect.w = d - 15
     ed.consoleRect = ed.mainRect
+    ed.consoleRect.w = ed.screenW - d - 15
     ed.consoleRect.x += ed.mainRect.w + xGap.cint*2
   else:
     # disable console:
@@ -180,7 +183,7 @@ proc withUnsavedChanges(start: Buffer): Buffer =
 proc displayNL(s: string): string =
   if s.len == 0: return "LF"
   case s
-  of "\C\L": return "CRLF"
+  of "\C\L": return "CR-LF"
   of "\C": return "CR"
   else: return "LF"
 
@@ -232,6 +235,7 @@ proc mainProc(ed: Editor) =
   template loadTheme() =
     loadTheme(ed.cfgColors, ed.theme, ed.mgr, fontM)
     ed.uiFont = fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)
+    ed.theme.uiFontPtr = ed.uiFont
 
   loadTheme()
 
@@ -239,7 +243,6 @@ proc mainProc(ed: Editor) =
                             SDL_WINDOW_RESIZABLE)
   ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
   ed.theme.renderer = ed.renderer
-  ed.theme.uiFontPtr = ed.uiFont
   ed.bar = ed.main
   template prompt: expr = ed.prompt
   template active: expr = ed.active
@@ -488,7 +491,7 @@ proc mainProc(ed: Editor) =
     let position = ed.theme.renderText("Ln: " & $(getLine(main)+1) &
                                        " Col: " & $(getColumn(main)+1) &
                                        " \\t: " & $main.tabSize &
-                                       " \\n: " & main.lineending.displayNL,
+                                       " " & main.lineending.displayNL,
                                        ed.uiFont, ed.theme.fg)
     renderer.draw(statusBar, 15, bottom)
     renderer.draw(position, ed.screenW - 12*ed.theme.uiFontSize.int, bottom)
