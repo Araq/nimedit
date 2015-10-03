@@ -12,8 +12,8 @@ when defined(windows):
 
 # TODO:
 #  - regex search&replace; nah, just make it scriptable properly instead
-#  - session of file list
 #  - better line wrapping
+#  - show scroll bars
 #  - basic auto-complete (use identifiers in active buffers of the same
 #                         language)
 #  - nimsuggest integration
@@ -22,7 +22,6 @@ when defined(windows):
 # Optional:
 #  - large file handling
 #  - show line numbers
-#  - show scroll bars
 #  - highlighting of ()s
 #  - highlighting of substring occurences
 # Optimizations:
@@ -57,6 +56,8 @@ type
     cfgColors, cfgActions: string
     state: EditorState
     bar: TabBar
+    ticker: int
+
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
@@ -183,6 +184,46 @@ proc displayNL(s: string): string =
   of "\C": return "CR"
   else: return "LF"
 
+proc filelistFile(): string =
+  const dot = when defined(windows): "" else: "."
+  os.getConfigDir() / dot & "aporia_pro_filelist.txt"
+
+proc saveOpenTabs(ed: Editor) =
+  var f: File
+  if open(f, filelistFile(), fmWrite):
+    var it = ed.main.prev
+    while it != nil:
+      if it.filename.len > 0:
+        f.writeline(it.filename, "\t", it.getLine, "\t", it.getColumn)
+      if it == ed.main: break
+      it = it.prev
+    f.close()
+
+proc loadOpenTabs(ed: Editor) =
+  var oldRoot = ed.main
+  var f: File
+  if open(f, filelistFile()):
+    for line in lines(f):
+      let x = line.split('\t')
+      if ed.openTab(x[0]):
+        gotoLine(ed.main, parseInt(x[1]), parseInt(x[2]))
+        ed.active = ed.main
+        if oldRoot != nil:
+          removeBuffer(oldRoot)
+          oldRoot = nil
+    f.close()
+
+const
+  DefaultTimeOut = 500.cint
+  TimeoutsPerSecond = 1000 div DefaultTimeOut
+
+proc tick(ed: Editor) =
+  # periodic events. Every 5 minutes we save the list of open tabs.
+  inc ed.ticker
+  if ed.ticker > TimeoutsPerSecond*60*5:
+    ed.ticker = 0
+    saveOpenTabs(ed)
+
 proc mainProc(ed: Editor) =
   var fontM: FontManager = @[]
   setDefaults(ed, fontM)
@@ -209,6 +250,7 @@ proc mainProc(ed: Editor) =
   var blink = 1
   var clickOnFilename = false
   layout(ed)
+  loadOpenTabs(ed)
   while true:
     # we need to wait for the next frame until the cursor has moved to the
     # right position:
@@ -224,7 +266,7 @@ proc mainProc(ed: Editor) =
     # if we have an external process running in the background, we have a
     # much shorter timeout. Nevertheless this should not affect our blinking
     # speed:
-    let timeout = if ed.con.processRunning: 100.cint else: 500.cint
+    let timeout = if ed.con.processRunning: 100.cint else: DefaultTimeOut
     if waitEventTimeout(e, timeout) == SdlSuccess:
       case e.kind
       of QuitEvent:
@@ -405,9 +447,12 @@ proc mainProc(ed: Editor) =
       # timeout, so update the blinking:
       if timeout == 500:
         blink = 1-blink
+        tick(ed)
       else:
         inc blink
-        if blink >= 5: blink = 0
+        if blink >= 5:
+          blink = 0
+          tick(ed)
     if ed.state == requestedShutdownNext:
       ed.state = requestedShutdown
       let b = withUnsavedChanges(main)
@@ -449,6 +494,7 @@ proc mainProc(ed: Editor) =
     renderer.draw(position, ed.screenW - 12*ed.theme.uiFontSize.int, bottom)
 
     present(renderer)
+  saveOpenTabs(ed)
   freeFonts fontM
   destroy ed
 
