@@ -84,6 +84,16 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
            (t.editorFontSize.cint+2).float).int, 0, b.numberOfLines)
         #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
         #               0, b.numberOfLines)
+  elif e.kind == MouseButtonDown:
+    let w = e.button
+    let p = point(w.x, w.y)
+    if rect.contains(p):
+      active = true
+      let linesInWindow = max(bufferRect.h div (t.editorFontSize.int+2), 1)
+      if w.y < grip.y:
+        result = clamp(b.firstLine - linesInWindow, 0, b.numberOfLines)
+      elif w.y > grip.y + grip.h:
+        result = clamp(b.firstLine + linesInWindow, 0, b.numberOfLines)
   else:
     var p: Point
     discard getMouseState(p.x, p.y)
