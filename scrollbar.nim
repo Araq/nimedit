@@ -56,11 +56,20 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
   #let pixelsPerScreen = bufferRect.h.float / screens
   var active = false
 
+  var grip = rect
+  grip.x -= 1
+  grip.w -= 2
+  grip.h = gripSize.cint #max(8, pixelsPerScreen.cint)
+  #let yy = b.firstLine.float * pixelsPerLine + bufferRect.y.float
+  grip.y = clamp(gripPositionOnTrack.cint + bufferRect.y, bufferRect.y,
+                 bufferRect.y + bufferRect.h - grip.h)
+
   if e.kind == MouseMotion:
     let w = e.motion
     let p = point(w.x, w.y)
     if rect.contains(p):
       active = true
+    if grip.contains(p):
       if (w.state and BUTTON_LMASK) != 0:
         # psudo-code, you will have to fill in the missing variables yourself
         # from your mouse controller!
@@ -84,11 +93,5 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
   # draw the bar:
   #drawBorder(t, rect, active)
 
-  # draw the circle:
-  rect.x -= 1
-  rect.w -= 2
-  rect.h = gripSize.cint #max(8, pixelsPerScreen.cint)
-  #let yy = b.firstLine.float * pixelsPerLine + bufferRect.y.float
-  rect.y = clamp(gripPositionOnTrack.cint + bufferRect.y, bufferRect.y,
-                 bufferRect.y + bufferRect.h - rect.h)
-  drawBox(t, rect, active, 4)
+  # draw the grip:
+  drawBox(t, grip, active, 4)
