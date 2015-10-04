@@ -81,17 +81,6 @@ proc downFirstLineOffset(b: Buffer) =
   while b[i] != '\L': inc i
   b.firstLineOffset = i+1
 
-proc scroll(b: Buffer; amount: int) =
-  assert amount == 1 or amount == -1
-  inc b.currentLine, amount
-  if b.currentLine < b.firstLine:
-    assert b.firstLine == b.currentLine+1
-    dec b.firstLine
-    upFirstLineOffset(b)
-  elif b.currentLine > b.firstLine + b.span-2:
-    inc b.firstLine
-    downFirstLineOffset(b)
-
 proc scrollLines*(b: Buffer; amount: int) =
   let oldFirstLine = b.firstLine
   b.firstLine = clamp(b.firstLine+amount, 0, max(0, b.numberOfLines-1))
@@ -106,6 +95,26 @@ proc scrollLines*(b: Buffer; amount: int) =
       downFirstLineOffset(b)
       dec amount
   inc b.firstLine, amount
+
+proc scroll(b: Buffer; amount: int) =
+  assert amount == 1 or amount == -1
+  # the cursor can be detached from the scroll position, so we need to perform
+  # a general scrollLines:
+  inc b.currentLine, amount
+  if b.currentLine < b.firstLine:
+    # bring into view:
+    scrollLines(b, b.currentLine-b.firstLine)
+  elif b.currentLine > b.firstLine + b.span-2:
+    scrollLines(b, b.currentLine - (b.firstLine + b.span-2))
+  when false:
+    inc b.currentLine, amount
+    if b.currentLine < b.firstLine:
+      assert b.firstLine == b.currentLine+1
+      dec b.firstLine
+      upFirstLineOffset(b)
+    elif b.currentLine > b.firstLine + b.span-2:
+      inc b.firstLine
+      downFirstLineOffset(b)
 
 proc getLine*(b: Buffer): int = b.currentLine
 proc getColumn*(b: Buffer): int =

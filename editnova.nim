@@ -11,8 +11,8 @@ when defined(windows):
 
 
 # TODO:
-#  - show line numbers
 #  - better line wrapping
+#  - show line numbers
 #  - regex search&replace; nah, just make it scriptable properly instead
 #  - basic auto-complete (use identifiers in active buffers of the same
 #                         language)
@@ -20,6 +20,7 @@ when defined(windows):
 #  - show declarations in a minimap
 #  - input of ( [ { with selected text should wrap the text in the parenthesis
 #  - highlighting of ()s
+#  - draw gradient for scrollbar
 #  - debugger support!
 
 # Optional:
