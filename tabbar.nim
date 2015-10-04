@@ -14,6 +14,12 @@ proc drawBorder*(t: InternalTheme; x, y, w, h: int; b: bool; arc=8) =
   t.renderer.roundedRect(x, y, x+w-1, y+h-1, arc, p)
   t.renderer.setDrawColor(t.bg)
 
+proc drawBox*(t: InternalTheme; r: Rect; b: bool; arc=8) =
+  #let p = Pixel(col: t.active[b], thickness: 2,
+  #              gradient: color(0xff, 0xff, 0xff, 0))
+  t.renderer.roundedBox(r.x, r.y, r.x+r.w-1, r.y+r.h-1, arc, t.active[b])
+  t.renderer.setDrawColor(t.bg)
+
 proc renderText*(t: InternalTheme;
                 message: string; font: FontPtr; color: Color): TexturePtr =
   var surf: SurfacePtr = renderUtf8Shaded(font, message, color, t.bg)

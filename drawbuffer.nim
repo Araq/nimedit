@@ -17,6 +17,9 @@ proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
     echo("CreateTexture failed")
   freeSurface(surf)
 
+proc textSize(font: FontPtr; buffer: cstring): cint =
+  discard sizeUtf8(font, buffer, addr result, nil)
+
 proc whichColumn(b: Buffer; i: int; dim: Rect; font: FontPtr;
                  msg: cstring): int =
   var buffer: array[CharBufSize, char]
@@ -29,8 +32,7 @@ proc whichColumn(b: Buffer; i: int; dim: Rect; font: FontPtr;
       buffer[r] = b[k+j]
       inc r
     buffer[r] = '\0'
-    var w: cint
-    discard sizeUtf8(font, buffer, addr w, nil)
+    let w = textSize(font, buffer)
     if dim.x+w >= b.mouseX-1:
       return r
     inc j, L
@@ -166,10 +168,17 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
           if cursorCheck(): cursorDim = dim
           break outerLoop
 
-        if cursorCheck(): cursorDim = dim
+        if cursorCheck():
+          cursorDim = dim
+          buffer[bufres] = '\0'
+          let size = textSize(style.font, buffer)
+          # overflow:
+          if cursorDim.x + size > dim.w+oldX: break
+          cursorDim.x += size
+
         if b.mgr[].getStyle(cell.s) != style or getBg(b, j, bg) != styleBg:
           break
-        elif bufres == high(buffer) or cursorCheck():
+        elif bufres == high(buffer): #or cursorCheck():
           break
 
         if cell.c == '\t':

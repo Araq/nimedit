@@ -4,27 +4,26 @@ from parseutils import parseInt
 from os import extractFilename, splitFile, expandFilename, cmpPaths, `/`
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
-import languages, themes, nimscriptsupport, tabbar
+import languages, themes, nimscriptsupport, tabbar, scrollbar
 
 when defined(windows):
   import dialogs
 
 
 # TODO:
-#  - regex search&replace; nah, just make it scriptable properly instead
+#  - show line numbers
 #  - better line wrapping
-#  - show scroll bars
+#  - regex search&replace; nah, just make it scriptable properly instead
 #  - basic auto-complete (use identifiers in active buffers of the same
 #                         language)
 #  - nimsuggest integration
 #  - show declarations in a minimap
 #  - input of ( [ { with selected text should wrap the text in the parenthesis
+#  - highlighting of ()s
 #  - debugger support!
 
 # Optional:
 #  - large file handling
-#  - show line numbers
-#  - highlighting of ()s
 #  - highlighting of substring occurences
 # Optimizations:
 #  - cache font renderings
@@ -265,6 +264,9 @@ proc mainProc(ed: Editor) =
           gotoLine(main, line, col)
           active = main
 
+    var rawMainRect = ed.mainRect
+    rawMainRect.w -= scrollBarWidth(main)
+
     var e = Event(kind: UserEvent5)
     # if we have an external process running in the background, we have a
     # much shorter timeout. Nevertheless this should not affect our blinking
@@ -288,7 +290,7 @@ proc mainProc(ed: Editor) =
         let w = e.button
         let p = point(w.x, w.y)
         if ed.mainRect.contains(p):
-          if active == main:
+          if active == main and rawMainRect.contains(p):
             main.setCursorFromMouse(ed.mainRect, p, w.clicks.int)
           else:
             active = main
@@ -470,8 +472,12 @@ proc mainProc(ed: Editor) =
       main = activeTab
       active = main
 
-    renderer.draw(main, ed.mainRect, ed.theme.bg, ed.theme.cursor,
+    renderer.draw(main, rawMainRect, ed.theme.bg, ed.theme.cursor,
                   blink==0 and active==main)
+    let scrollTo = drawScrollBar(main, ed.theme, e, ed.mainRect)
+    if scrollTo >= 0:
+      scrollLines(main, scrollTo-main.firstLine)
+
     ed.theme.drawBorder(ed.mainRect, active==main)
 
     if ed.hasConsole:
