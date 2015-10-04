@@ -20,18 +20,61 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
   var rect = bufferRect
   rect.w = width
   rect.x = bufferRect.x + bufferRect.w - width
+  #let span = bufferRect.h div (t.editorFontSize.cint+2)
+  # This is surprisingly difficult to get right. Look at
+  # http://csdgn.org/inform/scrollbar-mechanics for a detailed description of
+  # the algorithm.
 
-  let screens = b.numberOfLines.cint div b.span.cint + 1
-  let pixelsPerScreen = bufferRect.h div screens + 1
+  # Determine how large the content is, and how big our window is
+  let contentSize = b.numberOfLines.float * (t.editorFontSize.cint+2).float
+  let windowSize = bufferRect.h.float
+  let trackSize = windowSize
+
+  # Divide the window size by the content size to get a ratio
+  let windowContentRatio = windowSize / contentSize
+
+  # Multiply the trackSize by the ratio to determine how large our grip will be
+  let gripSize = clamp(trackSize * windowContentRatio, 20, trackSize)
+
+  let windowScrollAreaSize = contentSize - windowSize
+  # The position of our window in accordance to its top on the content.
+  # The top of the window over the content.
+  let windowPosition = b.firstLine.float * (t.editorFontSize.cint+2).float
+
+  # The ratio of the window to the scrollable area.
+  let windowPositionRatio = windowPosition / windowScrollAreaSize
+
+  # Just like we did for the window
+  # we do this to keep the grip from flying off from the end of the track.
+  let trackScrollAreaSize = trackSize - gripSize
+
+  # Determine the location by multiplying the ratio
+  let gripPositionOnTrack = trackScrollAreaSize * windowPositionRatio
+
+  #let pixelsPerLine = b.numberOfLines.cint / bufferRect.h
+  #let screens = b.numberOfLines.cint / span
+  #let pixelsPerScreen = bufferRect.h.float / screens
   var active = false
-  if e.kind == MouseButtonDown:
-    let w = e.button
-    if w.clicks.int >= 1:
-      let p = point(w.x, w.y)
-      if rect.contains(p):
-        result = clamp((p.y-rect.y) * b.span.cint div pixelsPerScreen,
-                       0, b.numberOfLines)
-        active = true
+
+  if e.kind == MouseMotion:
+    let w = e.motion
+    let p = point(w.x, w.y)
+    if rect.contains(p):
+      active = true
+      if (w.state and BUTTON_LMASK) != 0:
+        # psudo-code, you will have to fill in the missing variables yourself
+        # from your mouse controller!
+        # This only matters along the axis of the slider
+        let mousePositionDelta = w.yrel.float
+
+        # Determine the new location of the grip
+        let newGripPosition = clamp(gripPositionOnTrack + mousePositionDelta,
+                                    0.0, trackScrollAreaSize)
+        let newGripPositionRatio = newGripPosition / trackScrollAreaSize
+        result = clamp((newGripPositionRatio * windowScrollAreaSize /
+           (t.editorFontSize.cint+2).float).int, 0, b.numberOfLines)
+        #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
+        #               0, b.numberOfLines)
   else:
     var p: Point
     discard getMouseState(p.x, p.y)
@@ -42,13 +85,10 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
   #drawBorder(t, rect, active)
 
   # draw the circle:
-  template toPix(x): untyped =
-    x.cint * ((bufferRect.h div b.numberOfLines.cint)+1)
-
   rect.x -= 1
   rect.w -= 2
-  rect.h = max(8, pixelsPerScreen) # (b.numberOfLines).toPix)
-  let yy = b.firstLine div screens * pixelsPerScreen + bufferRect.y
-  rect.y = clamp(yy, bufferRect.y,
+  rect.h = gripSize.cint #max(8, pixelsPerScreen.cint)
+  #let yy = b.firstLine.float * pixelsPerLine + bufferRect.y.float
+  rect.y = clamp(gripPositionOnTrack.cint + bufferRect.y, bufferRect.y,
                  bufferRect.y + bufferRect.h - rect.h)
   drawBox(t, rect, active, 4)
