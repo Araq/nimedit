@@ -98,12 +98,13 @@ proc freeFonts*(m: FontManager) =
       if f.fonts[i] != f.fonts[FontStyle.Normal]: close(f.fonts[i])
     close(f.fonts[FontStyle.Normal])
 
-proc findFont*(m: var FontManager; size: byte; style=FontStyle.Normal): FontPtr =
-  fontByName(m, "DejaVuSansMono", size, style)
+when false:
+  proc findFont*(m: var FontManager; size: byte; style=FontStyle.Normal): FontPtr =
+    fontByName(m, "DejaVuSansMono", size, style)
 
-proc setStyle*(s: var StyleManager; m: var FontManager;
-               idx: TokenClass; attr: FontAttr) =
-  s.a[idx] = Style(font: findFont(m, attr.size, attr.style), attr: attr)
+  proc setStyle*(s: var StyleManager; m: var FontManager;
+                 idx: TokenClass; attr: FontAttr) =
+    s.a[idx] = Style(font: findFont(m, attr.size, attr.style), attr: attr)
 
 proc getStyle*(s: StyleManager; i: TokenClass): Style {.inline.} =
   result = s.a[i]

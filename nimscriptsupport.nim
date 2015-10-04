@@ -65,14 +65,17 @@ proc getGlobal(varname, field: string; result: var type(parseColor"")) =
     raiseVariableError(varname & "." & field, "Color")
 
 proc extractStyles(result: var StyleManager; fm: var FontManager;
-                   fontSize: byte) =
+                   fontSize: byte; fontName: string) =
   let n = vm.globalCtx.getGlobalValue(getNimScriptSymbol "tokens")
   if n.kind == nkBracket and n.len == int(high(TokenClass))+1:
     for i, x in n.sons:
       if x.kind == nkPar and x.len == 2 and x[0].isIntLit and x[1].isIntLit:
-        result.setStyle(fm, TokenClass(i),
-            FontAttr(color: colorFromInt(x[0].intVal), style: FontStyle(x[1].intVal),
-                     size: fontSize))
+        let style = FontStyle(x[1].intVal)
+        result.a[TokenClass(i)] = Style(
+            font: fontByName(fm, fontName, fontSize, style),
+            attr: FontAttr(color: colorFromInt(x[0].intVal),
+                           style: style,
+                           size: fontSize))
       else:
         raiseVariableError("tokens", "array[TokenClass, (Color, FontStyle)]")
   else:
@@ -154,4 +157,6 @@ proc loadTheme*(colorsScript: string; result: var InternalTheme;
   trivialField consoleAfter
   trivialField consoleWidth
 
-  extractStyles sm, fm, result.editorFontSize
+  let fontName = if result.editorFont.len > 0: result.editorFont
+                 else: "DejaVuSansMono"
+  extractStyles sm, fm, result.editorFontSize, fontName
