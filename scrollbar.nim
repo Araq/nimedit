@@ -29,7 +29,7 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
     if w.clicks.int >= 1:
       let p = point(w.x, w.y)
       if rect.contains(p):
-        result = clamp((p.y-rect.y) div ((bufferRect.h div b.numberOfLines.cint)+1),
+        result = clamp((p.y-rect.y) * b.span.cint div pixelsPerScreen,
                        0, b.numberOfLines)
         active = true
   else:
@@ -47,7 +47,8 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
 
   rect.x -= 1
   rect.w -= 2
-  rect.h = max(8, bufferRect.h div screens) # (b.numberOfLines).toPix)
-  rect.y = clamp(b.firstLine.toPix, bufferRect.y,
+  rect.h = max(8, pixelsPerScreen) # (b.numberOfLines).toPix)
+  let yy = b.firstLine div screens * pixelsPerScreen + bufferRect.y
+  rect.y = clamp(yy, bufferRect.y,
                  bufferRect.y + bufferRect.h - rect.h)
   drawBox(t, rect, active, 4)
