@@ -19,6 +19,7 @@ type
     uiYGap*: Natural
     consoleAfter*: Natural
     consoleWidth*: Natural
+    lines*: Color
     showLines*: bool
 
 var

@@ -3,6 +3,7 @@ const
   #ContinueLineMarker = "\xE2\xA4\xB8\x00"
   Ellipsis = "\xE2\x80\xA6\x00"
   CharBufSize = 80
+  RoomForMargin = 8
 
 proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
                  fg, bg: Color): TexturePtr =
@@ -17,19 +18,24 @@ proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
     echo("CreateTexture failed")
   freeSurface(surf)
 
-proc drawNumber*(t: InternalTheme; number: int; x, y: cint) =
+proc drawNumber*(t: InternalTheme; number, current: int; w, y: cint) =
+  let w = w - RoomForMargin
   proc sprintf(buf, frmt: cstring) {.header: "<stdio.h>",
     importc: "sprintf", varargs, noSideEffect.}
   var buf {.noinit.}: array[25, char]
   sprintf(buf, "%ld", number)
 
-  let tex = drawTexture(t.renderer, t.editorFontPtr, buf, t.fg, t.bg)
+  let tex = drawTexture(t.renderer, t.editorFontPtr, buf,
+                        if number == current: t.fg else: t.lines, t.bg)
   var d: Rect
-  d.x = x
+  d.x = 1
   d.y = y
   queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
   t.renderer.copy(tex, nil, addr d)
   destroy tex
+  if number == current or number == current+1:
+    t.renderer.setDrawColor(t.fg)
+    t.renderer.drawLine(1, y-1, 1+w, y-1)
 
 proc textSize*(font: FontPtr; buffer: cstring): cint =
   discard sizeUtf8(font, buffer, addr result, nil)
@@ -259,16 +265,16 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
     assert false
   var i = b.firstLineOffset
   var dim = dim
-  let spl = cint(spaceForLines(b, t) + 8) # leave room for the margin
+  let spl = cint(spaceForLines(b, t) + RoomForMargin)
   if showLines:
-    t.drawNumber(b.firstLine+1, 1, dim.y)
+    t.drawNumber(b.firstLine+1, b.currentLine+1, spl, dim.y)
     dim.x = spl
   b.span = 0
   i = t.drawLine(b, i, dim, blink)
   inc b.span
   while dim.y < dim.h and i <= len(b):
     if showLines:
-      t.drawNumber(b.firstLine+b.span+1, 1, dim.y)
+      t.drawNumber(b.firstLine+b.span+1, b.currentLine+1, spl, dim.y)
     i = t.drawLine(b, i, dim, blink)
     inc b.span
   # we need to tell the buffer how many lines *can* be shown to prevent

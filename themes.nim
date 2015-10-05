@@ -4,7 +4,7 @@ from sdl2/ttf import FontPtr
 
 type
   InternalTheme* = object
-    bg*, fg*, cursor*: Color
+    bg*, fg*, cursor*, lines*: Color
     active*: array[bool, Color]
     uiXGap*: Natural
     uiYGap*: Natural

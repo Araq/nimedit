@@ -12,7 +12,6 @@ when defined(windows):
 
 # TODO:
 #  - better line wrapping
-#  - show line numbers
 #  - regex search&replace; nah, just make it scriptable properly instead
 #  - basic auto-complete (use identifiers in active buffers of the same
 #                         language)

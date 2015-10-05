@@ -14,6 +14,7 @@ theme.background = 0x292929
 const foreground = 0xfafafa
 theme.foreground = foreground
 theme.cursor = foreground
+theme.lines = 0x898989
 
 theme.selected = 0x1d1d1d
 theme.highlighted = 0x0c090a
