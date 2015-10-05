@@ -111,11 +111,11 @@ proc swapBuffers(a, b: Buffer) =
       b.prev = ap
 
 proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
-                 screenW: cint; e: var Event;
+                 x, screenW: cint; e: var Event;
                  active: Buffer): Buffer =
   var it = tabs
   var activeDrawn = false
-  var xx = 15.cint
+  var xx = x # 15.cint
   let yy = t.uiYGap.cint
   while true:
     let header = it.heading & (if it.changed: "*" else: "")
@@ -128,7 +128,7 @@ proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
         # something else:
         if it.prev != tabs:
           tabs = it.prev
-          return drawTabBar(tabs, t, screenW, e, active)
+          return drawTabBar(tabs, t, x, screenW, e, active)
       break
 
     activeDrawn = activeDrawn or it == active

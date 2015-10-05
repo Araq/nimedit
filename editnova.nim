@@ -479,7 +479,11 @@ proc mainProc(ed: Editor) =
 
     update(ed.con)
     clear(renderer)
-    let activeTab = drawTabBar(ed.bar, ed.theme, ed.screenW, e, ed.main)
+
+    # position of the tab bar hard coded for now as we don't want to adapt it
+    # to the main margin (tried it, is ugly):
+    let activeTab = drawTabBar(ed.bar, ed.theme, 47, ed.screenW,
+                               e, ed.main)
     if activeTab != nil:
       main = activeTab
       active = main
@@ -493,7 +497,6 @@ proc mainProc(ed: Editor) =
     var mainBorder = ed.mainRect
     mainBorder.x = spaceForLines(main, ed.theme) + ed.theme.uiXGap.cint + 2
     mainBorder.w = ed.mainRect.x + ed.mainRect.w - 1 - mainBorder.x
-    #spaceForLines(main, ed.theme)
     ed.theme.drawBorder(mainBorder, active==main)
 
     if ed.hasConsole:
