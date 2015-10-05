@@ -299,30 +299,29 @@ proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
     assert false
   var i = b.firstLineOffset
   let originalX = dim.x
-  let endX = dim.x + dim.w -1
+  let endX = dim.x + dim.w - 1
+  let endY = dim.y + dim.h - 1
   var dim = dim
   b.span = 0
 
   template drawCurrent =
     let y = dim.y
     i = t.drawTextLine(b, i, dim, false)
-    if b.span == b.currentLine or b.span-1 == b.currentLine:
+    if  b.firstline+b.span == b.currentLine or
+        b.firstline+b.span == b.currentLine+1:
       t.renderer.setDrawColor(t.fg)
       t.renderer.drawLine(originalX, y, endX, y)
 
-  #if b.currentLine == 0:
-  #  t.renderer.setDrawColor(t.fg)
-  #  t.renderer.drawLine(originalX, dim.y-1, endX, dim.y-1)
   drawCurrent()
   inc b.span
-  while dim.y < dim.h and i <= len(b):
+  let fontSize = t.editorFontSize.cint
+  while dim.y+fontSize < endY and i <= len(b):
     drawCurrent()
     inc b.span
   # we need to tell the buffer how many lines *can* be shown to prevent
   # that scrolling is triggered way too early:
-  let fontSize = t.editorFontSize.int
-  while dim.y < dim.h:
-    inc dim.y, fontSize+2
+  while dim.y+fontSize < endY:
+    inc dim.y, fontSize.int+2
     inc b.span
   # if not found, ignore mouse request anyway:
   b.clicks = 0

@@ -84,6 +84,13 @@ proc clear*(result: Buffer) =
   result.selected.a = -1
   result.selected.b = -1
   result.bracketToHighlight = -1
+  result.span = 0
+  result.firstLineOffset = 0
+  result.readOnly = -1
+  result.clicks = 0
+  result.undoIdx = 0
+  result.activeMarker = 0
+  result.cursorDim = (0, 0, 0)
 
 proc fullText*(b: Buffer): string =
   result = newStringOfCap(b.front.len + b.back.len)

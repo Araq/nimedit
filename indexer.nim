@@ -70,7 +70,7 @@ proc makeSuggestion*(database: var CritBitTree[int]; prefix: string): string =
 
 proc populateBuffer*(database: CritBitTree[int]; b: Buffer;
                      prefix: string) =
-  # only populate is some other buffer changed in between:
+  # only repopulate if the database knows new words:
   if database.len != b.numberOfLines:
     var interesting = -1
     b.clear()
@@ -78,9 +78,12 @@ proc populateBuffer*(database: CritBitTree[int]; b: Buffer;
       b.insert(key)
       b.insertEnter()
       if interesting < 0 and key.startsWith(prefix):
-        interesting = b.numberOfLines-1
+        # gotoLine is 1 based, arg:
+        interesting = b.numberOfLines+1
     b.gotoLine(interesting, -1)
     b.readOnly = b.len-1
+  else:
+    b.gotoLine(0, -1)
 
 proc selected*(autocomplete, main: Buffer) =
   inc main.version
