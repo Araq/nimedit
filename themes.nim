@@ -18,3 +18,6 @@ type
     consoleWidth*: Natural
     renderer*: RendererPtr
     uiFontPtr*: FontPtr
+    editorFontPtr*: FontPtr
+    showLines*: bool
+

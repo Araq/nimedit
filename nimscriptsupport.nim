@@ -50,6 +50,13 @@ proc getGlobal(varname, field: string; result: var byte) =
   else:
     raiseVariableError(varname & "." & field, "byte")
 
+proc getGlobal(varname, field: string; result: var bool) =
+  let n = getGlobal(varname, field)
+  if n != nil and n.isIntLit:
+    result = n.intVal != 0
+  else:
+    raiseVariableError(varname & "." & field, "bool")
+
 proc getGlobal(varname, field: string; result: var string) =
   let n = getGlobal(varname, field)
   if n != nil and n.isStrLit:
@@ -156,6 +163,7 @@ proc loadTheme*(colorsScript: string; result: var InternalTheme;
   trivialField tabWidth
   trivialField consoleAfter
   trivialField consoleWidth
+  trivialField showLines
 
   let fontName = if result.editorFont.len > 0: result.editorFont
                  else: "DejaVuSansMono"

@@ -17,7 +17,21 @@ proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
     echo("CreateTexture failed")
   freeSurface(surf)
 
-proc textSize(font: FontPtr; buffer: cstring): cint =
+proc drawNumber*(t: InternalTheme; number: int; x, y: cint) =
+  proc sprintf(buf, frmt: cstring) {.header: "<stdio.h>",
+    importc: "sprintf", varargs, noSideEffect.}
+  var buf {.noinit.}: array[25, char]
+  sprintf(buf, "%ld", number)
+
+  let tex = drawTexture(t.renderer, t.editorFontPtr, buf, t.fg, t.bg)
+  var d: Rect
+  d.x = x
+  d.y = y
+  queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
+  t.renderer.copy(tex, nil, addr d)
+  destroy tex
+
+proc textSize*(font: FontPtr; buffer: cstring): cint =
   discard sizeUtf8(font, buffer, addr result, nil)
 
 proc whichColumn(b: Buffer; i: int; dim: Rect; font: FontPtr;
@@ -82,9 +96,10 @@ proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect;
 
   r.copy(tex, nil, addr d)
 
-proc drawText(r: RendererPtr; b: Buffer; i: int; dim: var Rect; oldX: cint;
+proc drawText(t: InternalTheme; b: Buffer; i: int; dim: var Rect; oldX: cint;
               font: FontPtr; msg: cstring; fg, bg: Color) =
   assert font != nil
+  let r = t.renderer
   #echo "drawText ", msg
   let text = r.drawTexture(font, msg, fg, bg)
   var w, h: cint
@@ -108,11 +123,11 @@ proc drawText(r: RendererPtr; b: Buffer; i: int; dim: var Rect; oldX: cint;
   dim.x += w
   destroy text
 
-proc drawCursor(r: RendererPtr; dim: Rect; bg, color: Color; h: cint) =
-  r.setDrawColor(color)
+proc drawCursor(t: InternalTheme; dim: Rect; h: cint) =
+  t.renderer.setDrawColor(t.cursor)
   var d = rect(dim.x, dim.y, 2, h)
-  r.fillRect(d)
-  r.setDrawColor(bg)
+  t.renderer.fillRect(d)
+  t.renderer.setDrawColor(t.bg)
 
 proc tabFill(b: Buffer; buffer: var array[CharBufSize, char]; bufres: var int;
              j: int) {.noinline.} =
@@ -139,12 +154,11 @@ proc getBg(b: Buffer; i: int; bg: Color): Color =
       return b.mgr.b[mcHighlighted]
   return bg
 
-proc drawLine(r: RendererPtr; b: Buffer; i: int;
-              dim: var Rect; bg, cursor: Color;
+proc drawLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
               blink: bool): int =
   var j = i
   var style = b.mgr[].getStyle(getCell(b, j).s)
-  var styleBg = getBg(b, j, bg)
+  var styleBg = getBg(b, j, t.bg)
   var maxh = style.attr.size
   let oldX = dim.x
 
@@ -162,7 +176,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
         if cell.c == '\L':
           buffer[bufres] = '\0'
           if bufres >= 1:
-            r.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color,
+            t.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color,
                        styleBg)
           mouseAfterNewLine(b, j, dim, maxh)
           if cursorCheck(): cursorDim = dim
@@ -176,7 +190,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
           if cursorDim.x + size > dim.w+oldX: break
           cursorDim.x += size
 
-        if b.mgr[].getStyle(cell.s) != style or getBg(b, j, bg) != styleBg:
+        if b.mgr[].getStyle(cell.s) != style or getBg(b, j, t.bg) != styleBg:
           break
         elif bufres == high(buffer): #or cursorCheck():
           break
@@ -190,10 +204,10 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
 
       buffer[bufres] = '\0'
       if bufres >= 1:
-        r.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color,
+        t.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color,
                    styleBg)
         style = b.mgr[].getStyle(getCell(b, j).s)
-        styleBg = getBg(b, j, bg)
+        styleBg = getBg(b, j, t.bg)
         maxh = max(maxh, style.attr.size)
 
       if j == b.cursor:
@@ -202,7 +216,7 @@ proc drawLine(r: RendererPtr; b: Buffer; i: int;
   dim.y += maxh.cint+2
   dim.x = oldX
   if cursorDim.h > 0 and blink:
-    r.drawCursor(cursorDim, bg, cursor, maxh.cint)
+    t.drawCursor(cursorDim, maxh.cint)
   result = j+1
 
 proc getLineOffset(b: Buffer; lines: Natural): int =
@@ -225,8 +239,19 @@ proc setCursorFromMouse*(b: Buffer; dim: Rect; mouse: Point; clicks: int) =
   if clicks < 2:
     b.selected.b = -1
 
-proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
-           blink: bool) =
+proc log10(x: int): int =
+  var x = x
+  while true:
+    x = x div 10
+    inc result
+    if x == 0: break
+
+proc spaceForLines*(b: Buffer; t: InternalTheme): Natural =
+  if t.showLines:
+    result = b.numberOfLines.log10 * textSize(t.editorFontPtr, " ")
+
+proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
+           showLines=false) =
   let realOffset = getLineOffset(b, b.firstLine)
   if b.firstLineOffset != realOffset:
     # XXX make this a real assertion when tested well
@@ -234,15 +259,21 @@ proc draw*(r: RendererPtr; b: Buffer; dim: Rect; bg, cursor: Color;
     assert false
   var i = b.firstLineOffset
   var dim = dim
+  let spl = cint(spaceForLines(b, t) + 8) # leave room for the margin
+  if showLines:
+    t.drawNumber(b.firstLine+1, 1, dim.y)
+    dim.x = spl
   b.span = 0
-  i = r.drawLine(b, i, dim, bg, cursor, blink)
+  i = t.drawLine(b, i, dim, blink)
   inc b.span
   while dim.y < dim.h and i <= len(b):
-    i = r.drawLine(b, i, dim, bg, cursor, blink)
+    if showLines:
+      t.drawNumber(b.firstLine+b.span+1, 1, dim.y)
+    i = t.drawLine(b, i, dim, blink)
     inc b.span
   # we need to tell the buffer how many lines *can* be shown to prevent
   # that scrolling is triggered way too early:
-  let fontSize = b.mgr[].getStyle(TokenClass.None).attr.size.int
+  let fontSize = t.editorFontSize.int
   while dim.y < dim.h:
     inc dim.y, fontSize+2
     inc b.span

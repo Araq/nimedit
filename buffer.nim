@@ -1,7 +1,7 @@
 # Implementation uses a gap buffer with explicit undo stack.
 
 import strutils, unicode
-import styles, highlighters, common
+import styles, highlighters, common, themes
 import sdl2, sdl2/ttf
 import buffertype, unihelp, languages
 from os import splitFile

@@ -236,6 +236,8 @@ proc mainProc(ed: Editor) =
     loadTheme(ed.cfgColors, ed.theme, ed.mgr, fontM)
     ed.uiFont = fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)
     ed.theme.uiFontPtr = ed.uiFont
+    ed.theme.editorFontPtr = fontM.fontByName(ed.theme.editorFont,
+                                              ed.theme.editorFontSize)
 
   loadTheme()
 
@@ -315,7 +317,15 @@ proc mainProc(ed: Editor) =
         a.scrollLines(-w.y*3)
       of TextInput:
         let w = e.text
-        active.insertSingleKey($w.text)
+        # surpress CTRL+Space:
+        var surpress = false
+        if w.text[0] == ' ' and w.text[1] == '\0':
+          let keys = getKeyboardState()
+          if keys[SDL_SCANCODE_LCTRL.int] == 1 or
+             keys[SDL_SCANCODE_RCTRL.int] == 1:
+            surpress = true
+        if not surpress:
+          active.insertSingleKey($w.text)
       of KeyDown:
         let w = e.key
         case w.keysym.scancode
@@ -386,9 +396,11 @@ proc mainProc(ed: Editor) =
           highlightEverything(active)
         else: discard
         if (w.keysym.modstate and controlKey) != 0:
-          # CTRL+Z: undo
-          # CTRL+shift+Z: redo
-          if w.keysym.sym == ord('z'):
+          if w.keysym.sym == ord(' '):
+            echo "SPACE"
+          elif w.keysym.sym == ord('z'):
+            # CTRL+Z: undo
+            # CTRL+shift+Z: redo
             if (w.keysym.modstate and KMOD_SHIFT) != 0:
               active.redo
             else:
@@ -473,21 +485,24 @@ proc mainProc(ed: Editor) =
       main = activeTab
       active = main
 
-    renderer.draw(main, rawMainRect, ed.theme.bg, ed.theme.cursor,
-                  blink==0 and active==main)
+    ed.theme.draw(main, rawMainRect, blink==0 and active==main,
+                  ed.theme.showLines)
     let scrollTo = drawScrollBar(main, ed.theme, e, ed.mainRect)
     if scrollTo >= 0:
       scrollLines(main, scrollTo-main.firstLine)
 
-    ed.theme.drawBorder(ed.mainRect, active==main)
+    var mainBorder = ed.mainRect
+    mainBorder.x = spaceForLines(main, ed.theme) + ed.theme.uiXGap.cint + 2
+    mainBorder.w = ed.mainRect.x + ed.mainRect.w - 1 - mainBorder.x
+    #spaceForLines(main, ed.theme)
+    ed.theme.drawBorder(mainBorder, active==main)
 
     if ed.hasConsole:
-      renderer.draw(console, ed.consoleRect, ed.theme.bg, ed.theme.cursor,
+      ed.theme.draw(console, ed.consoleRect,
                     blink==0 and active==console)
       ed.theme.drawBorder(ed.consoleRect, active==console)
 
-    renderer.draw(prompt, ed.promptRect, ed.theme.bg, ed.theme.cursor,
-                  blink==0 and active==prompt)
+    ed.theme.draw(prompt, ed.promptRect, blink==0 and active==prompt)
     ed.theme.drawBorder(ed.promptRect, active==prompt)
 
     let statusBar = ed.theme.renderText(ed.statusMsg & "     " & main.filename,
@@ -501,7 +516,8 @@ proc mainProc(ed: Editor) =
                                        " " & main.lineending.displayNL,
                                        ed.uiFont, ed.theme.fg)
     renderer.draw(statusBar, 15, bottom)
-    renderer.draw(position, ed.screenW - 12*ed.theme.uiFontSize.int, bottom)
+    renderer.draw(position,
+      ed.mainRect.x + ed.mainRect.w - 14*ed.theme.uiFontSize.int, bottom)
 
     present(renderer)
   saveOpenTabs(ed)
