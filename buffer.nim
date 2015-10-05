@@ -10,6 +10,50 @@ const
   tabWidth = 2
   Letters = {'a'..'z', 'A'..'Z', '0'..'9', '_', '\128'..'\255'}
 
+proc cursorMoved(b: Buffer) =
+  proc forwards(b: Buffer; le, ri: char) =
+    var i = b.cursor+1
+    let tc = b.getCell(b.cursor).s
+    var counter = 0
+    while i < b.len:
+      if b.getCell(i).s == tc:
+        if b[i] == ri:
+          if counter <= 0:
+            b.bracketToHighlight = i
+            break
+          dec counter
+        elif b[i] == le:
+          inc counter
+      inc i
+
+  proc backwards(b: Buffer; le, ri: char) =
+    var i = b.cursor.int-1
+    let tc = b.getCell(b.cursor).s
+    var counter = 0
+    while i >= 0:
+      if b.getCell(i).s == tc:
+        if b[i] == le:
+          if counter <= 0:
+            b.bracketToHighlight = i
+            break
+          dec counter
+        elif b[i] == ri:
+          inc counter
+      dec i
+
+  const brackets = {'(', '{', '[', ']', '}', ')'}
+  b.bracketToHighlight = -1
+  # fast check that is likely false:
+  if b[b.cursor] in brackets:
+    case b[b.cursor]
+    of '(': forwards(b, '(', ')')
+    of '[': forwards(b, '[', ']')
+    of '{': forwards(b, '{', '}')
+    of ')': backwards(b, '(', ')')
+    of ']': backwards(b, '[', ']')
+    of '}': backwards(b, '{', '}')
+    else: discard
+
 include drawbuffer
 
 proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
@@ -25,6 +69,7 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.markers = @[]
   result.selected.a = -1
   result.selected.b = -1
+  result.bracketToHighlight = -1
 
 proc clear*(result: Buffer) =
   result.front.setLen 0
@@ -38,6 +83,7 @@ proc clear*(result: Buffer) =
   result.cursor = 0
   result.selected.a = -1
   result.selected.b = -1
+  result.bracketToHighlight = -1
 
 proc fullText*(b: Buffer): string =
   result = newStringOfCap(b.front.len + b.back.len)
@@ -153,6 +199,7 @@ proc left*(b: Buffer; jump: bool) =
     b.cursor = i
     #while b.cursor > 0 and b[b.cursor] notin WhiteSpace: rawLeft(b)
     #while b.cursor > 1 and b[b.cursor-1] in WhiteSpace: rawLeft(b)
+  cursorMoved(b)
 
 proc rawRight(b: Buffer) =
   if b.cursor < b.front.len+b.back.len:
@@ -174,6 +221,7 @@ proc right*(b: Buffer; jump: bool) =
                       b.getCell(i).c != '\L':
         inc i
     b.cursor = i
+  cursorMoved(b)
 
 proc up*(b: Buffer; jump: bool) =
   var col = b.desiredCol
@@ -192,6 +240,7 @@ proc up*(b: Buffer; jump: bool) =
       dec col
     scroll(b, -1)
   b.cursor = max(0, i)
+  cursorMoved(b)
 
 proc down*(b: Buffer; jump: bool) =
   var col = b.desiredCol
@@ -210,6 +259,7 @@ proc down*(b: Buffer; jump: bool) =
     b.cursor += 1
   if b.cursor > L: b.cursor = L
   if b.cursor < 0: b.cursor = 0
+  cursorMoved(b)
 
 proc updateMarkers(b: Buffer; cursorMovement: int) =
   for x in mitems(b.markers):
@@ -439,6 +489,7 @@ proc backspace*(b: Buffer; overrideUtf8=false) =
     backspaceNoSelect(b, overrideUtf8)
   else:
     removeSelectedText(b)
+  cursorMoved(b)
 
 proc deleteKey*(b: Buffer) =
   if b.selected.b < 0:
@@ -448,6 +499,7 @@ proc deleteKey*(b: Buffer) =
     backspace(b)
   else:
     removeSelectedText(b)
+  cursorMoved(b)
 
 proc insertNoSelect(b: Buffer; s: string; singleUndoOp=false) =
   if b.cursor <= b.readOnly or s.len == 0: return
@@ -468,6 +520,7 @@ proc insertSingleKey*(b: Buffer; s: string) =
   inc b.version
   removeSelectedText(b)
   insertNoSelect(b, s)
+  cursorMoved(b)
 
 proc insert*(b: Buffer; s: string) =
   inc b.version

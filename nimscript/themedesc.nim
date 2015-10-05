@@ -21,6 +21,8 @@ type
     consoleWidth*: Natural
     lines*: Color
     showLines*: bool
+    bracket*: Color
+    showBracket*: bool
 
 var
   theme* {.exportNims.}: Theme

@@ -20,4 +20,6 @@ type
     uiFontPtr*: FontPtr
     editorFontPtr*: FontPtr
     showLines*: bool
+    bracket*: Color
+    showBracket*: bool
 

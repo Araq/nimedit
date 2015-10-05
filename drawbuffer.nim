@@ -76,6 +76,7 @@ proc mouseSelectCurrentToken(b: Buffer) =
       inc last
   b.cursor = first
   b.selected = (first, last)
+  cursorMoved(b)
 
 proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: byte) =
   # requested cursor update?
@@ -85,6 +86,7 @@ proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: byte) =
       b.currentLine = max(b.firstLine + b.span, 0)
       if b.clicks > 1: mouseSelectWholeLine(b)
       b.clicks = 0
+      cursorMoved(b)
 
 proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect;
           font: FontPtr; msg: cstring) =
@@ -99,6 +101,7 @@ proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect;
       b.currentLine = max(b.firstLine + b.span, 0)
       mouseSelectCurrentToken(b)
       b.clicks = 0
+      cursorMoved(b)
 
   r.copy(tex, nil, addr d)
 
@@ -153,18 +156,19 @@ proc tabFill(b: Buffer; buffer: var array[CharBufSize, char]; bufres: var int;
     inc col
   buffer[bufres] = '\0'
 
-proc getBg(b: Buffer; i: int; bg: Color): Color =
+proc getBg(b: Buffer; i: int; t: InternalTheme): Color =
   if i <= b.selected.b and b.selected.a <= i: return b.mgr.b[mcSelected]
   for m in items(b.markers):
     if m.a <= i and i <= m.b:
       return b.mgr.b[mcHighlighted]
-  return bg
+  if t.showBracket and i == b.bracketToHighlight: return t.bracket
+  return t.bg
 
 proc drawLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
               blink: bool): int =
   var j = i
   var style = b.mgr[].getStyle(getCell(b, j).s)
-  var styleBg = getBg(b, j, t.bg)
+  var styleBg = getBg(b, j, t)
   var maxh = style.attr.size
   let oldX = dim.x
 
@@ -196,7 +200,7 @@ proc drawLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
           if cursorDim.x + size > dim.w+oldX: break
           cursorDim.x += size
 
-        if b.mgr[].getStyle(cell.s) != style or getBg(b, j, t.bg) != styleBg:
+        if b.mgr[].getStyle(cell.s) != style or getBg(b, j, t) != styleBg:
           break
         elif bufres == high(buffer): #or cursorCheck():
           break
@@ -213,7 +217,7 @@ proc drawLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
         t.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color,
                    styleBg)
         style = b.mgr[].getStyle(getCell(b, j).s)
-        styleBg = getBg(b, j, t.bg)
+        styleBg = getBg(b, j, t)
         maxh = max(maxh, style.attr.size)
 
       if j == b.cursor:

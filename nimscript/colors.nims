@@ -20,16 +20,6 @@ theme.selected = 0x1d1d1d
 theme.highlighted = 0x0c090a
 theme.showLines = true
 
-
-# If the width of the window exceeds this value, a console is activated.
-# Use -1 to disable it completely:
-theme.consoleAfter = 900
-# 'consoleWidth's value is in % of the Window width:
-theme.consoleWidth = 40
-
-template ss(key, val; style = FontStyle.Normal) =
-  tokens[TokenClass.key] = (val, style)
-
 const
   White = 0xffffff
   Orange = 0xFFA500
@@ -40,6 +30,18 @@ const
   Gray = 0x808080
   Green = 0x44FF44
   Deeppink = 0xFF1493
+
+theme.showBracket = true
+theme.bracket = Deeppink
+
+# If the width of the window exceeds this value, a console is activated.
+# Use -1 to disable it completely:
+theme.consoleAfter = 900
+# 'consoleWidth's value is in % of the Window width:
+theme.consoleWidth = 40
+
+template ss(key, val; style = FontStyle.Normal) =
+  tokens[TokenClass.key] = (val, style)
 
 ss None, White
 ss Whitespace, White

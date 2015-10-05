@@ -163,8 +163,10 @@ proc loadTheme*(colorsScript: string; result: var InternalTheme;
   trivialField tabWidth
   trivialField consoleAfter
   trivialField consoleWidth
-  trivialField showLines
   trivialField lines
+  trivialField showLines
+  trivialField bracket
+  trivialField showBracket
 
   let fontName = if result.editorFont.len > 0: result.editorFont
                  else: "DejaVuSansMono"
