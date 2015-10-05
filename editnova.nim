@@ -17,7 +17,6 @@ when defined(windows):
 #                         language)
 #  - nimsuggest integration
 #  - show declarations in a minimap
-#  - input of ( [ { with selected text should wrap the text in the parenthesis
 #  - draw gradient for scrollbar
 #  - debugger support!
 

@@ -440,7 +440,8 @@ proc removeSelectedText(b: Buffer; selectedA, selectedB: var int) =
   b.cursor = selectedB+1
   let oldCursor = b.cursor
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
-  b.actions.add(Action(k: delFinished, pos: b.cursor, word: ""))
+  b.actions.add(Action(k: delFinished, pos: b.cursor, word: "",
+                       version: b.version))
   edit(b)
   while b.cursor > selectedA:
     if b.cursor <= 0: break
@@ -518,8 +519,21 @@ proc insertNoSelect(b: Buffer; s: string; singleUndoOp=false) =
 
 proc insertSingleKey*(b: Buffer; s: string) =
   inc b.version
-  removeSelectedText(b)
-  insertNoSelect(b, s)
+  if b.selected.b >= 0 and s[0] in {'(', '[', '{', '\'', '`', '"'}:
+    var x: string
+    case s[0]
+    of '(': x = "(" & getSelectedText(b) & ")"
+    of '[': x = "[" & getSelectedText(b) & "]"
+    of '{': x = "{" & getSelectedText(b) & "}"
+    of '\'': x = "'" & getSelectedText(b) & "'"
+    of '"': x = "\"" & getSelectedText(b) & "\""
+    of '`': x = "`" & getSelectedText(b) & "`"
+    else: discard
+    removeSelectedText(b)
+    insertNoSelect(b, x)
+  else:
+    removeSelectedText(b)
+    insertNoSelect(b, s)
   cursorMoved(b)
 
 proc insert*(b: Buffer; s: string) =
