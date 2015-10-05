@@ -17,6 +17,9 @@ when defined(windows):
 #  - show declarations in a minimap
 #  - draw gradient for scrollbar
 #  - debugger support!
+#  - fix drawing bug: uses height instead of y+height
+#  - make F5 do something smart (re-execute the most recent shell command)
+#  - make F-keys scriptable
 
 # Optional:
 #  - large file handling
@@ -328,7 +331,12 @@ proc mainProc(ed: Editor) =
              keys[SDL_SCANCODE_RCTRL.int] == 1:
             surpress = true
         if not surpress:
-          focus.insertSingleKey($w.text)
+          if focus==ed.autocomplete:
+            # delegate to main, but keep the focus on the autocomplete!
+            main.insertSingleKey($w.text)
+            populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+          else:
+            focus.insertSingleKey($w.text)
       of KeyDown:
         let w = e.key
         case w.keysym.scancode

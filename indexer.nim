@@ -64,22 +64,10 @@ proc indexBuffers*(database: var CritBitTree[int]; start: Buffer) =
   if it != nil:
     indexBuffer(database, it)
 
-proc makeSuggestion*(database: var CritBitTree[int]; prefix: string): string =
-  if prefix.len == 0:
-    # suggest nothing:
-    return nil
-  # suggest the word of the highest frequency:
-  var best = -1
-  for key, val in database.mpairsWithPrefix(prefix):
-    if best < val:
-      best = val
-      result = key
-
 proc populateBuffer*(database: var CritBitTree[int]; b: Buffer;
                      prefix: string) =
   # only repopulate if the database knows new words:
   if database.len != b.numberOfLines:
-    echo "POPULATING!"
     b.clear()
     for key, value in database.mpairs():
       value = b.numberOfLines
