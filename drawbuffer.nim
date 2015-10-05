@@ -134,7 +134,7 @@ proc drawText(t: InternalTheme; b: Buffer; i: int; dim: var Rect; oldX: cint;
 
 proc drawCursor(t: InternalTheme; dim: Rect; h: cint) =
   t.renderer.setDrawColor(t.cursor)
-  var d = rect(dim.x, dim.y, 2, h)
+  var d = rect(dim.x, dim.y, t.cursorWidth, h)
   t.renderer.fillRect(d)
   t.renderer.setDrawColor(t.bg)
 
@@ -164,8 +164,8 @@ proc getBg(b: Buffer; i: int; t: InternalTheme): Color =
   if t.showBracket and i == b.bracketToHighlight: return t.bracket
   return t.bg
 
-proc drawLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
-              blink: bool): int =
+proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
+                  blink: bool): int =
   var j = i
   var style = b.mgr[].getStyle(getCell(b, j).s)
   var styleBg = getBg(b, j, t)
@@ -227,6 +227,7 @@ proc drawLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
   dim.x = oldX
   if cursorDim.h > 0 and blink:
     t.drawCursor(cursorDim, maxh.cint)
+    b.cursorDim = (cursorDim.x.int, cursorDim.y.int, maxh.int)
   result = j+1
 
 proc getLineOffset(b: Buffer; lines: Natural): int =
@@ -274,12 +275,48 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
     t.drawNumber(b.firstLine+1, b.currentLine+1, spl, dim.y)
     dim.x = spl
   b.span = 0
-  i = t.drawLine(b, i, dim, blink)
+  i = t.drawTextLine(b, i, dim, blink)
   inc b.span
   while dim.y < dim.h and i <= len(b):
     if showLines:
       t.drawNumber(b.firstLine+b.span+1, b.currentLine+1, spl, dim.y)
-    i = t.drawLine(b, i, dim, blink)
+    i = t.drawTextLine(b, i, dim, blink)
+    inc b.span
+  # we need to tell the buffer how many lines *can* be shown to prevent
+  # that scrolling is triggered way too early:
+  let fontSize = t.editorFontSize.int
+  while dim.y < dim.h:
+    inc dim.y, fontSize+2
+    inc b.span
+  # if not found, ignore mouse request anyway:
+  b.clicks = 0
+
+proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
+  let realOffset = getLineOffset(b, b.firstLine)
+  if b.firstLineOffset != realOffset:
+    # XXX make this a real assertion when tested well
+    echo "real offset ", realOffset, " wrong ", b.firstLineOffset
+    assert false
+  var i = b.firstLineOffset
+  let originalX = dim.x
+  let endX = dim.x + dim.w -1
+  var dim = dim
+  b.span = 0
+
+  template drawCurrent =
+    let y = dim.y
+    i = t.drawTextLine(b, i, dim, false)
+    if b.span == b.currentLine or b.span-1 == b.currentLine:
+      t.renderer.setDrawColor(t.fg)
+      t.renderer.drawLine(originalX, y, endX, y)
+
+  #if b.currentLine == 0:
+  #  t.renderer.setDrawColor(t.fg)
+  #  t.renderer.drawLine(originalX, dim.y-1, endX, dim.y-1)
+  drawCurrent()
+  inc b.span
+  while dim.y < dim.h and i <= len(b):
+    drawCurrent()
     inc b.span
   # we need to tell the buffer how many lines *can* be shown to prevent
   # that scrolling is triggered way too early:

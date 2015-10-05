@@ -14,6 +14,9 @@ proc drawBorder*(t: InternalTheme; x, y, w, h: int; b: bool; arc=8) =
   t.renderer.roundedRect(x, y, x+w-1, y+h-1, arc, p)
   t.renderer.setDrawColor(t.bg)
 
+proc roundedBox*(t: InternalTheme; x, y, w, h: int; arc=8) =
+  t.renderer.roundedBox(x, y, x+w-1, y+h-1, arc, t.bg)
+
 proc drawBox*(t: InternalTheme; r: Rect; b: bool; arc=8) =
   #let p = Pixel(col: t.active[b], thickness: 2,
   #              gradient: color(0xff, 0xff, 0xff, 0))
@@ -45,6 +48,14 @@ proc draw*(renderer: RendererPtr; image: TexturePtr; x, y: int) =
 proc drawBorder*(t: InternalTheme; rect: Rect; active: bool; arc=8) =
   let yGap = t.uiYGap
   let xGap = t.uiXGap
+  t.drawBorder(rect.x - xGap, rect.y - yGap, rect.w + xGap, rect.h + yGap,
+               active, arc)
+
+proc drawBorderBox*(t: InternalTheme; rect: Rect; active: bool; arc=8) =
+  let yGap = t.uiYGap
+  let xGap = t.uiXGap
+  t.roundedBox(rect.x - xGap, rect.y - yGap, rect.w + xGap,
+               rect.h + yGap, arc)
   t.drawBorder(rect.x - xGap, rect.y - yGap, rect.w + xGap, rect.h + yGap,
                active, arc)
 

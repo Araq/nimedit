@@ -9,27 +9,27 @@ proc singleQuoted(s: string): string =
 
 proc findCmd(ed: Editor) =
   let prompt = ed.prompt
-  let text = ed.active.getSelectedText()
-  ed.active = prompt
+  let text = ed.focus.getSelectedText()
+  ed.focus = prompt
   prompt.clear()
   prompt.insert "find " & text.singleQuoted
 
 proc replaceCmd(ed: Editor) =
   let prompt = ed.prompt
-  let text = ed.active.getSelectedText()
-  ed.active = prompt
+  let text = ed.focus.getSelectedText()
+  ed.focus = prompt
   prompt.clear()
   prompt.insert "replace " & text.singleQuoted & " "
 
 proc gotoCmd(ed: Editor) =
   let prompt = ed.prompt
-  ed.active = prompt
+  ed.focus = prompt
   prompt.clear()
   prompt.insert "goto "
 
 proc runScriptCmd(ed: Editor) =
   let prompt = ed.prompt
-  ed.active = prompt
+  ed.focus = prompt
   prompt.clear()
   prompt.insert "e "
 
@@ -42,7 +42,7 @@ proc askForQuitTab(ed: Editor) =
   let prompt = ed.prompt
   prompt.clear()
   ed.statusMsg = saveChanges
-  ed.active = prompt
+  ed.focus = prompt
 
 proc runCmd(ed: Editor; cmd: string): bool =
   let prompt = ed.prompt
@@ -50,14 +50,14 @@ proc runCmd(ed: Editor; cmd: string): bool =
   ed.promptCon.hist.addCmd(cmd)
 
   template unmark() =
-    ed.active = ed.main
+    ed.focus = ed.main
     ed.state = requestedNothing
     ed.statusMsg = readyMsg
     ed.main.markers.setLen 0
 
   template success() =
     prompt.clear()
-    ed.active = ed.main
+    ed.focus = ed.main
 
   var action = ""
   var i = parseWord(cmd, action, 0, true)
@@ -74,14 +74,14 @@ proc runCmd(ed: Editor; cmd: string): bool =
       else:
         ed.statusMsg = "Unknown command: " & procname
     ed.prompt.clear()
-    ed.active = ed.main
+    ed.focus = ed.main
     ed.state = requestedNothing
   of "yes", "y":
     if ed.state == requestedShutdown:
       ed.prompt.clear()
       ed.main.save()
       removeBuffer(ed.main)
-      ed.active = ed.main
+      ed.focus = ed.main
       ed.state = requestedShutdownNext
     elif ed.state == requestedReplace:
       if ed.main.doReplace():
@@ -89,19 +89,19 @@ proc runCmd(ed: Editor; cmd: string): bool =
       else:
         ed.statusMsg = readyMsg
         ed.state = requestedNothing
-        ed.active = ed.main
+        ed.focus = ed.main
   of "no", "n":
     if ed.state == requestedShutdown:
       ed.prompt.clear()
       ed.main.changed = false
       removeBuffer(ed.main)
-      ed.active = ed.main
+      ed.focus = ed.main
       ed.state = requestedShutdownNext
     elif ed.state == requestedReplace:
       ed.main.gotoNextMarker()
   of "abort", "a":
     ed.prompt.clear()
-    ed.active = ed.main
+    ed.focus = ed.main
     ed.state = requestedNothing
   of "all":
     if ed.state == requestedReplace:
@@ -110,7 +110,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
         ed.main.gotoNextMarker()
       ed.statusMsg = readyMsg
       ed.prompt.clear()
-      ed.active = ed.main
+      ed.focus = ed.main
       ed.state = requestedNothing
   of "quit", "q": result = true
   of "find", "f":
@@ -166,7 +166,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
         i = parseWord(cmd, line, i, true)
         discard parseutils.parseInt(line, col)
         ed.main.gotoLine(lineAsInt, col)
-        ed.active = ed.main
+        ed.focus = ed.main
     prompt.clear()
   of "save", "s":
     var p = ""
@@ -197,7 +197,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
     i = parseWord(cmd, p, i)
     if p.len > 0: openTab(ed, p)
     prompt.clear()
-    ed.active = ed.main
+    ed.focus = ed.main
   of "lang":
     var lang = ""
     i = parseWord(cmd, lang, i)
@@ -207,11 +207,11 @@ proc runCmd(ed: Editor; cmd: string): bool =
   of "config", "conf", "cfg":
     openTab(ed, ed.cfgColors)
     prompt.clear()
-    ed.active = ed.main
+    ed.focus = ed.main
   of "script", "scripts":
     openTab(ed, ed.cfgActions)
     prompt.clear()
-    ed.active = ed.main
+    ed.focus = ed.main
   of "cr":
     ed.main.lineending = "\C"
     prompt.clear()

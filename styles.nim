@@ -36,27 +36,12 @@ proc fatal*(msg: string) {.noReturn.} =
   quit(msg)
 
 proc parseColor*(hex: string): Color =
-  let x = case hex.toLower
-          of "white": 0xffffff
-          of "orange": 0xFFA500
-          of "blue": 0x00FFFF
-          of "red": 0xFF0000
-          of "yellow": 0xFFFF00
-          of "pink": 0xFF00FF
-          of "gray": 0x808080
-          of "green": 0x00FF00
-          of "deeppink": 0xFF1493
-          else: parseHexInt(hex)
+  let x = parseHexInt(hex)
   result = color(x shr 16 and 0xff, x shr 8 and 0xff, x and 0xff, 0)
 
 proc colorFromInt*(x: BiggestInt): Color =
   let x = x.int
   result = color(x shr 16 and 0xff, x shr 8 and 0xff, x and 0xff, 0)
-
-proc loadFont(path: string; size: byte): FontPtr =
-  result = openFont(path, size.cint)
-  if result.isNil:
-    fatal("cannot load font " & path)
 
 proc fontByName*(m: var FontManager; name: string; size: byte;
                  style=FontStyle.Normal): FontPtr =

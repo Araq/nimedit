@@ -18,6 +18,10 @@ type
     a*, b*: int
     replacement*: string
 
+  Indexer* = object ## information that an indexer requires per buffer
+    version*: int   # the version of the document that was indexed
+    position*: int  # the position where it left off
+
   Buffer* = ref object
     cursor*: Natural
     firstLine*, currentLine*, desiredCol*, numberOfLines*: Natural
@@ -40,6 +44,8 @@ type
     lang*: SourceLanguage
     next*, prev*: Buffer
     lineending*: string # CR-LF, CR or LF
+    indexer*: Indexer
+    cursorDim*: tuple[x, y, h: int]
 
 proc getCell*(b: Buffer; i: Natural): Cell =
   if i < b.front.len:

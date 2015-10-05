@@ -1,10 +1,10 @@
 
-import strutils
+import strutils, critbits
 from parseutils import parseInt
 from os import extractFilename, splitFile, expandFilename, cmpPaths, `/`
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
-import languages, themes, nimscriptsupport, tabbar, scrollbar
+import languages, themes, nimscriptsupport, tabbar, scrollbar, indexer
 
 when defined(windows):
   import dialogs
@@ -13,8 +13,6 @@ when defined(windows):
 # TODO:
 #  - better line wrapping
 #  - regex search&replace; nah, just make it scriptable properly instead
-#  - basic auto-complete (use identifiers in active buffers of the same
-#                         language)
 #  - nimsuggest integration
 #  - show declarations in a minimap
 #  - draw gradient for scrollbar
@@ -39,8 +37,8 @@ type
     requestedReplace
 
   Editor = ref object
-    active, main, prompt, console: Buffer # active points to either
-                                          # main, prompt or console
+    focus, main, prompt, console, autocomplete: Buffer # focus points to either
+                                                       # main, prompt or console
     mainRect, promptRect, consoleRect: Rect
     statusMsg: string
     uiFont: FontPtr
@@ -56,6 +54,7 @@ type
     state: EditorState
     bar: TabBar
     ticker: int
+    indexer: CritbitTree[int]
 
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
@@ -70,10 +69,12 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.console = newBuffer("", addr ed.mgr)
   ed.console.lang = langConsole
 
+  ed.autocomplete = newBuffer("", addr ed.mgr)
+
   ed.buffersCounter = 1
   ed.main.next = ed.main
   ed.main.prev = ed.main
-  ed.active = ed.main
+  ed.focus = ed.main
 
   ed.con = newConsole(ed.console)
   ed.con.insertPrompt()
@@ -106,8 +107,8 @@ template removeBuffer(n) =
     let nxt = n.next
     if n == ed.bar:
       ed.bar = nxt
-    if n == ed.active:
-      ed.active = nxt
+    if n == ed.focus:
+      ed.focus = nxt
     n.next.prev = n.prev
     n.prev.next = n.next
     n = nxt
@@ -136,7 +137,7 @@ proc openTab(ed: Editor; filename: string): bool {.discardable.} =
   try:
     x.loadFromFile(fullpath)
     insertBuffer(ed.main, x)
-    ed.active = ed.main
+    ed.focus = ed.main
     result = true
   except IOError:
     ed.statusMsg = "cannot open: " & filename
@@ -167,7 +168,7 @@ proc layout(ed: Editor) =
     # disable console:
     ed.consoleRect.x = -1
     # if the console is disabled, it cannot have the focus:
-    if ed.active == ed.console: ed.active = ed.main
+    if ed.focus == ed.console: ed.focus = ed.main
 
 proc withUnsavedChanges(start: Buffer): Buffer =
   result = start
@@ -207,7 +208,7 @@ proc loadOpenTabs(ed: Editor) =
       let x = line.split('\t')
       if ed.openTab(x[0]):
         gotoLine(ed.main, parseInt(x[1]), parseInt(x[2]))
-        ed.active = ed.main
+        ed.focus = ed.main
         if oldRoot != nil:
           removeBuffer(oldRoot)
           oldRoot = nil
@@ -218,8 +219,12 @@ const
   TimeoutsPerSecond = 1000 div DefaultTimeOut
 
 proc tick(ed: Editor) =
-  # periodic events. Every 5 minutes we save the list of open tabs.
   inc ed.ticker
+  # every 2s second run the indexer:
+  if ed.ticker mod 4 == 0:
+    indexBuffers(ed.indexer, ed.main)
+
+  # periodic events. Every 5 minutes we save the list of open tabs.
   if ed.ticker > TimeoutsPerSecond*60*5:
     ed.ticker = 0
     saveOpenTabs(ed)
@@ -244,7 +249,7 @@ proc mainProc(ed: Editor) =
   ed.theme.renderer = ed.renderer
   ed.bar = ed.main
   template prompt: expr = ed.prompt
-  template active: expr = ed.active
+  template focus: expr = ed.focus
   template main: expr = ed.main
   template renderer: expr = ed.renderer
   template console: expr = ed.console
@@ -262,7 +267,7 @@ proc mainProc(ed: Editor) =
       if file.len > 0 and line > 0:
         if ed.openTab(file):
           gotoLine(main, line, col)
-          active = main
+          focus = main
 
     var rawMainRect = ed.mainRect
     rawMainRect.w -= scrollBarWidth(main)
@@ -290,27 +295,27 @@ proc mainProc(ed: Editor) =
         let w = e.button
         let p = point(w.x, w.y)
         if ed.mainRect.contains(p):
-          if active == main and rawMainRect.contains(p):
+          if focus == main and rawMainRect.contains(p):
             main.setCursorFromMouse(ed.mainRect, p, w.clicks.int)
           else:
-            active = main
+            focus = main
         elif ed.promptRect.contains(p):
-          if active == prompt:
+          if focus == prompt:
             prompt.setCursorFromMouse(ed.promptRect, p, w.clicks.int)
           else:
-            active = prompt
+            focus = prompt
         elif hasConsole(ed) and ed.consoleRect.contains(p):
-          if active == console:
+          if focus == console:
             console.setCursorFromMouse(ed.consoleRect, p, w.clicks.int)
             clickOnFilename = w.clicks.int >= 2
           else:
-            active = console
+            focus = console
       of MouseWheel:
         let w = e.wheel
         var p: Point
         discard getMouseState(p.x, p.y)
         let a = if hasConsole(ed) and ed.consoleRect.contains(p): console
-                else: main
+                else: focus
         a.scrollLines(-w.y*3)
       of TextInput:
         let w = e.text
@@ -322,88 +327,92 @@ proc mainProc(ed: Editor) =
              keys[SDL_SCANCODE_RCTRL.int] == 1:
             surpress = true
         if not surpress:
-          active.insertSingleKey($w.text)
+          focus.insertSingleKey($w.text)
       of KeyDown:
         let w = e.key
         case w.keysym.scancode
         of SDL_SCANCODE_BACKSPACE:
-          active.backspace()
+          focus.backspace()
         of SDL_SCANCODE_DELETE:
-          active.deleteKey()
+          focus.deleteKey()
         of SDL_SCANCODE_RETURN:
-          if active==main:
+          if focus==main:
             main.insertEnter()
-          elif active==prompt:
+          elif focus==prompt:
             if ed.runCmd(prompt.fullText): break
-          elif active==console:
+          elif focus==console:
             enterPressed(ed.con)
+          elif focus==ed.autocomplete:
+            indexer.selected(ed.autocomplete, main)
+            focus = main
         of SDL_SCANCODE_ESCAPE:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            if active == console or not ed.hasConsole: active = main
-            else: active = console
+            if focus == console or not ed.hasConsole: focus = main
+            else: focus = console
           else:
-            if active==main: active = prompt
-            else: active = main
+            if focus==main: focus = prompt
+            else: focus = main
         of SDL_SCANCODE_RIGHT:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            active.selectRight((w.keysym.modstate and controlKey) != 0)
+            focus.selectRight((w.keysym.modstate and controlKey) != 0)
           else:
-            active.deselect()
-            active.right((w.keysym.modstate and controlKey) != 0)
+            focus.deselect()
+            focus.right((w.keysym.modstate and controlKey) != 0)
         of SDL_SCANCODE_LEFT:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            active.selectLeft((w.keysym.modstate and controlKey) != 0)
+            focus.selectLeft((w.keysym.modstate and controlKey) != 0)
           else:
-            active.deselect()
-            active.left((w.keysym.modstate and controlKey) != 0)
+            focus.deselect()
+            focus.left((w.keysym.modstate and controlKey) != 0)
         of SDL_SCANCODE_DOWN:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            active.selectDown((w.keysym.modstate and controlKey) != 0)
-          elif active==prompt:
+            focus.selectDown((w.keysym.modstate and controlKey) != 0)
+          elif focus==prompt:
             ed.promptCon.downPressed()
-          elif active == console:
+          elif focus == console:
             ed.con.downPressed()
           else:
-            active.deselect()
-            active.down((w.keysym.modstate and controlKey) != 0)
+            focus.deselect()
+            focus.down((w.keysym.modstate and controlKey) != 0)
         of SDL_SCANCODE_UP:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            active.selectUp((w.keysym.modstate and controlKey) != 0)
-          elif active==prompt:
+            focus.selectUp((w.keysym.modstate and controlKey) != 0)
+          elif focus==prompt:
             ed.promptCon.upPressed()
-          elif active == console:
+          elif focus == console:
             ed.con.upPressed()
           else:
-            active.deselect()
-            active.up((w.keysym.modstate and controlKey) != 0)
+            focus.deselect()
+            focus.up((w.keysym.modstate and controlKey) != 0)
         of SDL_SCANCODE_TAB:
           if (w.keysym.modstate and controlKey) != 0:
             main = main.next
-            active = main
-          elif active == main:
+            focus = main
+          elif focus == main:
             if (w.keysym.modstate and KMOD_SHIFT) != 0:
               main.shiftTabPressed()
             else:
               main.tabPressed()
-          elif active == console:
+          elif focus == console:
             ed.con.tabPressed()
-          elif active == prompt:
+          elif focus == prompt:
             ed.promptCon.tabPressed()
         of SDL_SCANCODE_F5:
-          highlightEverything(active)
+          highlightEverything(focus)
         else: discard
         if (w.keysym.modstate and controlKey) != 0:
           if w.keysym.sym == ord(' '):
-            echo "SPACE"
+            focus = ed.autocomplete
+            populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
           elif w.keysym.sym == ord('z'):
             # CTRL+Z: undo
             # CTRL+shift+Z: redo
             if (w.keysym.modstate and KMOD_SHIFT) != 0:
-              active.redo
+              focus.redo
             else:
-              active.undo
+              focus.undo
           elif w.keysym.sym == ord('a'):
-            active.selectAll()
+            focus.selectAll()
           elif w.keysym.sym == ord('b'):
             ed.con.sendBreak()
           elif w.keysym.sym == ord('e'):
@@ -415,17 +424,17 @@ proc mainProc(ed: Editor) =
           elif w.keysym.sym == ord('h'):
             ed.replaceCmd()
           elif w.keysym.sym == ord('x'):
-            let text = active.getSelectedText
+            let text = focus.getSelectedText
             if text.len > 0:
-              active.removeSelectedText()
+              focus.removeSelectedText()
               discard sdl2.setClipboardText(text)
           elif w.keysym.sym == ord('c'):
-            let text = active.getSelectedText
+            let text = focus.getSelectedText
             if text.len > 0:
               discard sdl2.setClipboardText(text)
           elif w.keysym.sym == ord('v'):
             let text = sdl2.getClipboardText()
-            active.insert($text)
+            focus.insert($text)
             freeClipboardText(text)
           elif w.keysym.sym == ord('u'):
             main.markers.setLen 0
@@ -438,7 +447,7 @@ proc mainProc(ed: Editor) =
               let toOpen = chooseFilesToOpen(nil, previousLocation)
               for p in toOpen:
                 ed.openTab(p)
-              active = main
+              focus = main
           elif w.keysym.sym == ord('s'):
             main.save()
             if cmpPaths(main.filename, ed.cfgColors) == 0:
@@ -449,7 +458,7 @@ proc mainProc(ed: Editor) =
           elif w.keysym.sym == ord('n'):
             let x = newBuffer(unkownName(), addr ed.mgr)
             insertBuffer(main, x)
-            active = main
+            focus = main
           elif w.keysym.sym == ord('q'):
             if not main.changed:
               removeBuffer(main)
@@ -484,9 +493,10 @@ proc mainProc(ed: Editor) =
                                e, ed.main)
     if activeTab != nil:
       main = activeTab
-      active = main
+      focus = main
 
-    ed.theme.draw(main, rawMainRect, blink==0 and active==main,
+    ed.theme.draw(main, rawMainRect, (blink==0 and focus==main) or
+                                      focus==ed.autocomplete,
                   ed.theme.showLines)
     let scrollTo = drawScrollBar(main, ed.theme, e, ed.mainRect)
     if scrollTo >= 0:
@@ -495,15 +505,24 @@ proc mainProc(ed: Editor) =
     var mainBorder = ed.mainRect
     mainBorder.x = spaceForLines(main, ed.theme) + ed.theme.uiXGap.cint + 2
     mainBorder.w = ed.mainRect.x + ed.mainRect.w - 1 - mainBorder.x
-    ed.theme.drawBorder(mainBorder, active==main)
+    ed.theme.drawBorder(mainBorder, focus==main)
+
+    if focus == ed.autocomplete:
+      var autoRect = mainBorder
+      autoRect.x += 10
+      autoRect.w -= 20
+      autoRect.y = cint(main.cursorDim.y + main.cursorDim.h + 10)
+      autoRect.h = min(ed.mainRect.y + ed.mainRect.h - autoRect.y, 400)
+      ed.theme.drawBorderBox(autoRect, true)
+      ed.theme.drawAutoComplete(ed.autocomplete, autoRect)
 
     if ed.hasConsole:
       ed.theme.draw(console, ed.consoleRect,
-                    blink==0 and active==console)
-      ed.theme.drawBorder(ed.consoleRect, active==console)
+                    blink==0 and focus==console)
+      ed.theme.drawBorder(ed.consoleRect, focus==console)
 
-    ed.theme.draw(prompt, ed.promptRect, blink==0 and active==prompt)
-    ed.theme.drawBorder(ed.promptRect, active==prompt)
+    ed.theme.draw(prompt, ed.promptRect, blink==0 and focus==prompt)
+    ed.theme.drawBorder(ed.promptRect, focus==prompt)
 
     let statusBar = ed.theme.renderText(ed.statusMsg & "     " & main.filename,
                         ed.uiFont,

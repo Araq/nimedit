@@ -74,6 +74,9 @@ proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
       b.markers.add(Marker(a: i, b: last-1, replacement: toReplaceWith))
     inc i, searchTerm.len
 
+#proc findLineWithPrefix*(b: Buffer; prefix: string): int =
+#
+
 proc doReplace*(b: Buffer): bool =
   if b.activeMarker < b.markers.len:
     # we have to copy it here and delete it immediately so that the updates

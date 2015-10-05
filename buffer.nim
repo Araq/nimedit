@@ -171,12 +171,13 @@ proc getColumn*(b: Buffer): int =
     i += graphemeLen(b, i)
     inc result
 
-proc getLastLine*(b: Buffer): string =
-  var i = b.len
+proc getCurrentLine*(b: Buffer): string =
+  var i = b.cursor #b.len
   while i > 0 and b[i-1] != '\L': dec i
   result = ""
-  for j in i..<b.len:
-    result.add b[j]
+  while i < b.len and b[i] != '\L':
+    result.add b[i]
+    inc i
 
 proc rawLeft*(b: Buffer) =
   if b.cursor > 0:
@@ -316,6 +317,7 @@ proc loadFromFile*(b: Buffer; filename: string) =
         inc j
 
   clear(b)
+  inc b.version
   b.filename = filename
   b.lang = fileExtToLanguage(splitFile(filename).ext)
   let s = readFile(filename)
