@@ -27,7 +27,14 @@ proc indexBuffer(database: var CritBitTree[int]; b: Buffer) =
         inc i
       # do not index words of length 1:
       if word.len > 1:
-        database.inc word
+        database[word] = 0
+    elif c in {'0'..'9'}:
+      # prevent indexing numbers like 0xffff:
+      inc i
+      while true:
+        let c = b[i]
+        if c notin someWordChar: break
+        inc i
     else:
       inc i
   # we indexed the whole buffer:
@@ -68,22 +75,30 @@ proc makeSuggestion*(database: var CritBitTree[int]; prefix: string): string =
       best = val
       result = key
 
-proc populateBuffer*(database: CritBitTree[int]; b: Buffer;
+proc populateBuffer*(database: var CritBitTree[int]; b: Buffer;
                      prefix: string) =
   # only repopulate if the database knows new words:
   if database.len != b.numberOfLines:
-    var interesting = -1
+    echo "POPULATING!"
     b.clear()
-    for key in database.keys():
+    for key, value in database.mpairs():
+      value = b.numberOfLines
       b.insert(key)
       b.insertEnter()
-      if interesting < 0 and key.startsWith(prefix):
-        # gotoLine is 1 based, arg:
-        interesting = b.numberOfLines+1
-    b.gotoLine(interesting, -1)
     b.readOnly = b.len-1
-  else:
-    b.gotoLine(0, -1)
+
+  # we of course want to use the database for *fast* term searching:
+  var interesting = -1
+  var p = prefix
+  while p.len > 0:
+    for hit in database.valuesWithPrefix(p):
+      interesting = hit
+      break
+    if interesting >= 0:
+      break
+    # try a prefix that is not as long:
+    p.setLen(p.len-1)
+  b.gotoLine(interesting+1, -1)
 
 proc selected*(autocomplete, main: Buffer) =
   inc main.version
