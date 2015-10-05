@@ -280,6 +280,7 @@ proc mainProc(ed: Editor) =
     if waitEventTimeout(e, timeout) == SdlSuccess:
       case e.kind
       of QuitEvent:
+        saveOpenTabs(ed)
         ed.state = requestedShutdown
         let b = withUnsavedChanges(main)
         if b == nil: break
@@ -339,7 +340,9 @@ proc mainProc(ed: Editor) =
           if focus==main:
             main.insertEnter()
           elif focus==prompt:
-            if ed.runCmd(prompt.fullText): break
+            if ed.runCmd(prompt.fullText):
+              saveOpenTabs(ed)
+              break
           elif focus==console:
             enterPressed(ed.con)
           elif focus==ed.autocomplete:
@@ -539,7 +542,6 @@ proc mainProc(ed: Editor) =
       ed.mainRect.x + ed.mainRect.w - 14*ed.theme.uiFontSize.int, bottom)
 
     present(renderer)
-  saveOpenTabs(ed)
   freeFonts fontM
   destroy ed
 
