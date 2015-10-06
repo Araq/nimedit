@@ -69,7 +69,9 @@ proc runCmd(ed: Editor; cmd: string): bool =
       if supportsAction(procName):
         let x = runTransformator(procName, ed.main.getSelectedText())
         if not x.isNil:
+          inc ed.main.version
           ed.main.removeSelectedText()
+          dec ed.main.version
           ed.main.insert(x)
       else:
         ed.statusMsg = "Unknown command: " & procname

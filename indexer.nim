@@ -79,6 +79,7 @@ proc populateBuffer*(database: var CritBitTree[int]; b: Buffer;
   var interesting = -1
   var p = prefix
   while p.len > 0:
+    #echo "prefix ", p
     for hit in database.valuesWithPrefix(p):
       interesting = hit
       break

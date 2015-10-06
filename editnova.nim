@@ -18,8 +18,8 @@ when defined(windows):
 #  - draw gradient for scrollbar
 #  - debugger support!
 #  - fix drawing bug: uses height instead of y+height
-#  - make F5 do something smart (re-execute the most recent shell command)
 #  - make F-keys scriptable
+#  - idea: switch between header and implemenation file for C/C++
 
 # Optional:
 #  - large file handling
@@ -217,15 +217,21 @@ proc loadOpenTabs(ed: Editor) =
           oldRoot = nil
     f.close()
 
+proc handleF5(ed: Editor) =
+  if hasConsole(ed):
+    upPressed(ed.con)
+    enterPressed(ed.con)
+  else:
+    ed.statusMsg = "No console open. Make the window wider."
+
 const
   DefaultTimeOut = 500.cint
   TimeoutsPerSecond = 1000 div DefaultTimeOut
 
 proc tick(ed: Editor) =
   inc ed.ticker
-  # every 2s second run the indexer:
-  if ed.ticker mod 4 == 0:
-    indexBuffers(ed.indexer, ed.main)
+  # run the index every 500ms. It's incremental and fast.
+  indexBuffers(ed.indexer, ed.main)
 
   # periodic events. Every 5 minutes we save the list of open tabs.
   if ed.ticker > TimeoutsPerSecond*60*5:
@@ -409,7 +415,7 @@ proc mainProc(ed: Editor) =
           elif focus == prompt:
             ed.promptCon.tabPressed()
         of SDL_SCANCODE_F5:
-          highlightEverything(focus)
+          handleF5(ed)
         else: discard
         if (w.keysym.modstate and controlKey) != 0:
           if w.keysym.sym == ord(' '):
@@ -450,6 +456,7 @@ proc mainProc(ed: Editor) =
           elif w.keysym.sym == ord('u'):
             main.markers.setLen 0
             if ed.state == requestedReplace: ed.state = requestedNothing
+            highlightEverything(focus)
           elif w.keysym.sym == ord('o'):
             when defined(windows):
               let previousLocation =
