@@ -320,7 +320,7 @@ proc execThreadProc() {.thread.} =
 
         # Process exited.
         waitForExit()
-      if osproc.hasData(p):
+      elif osproc.hasData(p):
         let line = o.readAll()
         responses.send(line)
 
