@@ -252,7 +252,7 @@ proc mainProc(ed: Editor) =
 
   loadTheme()
 
-  ed.window = createWindow("Editnova", 10, 30, ed.screenW, ed.screenH,
+  ed.window = createWindow("Aporia Pro", 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE)
   ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
   ed.theme.renderer = ed.renderer
@@ -414,6 +414,9 @@ proc mainProc(ed: Editor) =
             ed.con.tabPressed()
           elif focus == prompt:
             ed.promptCon.tabPressed()
+        of SDL_SCANCODE_F1:
+          if focus == console or not ed.hasConsole: focus = main
+          else: focus = console
         of SDL_SCANCODE_F5:
           handleF5(ed)
         else: discard

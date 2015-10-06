@@ -1,11 +1,23 @@
 ======================================================
-      Reinventing the IDE
+        Aporia Pro User Manual
 ======================================================
 
   "Copying bad design is not good design."
 
-Instead of an intro, I will simply describe the avaliable
-commands here.
+Aporia Pro is a new editor / IDE written completely in Nim for Nim.
+Its design is minimalistic and yet it is one of the most powerful
+editors out there. Once you tried it for a while, you cannot go
+back to other tools.
+
+Concepts
+========
+
+Aporia Pro consists of an "editor", a "prompt", a list of "tabs" as
+well as a "console":
+
+.. image:: ui_desc.png
+
+
 
 Shortcuts
 =========
@@ -14,9 +26,9 @@ Shortcuts
 CTRL+A         Select everything.
 CTRL+B         Abort the currently running program (break). Note that
                CTRL+C always copies.
-CTRL+C         Copy
-CTRL+V         Paste
-CTRL+X         Cut
+CTRL+C         Copy.
+CTRL+V         Paste.
+CTRL+X         Cut.
 CTRL+E         Execute a Nim script. The currently selected Text is
                passed to the Nim script.
 CTRL+F         Search a phrase in the input buffer. Use ``i`` after the search term
@@ -32,14 +44,21 @@ CTRL+O         Open a file.
 CTRL+S         Save the current file.
 CTRL+N         Open a new buffer.
 CTRL+Q         Close the current buffer.
+CTRL+Space     Open auto-complete.
+F1             Switch between editor and console.
+F5             Rerun the most recently executed console
+               command.
 ==========     =========================================
 
 Commands
 ========
 
-Many commands like ``CTRL+E`` give the focus to the so called "prompt". This prompt replaces
-many traditional UI elements with a command line. The syntax is simply "command arg1 ... argN".
-Every command is case insensitive of course.
+Many shortcuts like ``CTRL+E`` give the focus to the "prompt". This prompt replaces
+many traditional UI elements with a command line interface. The syntax is
+simply "command arg1 ... argN". Arguments are seperated by whitespace. You can also
+use single quotes (``'term'``) or double quotes (``"term"``). The standard
+escape sequences like ``\t`` are available within double quotes.
+Every command is case insensitive.
 
 ``e``, ``exec``
   Run a Nim script. Select some text, press CTRL+e, type "doQuote" (without the quotes),

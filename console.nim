@@ -1,6 +1,6 @@
 # Some nice console support.
 
-import buffertype, buffer, os, osproc, streams, strutils
+import buffertype, buffer, os, osproc, streams, strutils, browsers
 
 type
   CmdHistory* = object
@@ -404,5 +404,10 @@ proc enterPressed*(c: Console) =
       c.insertReadOnly(getCurrentExceptionMsg() & "\L")
     insertPrompt c
   else:
-    requests.send cmd
-    c.processRunning = true
+    if i >= cmd.len-1 and (a.endsWith".html" or a.startsWith"http://" or
+        a.startsWith"https://"):
+      openDefaultBrowser(a)
+      #echo a
+    else:
+      requests.send cmd
+      c.processRunning = true
