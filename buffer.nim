@@ -587,10 +587,10 @@ proc indent*(b: Buffer) =
   else:
     var i = b.selected.a
     while i >= 1 and b[i-1] != '\L': dec i
-    while i <= b.selected.b:
+    while i <= b.selected.b and i < b.len:
       indentSingleLine(b, i)
       inc i
-      while i < b.len-1 and b[i] != '\L': inc i
+      while i < b.len and b[i] != '\L': inc i
       if b[i] == '\L': inc i
 
 proc getLineFromOffset(b: Buffer; pos: int): Natural =

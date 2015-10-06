@@ -60,11 +60,12 @@ template fastRuneAt(s: Buffer, i: int, result: expr, doInc = true) =
     result = Rune(ord(ch))
     when doInc: inc(i)
 
-proc graphemeLen*(s: Buffer; i: Natural): Natural =
+proc graphemeLen*(s: Buffer; i: Natural): Positive =
   ## The number of bytes belonging to 's[i]' including following combining
   ## characters.
   var j = i.int
   var r, r2: Rune
+  result = 1
   if j < s.len:
     fastRuneAt(s, j, r, true)
     result = j-i
