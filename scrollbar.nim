@@ -20,13 +20,14 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
   var rect = bufferRect
   rect.w = width
   rect.x = bufferRect.x + bufferRect.w - width
-  #let span = bufferRect.h div (t.editorFontSize.cint+2)
+  let fontSize = fontLineSkip(t.editorFontPtr)
+  #let span = bufferRect.h div fontSize
   # This is surprisingly difficult to get right. Look at
   # http://csdgn.org/inform/scrollbar-mechanics for a detailed description of
   # the algorithm.
 
   # Determine how large the content is, and how big our window is
-  let contentSize = b.numberOfLines.float * (t.editorFontSize.cint+2).float
+  let contentSize = b.numberOfLines.float * fontSize.float
   let windowSize = bufferRect.h.float
   let trackSize = windowSize
 
@@ -39,7 +40,7 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
   let windowScrollAreaSize = contentSize - windowSize
   # The position of our window in accordance to its top on the content.
   # The top of the window over the content.
-  let windowPosition = b.firstLine.float * (t.editorFontSize.cint+2).float
+  let windowPosition = b.firstLine.float * fontSize.float
 
   # The ratio of the window to the scrollable area.
   let windowPositionRatio = windowPosition / windowScrollAreaSize
@@ -81,7 +82,7 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
                                     0.0, trackScrollAreaSize)
         let newGripPositionRatio = newGripPosition / trackScrollAreaSize
         result = clamp((newGripPositionRatio * windowScrollAreaSize /
-           (t.editorFontSize.cint+2).float).int, 0, b.numberOfLines)
+           fontSize.float).int, 0, b.numberOfLines)
         #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
         #               0, b.numberOfLines)
   elif e.kind == MouseButtonDown:
@@ -89,7 +90,7 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
     let p = point(w.x, w.y)
     if rect.contains(p):
       active = true
-      let linesInWindow = max(bufferRect.h div (t.editorFontSize.int+2), 1)
+      let linesInWindow = max(bufferRect.h div fontSize, 1)
       if w.y < grip.y:
         result = clamp(b.firstLine - linesInWindow, 0, b.numberOfLines)
       elif w.y > grip.y + grip.h:

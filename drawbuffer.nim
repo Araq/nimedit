@@ -120,7 +120,7 @@ proc drawText(t: InternalTheme; b: Buffer; i: int; dim: var Rect; oldX: cint;
     r.blit(b, i, cont, dim, font, msg)
     destroy cont
     dim.x = oldX
-    dim.y += h+2
+    dim.y += fontLineSkip(font)
     let dots = r.drawTexture(font, Ellipsis, fg, bg)
     var dotsW: cint
     queryTexture(dots, nil, nil, addr(dotsW), nil)
@@ -163,6 +163,15 @@ proc getBg(b: Buffer; i: int; t: InternalTheme): Color =
       return b.mgr.b[mcHighlighted]
   if t.showBracket and i == b.bracketToHighlight: return t.bracket
   return t.bg
+
+proc drawUnderscore(t: InternalTheme; dim: Rect; buf: cstring; style: Style) =
+  var u: array[2, char]
+  u[0] = '_'
+  u[1] = '\0'
+  let w = textSize(style.font, u)
+  let w2 = textSize(style.font, buf)
+  t.renderer.setDrawColor style.attr.color
+  t.renderer.drawLine(dim.x + w2, dim.y-6, dim.x + w2 + w - 1, dim.y-6)
 
 proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
                   blink: bool): int =
@@ -208,6 +217,9 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
         if cell.c == '\t':
           tabFill(b, buffer, bufres, j)
         else:
+          #if cell.c == '_':
+          #  buffer[bufres] = '\0'
+          #  drawUnderscore(t, dim, buffer, style)
           buffer[bufres] = cell.c
           inc bufres
         inc j
@@ -223,7 +235,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
       if j == b.cursor:
         cursorDim = dim
         cb = false
-  dim.y += maxh.cint+2
+  dim.y += fontLineSkip(t.editorFontPtr) # maxh.cint+2
   dim.x = oldX
   if cursorDim.h > 0 and blink:
     t.drawCursor(cursorDim, maxh.cint)
@@ -286,8 +298,9 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
     inc b.span
   # we need to tell the buffer how many lines *can* be shown to prevent
   # that scrolling is triggered way too early:
+  let lineHeight = fontLineSkip(t.editorFontPtr)
   while dim.y+fontSize < endY:
-    inc dim.y, fontSize.int+2
+    inc dim.y, lineHeight
     inc b.span
   # if not found, ignore mouse request anyway:
   b.clicks = 0
@@ -321,8 +334,9 @@ proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
     inc b.span
   # we need to tell the buffer how many lines *can* be shown to prevent
   # that scrolling is triggered way too early:
+  let lineHeight = fontLineSkip(t.editorFontPtr)
   while dim.y+fontSize < endY:
-    inc dim.y, fontSize.int+2
+    inc dim.y, lineHeight
     inc b.span
   # if not found, ignore mouse request anyway:
   b.clicks = 0

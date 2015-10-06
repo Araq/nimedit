@@ -11,7 +11,7 @@ when defined(windows):
 
 
 # TODO:
-#  - better line wrapping; underscores are not shown at all!
+#  - better line wrapping
 #  - the indexer needs to get rid of mistyped words somehow. :-/
 #  - regex search&replace; nah, just make it scriptable properly instead
 #  - nimsuggest integration
