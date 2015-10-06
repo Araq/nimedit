@@ -279,40 +279,31 @@ proc updateMarkers(b: Buffer; cursorMovement: int) =
       x.a += cursorMovement
       x.b += cursorMovement
 
-proc rawInsert*(b: Buffer; s: string) =
-  for i in 0..<s.len:
-    case s[i]
-    of '\L':
-      b.front.add Cell(c: '\L')
-      inc b.numberOfLines
-      scroll(b, 1)
+proc rawInsert*(b: Buffer; c: char) =
+  case c
+  of '\L':
+    b.front.add Cell(c: '\L')
+    inc b.numberOfLines
+    scroll(b, 1)
+    updateMarkers(b, 1)
+    inc b.cursor
+  of '\C': discard
+  of '\t':
+    for i in 1..tabWidth:
+      b.front.add Cell(c: ' ')
       updateMarkers(b, 1)
       inc b.cursor
-    of '\C':
-      if i < s.len-1 and s[i+1] != '\L':
-        b.front.add Cell(c: '\L')
-        inc b.numberOfLines
-        scroll(b, 1)
-        updateMarkers(b, 1)
-        inc b.cursor
-    of '\t':
-      for i in 1..tabWidth:
-        b.front.add Cell(c: ' ')
-        updateMarkers(b, 1)
-        inc b.cursor
-    of '\0':
-      b.front.add Cell(c: '_')
-      updateMarkers(b, 1)
-      inc b.cursor
-    else:
-      b.front.add Cell(c: s[i])
-      updateMarkers(b, 1)
-      inc b.cursor
+  of '\0':
+    b.front.add Cell(c: '_')
+    updateMarkers(b, 1)
+    inc b.cursor
+  else:
+    b.front.add Cell(c: c)
+    updateMarkers(b, 1)
+    inc b.cursor
 
-proc rawInsert(b: Buffer; c: Cell) =
-  b.front.add c
-  updateMarkers(b, 1)
-  inc b.cursor
+proc rawInsert*(b: Buffer; s: string) =
+  for i in 0..<s.len: rawInsert(b, s[i])
 
 proc loadFromFile*(b: Buffer; filename: string) =
   template detectTabSize() =
@@ -672,7 +663,9 @@ proc gotoLine*(b: Buffer; line, col: int) =
   let line = clamp(line-1, 0, b.numberOfLines-1)
   b.cursor = getLineOffset(b, line)
   b.currentLine = line
-  b.firstLine = max(0, line - (b.span div 2))
+  # if span has not been computed yet, take a guess:
+  let span = if b.span > 0: b.span else: 30
+  b.firstLine = max(0, line - (span div 2))
   b.firstLineOffset = getLineOffset(b, b.firstLine)
   if col > 0:
     var c = 1
@@ -694,7 +687,7 @@ proc applyUndo(b: Buffer; a: Action) =
     prepareForEdit(b)
     # reverse op of delete is insert:
     for i in countdown(a.word.len-1, 0):
-      b.rawInsert Cell(c: a.word[i])
+      b.rawInsert a.word[i]
   highlightLine(b, oldCursor)
 
 proc applyRedo(b: Buffer; a: Action) =
@@ -704,10 +697,7 @@ proc applyRedo(b: Buffer; a: Action) =
     prepareForEdit(b)
     # reverse op of delete is insert:
     for i in countup(0, a.word.len-1):
-      # this is the simples solution to get rid of the CRs that might
-      # have been inserted in the buffer:
-      if a.word[i] != '\C':
-        b.rawInsert Cell(c: a.word[i])
+      b.rawInsert a.word[i]
   else:
     gotoPos(b, a.pos + a.word.len)
     prepareForEdit(b)

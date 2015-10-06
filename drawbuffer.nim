@@ -259,7 +259,7 @@ proc log10(x: int): int =
 
 proc spaceForLines*(b: Buffer; t: InternalTheme): Natural =
   if t.showLines:
-    result = b.numberOfLines.log10 * textSize(t.editorFontPtr, " ")
+    result = (b.numberOfLines+1).log10 * textSize(t.editorFontPtr, " ")
 
 proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
            showLines=false) =

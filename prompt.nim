@@ -223,5 +223,11 @@ proc runCmd(ed: Editor; cmd: string): bool =
   of "crlf":
     ed.main.lineending = "\C\L"
     prompt.clear()
+  of "tab", "tabsize", "tabs":
+    var x = ""
+    i = parseWord(cmd, x, i)
+    var xx: int
+    discard parseutils.parseInt(x, xx)
+    if xx > 0 and xx <= 127: ed.main.tabSize = xx.int8
   else:
     ed.statusMsg = "wrong command, try: open|save|find|replace|..."
