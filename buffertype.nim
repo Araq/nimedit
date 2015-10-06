@@ -20,6 +20,9 @@ type
 
   Indexer* = object ## information that an indexer requires per buffer
     version*: int   # the version of the document that was indexed
+    currentlyIndexing*: int # the version we're currently indexing. Need to
+                            # start from scratch if the buffer changed in
+                            # between.
     position*: int  # the position where it left off
 
   Buffer* = ref object

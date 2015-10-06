@@ -8,6 +8,9 @@ proc indexBuffer(database: var CritBitTree[int]; b: Buffer) =
   # do not do too much work so that everything remains responsive. We don't
   # want to use threading here as the locking would be too complex.
   var linesToIndex = 200
+  if b.indexer.currentlyIndexing != b.version:
+    b.indexer.currentlyIndexing = b.version
+    b.indexer.position = 0
   var i = b.indexer.position
   var word = newStringOfCap(50)
   while i < b.len:
@@ -39,6 +42,7 @@ proc indexBuffer(database: var CritBitTree[int]; b: Buffer) =
       inc i
   # we indexed the whole buffer:
   b.indexer.version = b.version
+  b.indexer.currentlyIndexing = 0
 
 proc getWordPrefix*(b: Buffer): string =
   result = ""
