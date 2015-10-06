@@ -253,7 +253,8 @@ proc mainProc(ed: Editor) =
   loadTheme()
 
   ed.window = createWindow("Aporia Pro", 10, 30, ed.screenW, ed.screenH,
-                            SDL_WINDOW_RESIZABLE)
+                            SDL_WINDOW_RESIZABLE or SDL_WINDOW_MAXIMIZED)
+  ed.window.getSize(ed.screenW, ed.screenH)
   ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
   ed.theme.renderer = ed.renderer
   ed.bar = ed.main
