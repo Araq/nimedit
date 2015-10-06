@@ -17,7 +17,6 @@ when defined(windows):
 #  - show declarations in a minimap
 #  - draw gradient for scrollbar
 #  - debugger support!
-#  - fix drawing bug: uses height instead of y+height
 #  - make F-keys scriptable
 #  - idea: switch between header and implemenation file for C/C++
 

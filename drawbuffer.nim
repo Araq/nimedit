@@ -269,6 +269,7 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
     echo "real offset ", realOffset, " wrong ", b.firstLineOffset
     assert false
   var i = b.firstLineOffset
+  let endY = dim.y + dim.h - 1
   var dim = dim
   let spl = cint(spaceForLines(b, t) + RoomForMargin)
   if showLines:
@@ -277,16 +278,16 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   b.span = 0
   i = t.drawTextLine(b, i, dim, blink)
   inc b.span
-  while dim.y < dim.h and i <= len(b):
+  let fontSize = t.editorFontSize.cint
+  while dim.y+fontSize < endY and i <= len(b):
     if showLines:
       t.drawNumber(b.firstLine+b.span+1, b.currentLine+1, spl, dim.y)
     i = t.drawTextLine(b, i, dim, blink)
     inc b.span
   # we need to tell the buffer how many lines *can* be shown to prevent
   # that scrolling is triggered way too early:
-  let fontSize = t.editorFontSize.int
-  while dim.y < dim.h:
-    inc dim.y, fontSize+2
+  while dim.y+fontSize < endY:
+    inc dim.y, fontSize.int+2
     inc b.span
   # if not found, ignore mouse request anyway:
   b.clicks = 0
