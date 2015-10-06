@@ -279,6 +279,15 @@ proc updateMarkers(b: Buffer; cursorMovement: int) =
       x.a += cursorMovement
       x.b += cursorMovement
 
+proc filterForInsert(s: string): string =
+  result = newStringOfCap(s.len)
+  for i in 0..<s.len:
+    case s[i]
+    of '\C': discard
+    of '\t':
+      for j in 1..tabWidth: result.add(' ')
+    else: result.add(s[i])
+
 proc rawInsert*(b: Buffer; c: char) =
   case c
   of '\L':
@@ -508,9 +517,10 @@ proc insertNoSelect(b: Buffer; s: string; singleUndoOp=false) =
   prepareForEdit(b)
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
   if b.actions.len > 0 and b.actions[^1].k == ins and not singleUndoOp:
-    b.actions[^1].word.add s
+    b.actions[^1].word.add s.filterForInsert
   else:
-    b.actions.add(Action(k: ins, pos: b.cursor, word: s, version: b.version))
+    b.actions.add(Action(k: ins, pos: b.cursor, word: s.filterForInsert,
+                         version: b.version))
   if s[^1] in Whitespace or singleUndoOp: b.actions[^1].k = insFinished
   edit(b)
   rawInsert(b, s)
