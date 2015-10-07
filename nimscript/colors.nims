@@ -1,6 +1,17 @@
 ## See the file 'themedesc.nim' to see what is theme-able (everything).
 import themedesc
 
+const
+  White = 0xffffff
+  Orange = 0xFFA500
+  Blue = 0x00FFFF
+  Red = 0xFF0000
+  Yellow = 0xFFFF00
+  Pink = 0xFF00FF
+  Gray = 0x808080
+  Green = 0x44FF44
+  Deeppink = 0xFF1493
+
 theme.editorFont = "DejaVuSansMono"
 theme.editorFontSize = 15
 theme.uiFont = "Arial"
@@ -17,20 +28,9 @@ theme.cursor = foreground
 theme.lines = 0x898989
 
 theme.selected = 0x1d1d1d
-theme.highlighted = 0x0c090a
+theme.highlighted = Deeppink
 theme.showLines = true
 theme.cursorWidth = 2
-
-const
-  White = 0xffffff
-  Orange = 0xFFA500
-  Blue = 0x00FFFF
-  Red = 0xFF0000
-  Yellow = 0xFFFF00
-  Pink = 0xFF00FF
-  Gray = 0x808080
-  Green = 0x44FF44
-  Deeppink = 0xFF1493
 
 theme.showBracket = true
 theme.bracket = Deeppink

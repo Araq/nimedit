@@ -3,12 +3,12 @@ import common
 
 type
   SourceLanguage* = enum
-    langNone, langNim, langNimrod, langCpp, langCsharp, langC, langJava,
+    langNone, langNim, langCpp, langCsharp, langC, langJava,
     langConsole
 
 const
   sourceLanguageToStr*: array[SourceLanguage, string] = ["none",
-    "Nim", "Nimrod", "C++", "C#", "C", "Java", "Console"]
+    "Nim", "C++", "C#", "C", "Java", "Console"]
   tokenClassToStr*: array[TokenClass, string] = ["None", "Whitespace",
     "DecNumber", "BinNumber", "HexNumber", "OctNumber", "FloatNumber",
     "Identifier", "Keyword", "StringLit", "LongStringLit", "CharLit",
@@ -16,6 +16,15 @@ const
     "RegularExpression", "TagStart", "TagEnd", "Key", "Value", "RawData",
     "Assembler", "Preprocessor", "Directive", "Command", "Rule", "Link",
     "Label", "Reference", "Other", "Green", "Yellow", "Red"]
+
+  additionalIndentChars*: array [SourceLanguage, set[char]] = [
+    langNone: {},
+    langNim: {'(', '[', '{', ':', '='},
+    langCpp: {'(', '[', '{'},
+    langCsharp: {'(', '[', '{'},
+    langC: {'(', '[', '{'},
+    langJava: {'(', '[', '{'},
+    langConsole: {}]
 
 from strutils import toLower, cmpIgnoreStyle
 

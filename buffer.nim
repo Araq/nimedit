@@ -655,18 +655,21 @@ proc shiftTabPressed*(b: Buffer) =
   #else:
   #  gotoPrevMarker(b)
 
-proc insertEnter*(b: Buffer) =
+proc insertEnter*(b: Buffer; smartIndent=true) =
   # move to the *start* of this line
   var i = b.cursor
   while i >= 1 and b[i-1] != '\L': dec i
   var toInsert = "\L"
-  while true:
-    let c = b[i]
-    if c == ' ' or c == '\t':
-      toInsert.add c
-    else:
-      break
-    inc i
+  if smartIndent:
+    while true:
+      let c = b[i]
+      if c == ' ' or c == '\t':
+        toInsert.add c
+      else:
+        break
+      inc i
+    if b.cursor > 0 and b[b.cursor-1] in additionalIndentChars[b.lang]:
+      for i in 1..b.tabSize: toInsert.add ' '
   b.insert(toInsert)
 
 proc gotoLine*(b: Buffer; line, col: int) =

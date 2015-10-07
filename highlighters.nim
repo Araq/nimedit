@@ -574,7 +574,7 @@ proc javaNextToken(g: var GeneralTokenizer) =
 proc getNextToken(g: var GeneralTokenizer, lang: SourceLanguage) =
   case lang
   of langNone: assert false
-  of langNim, langNimrod: nimNextToken(g)
+  of langNim: nimNextToken(g)
   of langCpp: cppNextToken(g)
   of langCsharp: csharpNextToken(g)
   of langC: cNextToken(g)

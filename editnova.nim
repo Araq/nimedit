@@ -12,6 +12,11 @@ when defined(windows):
 
 # TODO:
 #  - better line wrapping
+#  - bookmarks:
+#    - mark what is long on the screen automatically (timeout).
+#    - mark the lines that actually have been edited.
+#    - Navigate through the list of bookmarks via F3.
+#  - indentation guidelines
 #  - regex search&replace; nah, just make it scriptable properly instead
 #  - nimsuggest integration
 #  - draw gradient for scrollbar
@@ -29,6 +34,7 @@ const
   readyMsg = "Ready."
 
   controlKey = when defined(macosx): KMOD_GUI or KMOD_CTRL else: KMOD_CTRL
+  windowTitle = "Aporia Pro"
 
 
 type
@@ -251,7 +257,7 @@ proc mainProc(ed: Editor) =
 
   loadTheme()
 
-  ed.window = createWindow("Aporia Pro", 10, 30, ed.screenW, ed.screenH,
+  ed.window = createWindow(windowTitle, 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE or SDL_WINDOW_MAXIMIZED)
   ed.window.getSize(ed.screenW, ed.screenH)
   ed.renderer = createRenderer(ed.window, -1, Renderer_Software)

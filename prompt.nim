@@ -75,8 +75,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
           ed.main.insert(x)
       else:
         ed.statusMsg = "Unknown command: " & procname
-    ed.prompt.clear()
-    ed.focus = ed.main
+    success()
     ed.state = requestedNothing
   of "yes", "y":
     if ed.state == requestedShutdown:
@@ -198,39 +197,41 @@ proc runCmd(ed: Editor; cmd: string): bool =
     var p = ""
     i = parseWord(cmd, p, i)
     if p.len > 0: openTab(ed, p)
-    prompt.clear()
-    ed.focus = ed.main
+    success()
   of "lang":
     var lang = ""
     i = parseWord(cmd, lang, i)
     ed.main.lang = getSourceLanguage(lang)
     highlightEverything(ed.main)
-    prompt.clear()
+    success()
   of "config", "conf", "cfg":
     openTab(ed, ed.cfgColors)
-    prompt.clear()
-    ed.focus = ed.main
+    success()
   of "script", "scripts":
     openTab(ed, ed.cfgActions)
-    prompt.clear()
-    ed.focus = ed.main
+    success()
   of "cr":
     ed.main.lineending = "\C"
-    prompt.clear()
+    success()
   of "lf":
     ed.main.lineending = "\L"
-    prompt.clear()
+    success()
   of "crlf":
     ed.main.lineending = "\C\L"
-    prompt.clear()
+    success()
   of "tab", "tabsize", "tabs":
     var x = ""
     i = parseWord(cmd, x, i)
     var xx: int
     discard parseutils.parseInt(x, xx)
-    if xx > 0 and xx <= 127: ed.main.tabSize = xx.int8
+    if xx > 0 and xx <= 127:
+      ed.main.tabSize = xx.int8
+      success()
   of "setproject", "proj", "project":
     ed.project = ""
     i = parseWord(cmd, ed.project, i)
+    if ed.project.len == 0: ed.window.setTitle(windowTitle)
+    else: ed.window.setTitle(windowTitle & " - " & ed.project)
+    success()
   else:
     ed.statusMsg = "wrong command, try: open|save|find|replace|..."
