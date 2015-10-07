@@ -4,17 +4,16 @@ from parseutils import parseInt
 from os import extractFilename, splitFile, expandFilename, cmpPaths, `/`
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
-import languages, themes, nimscriptsupport, tabbar, scrollbar, indexer
+import languages, themes, nimscriptsupport, tabbar, scrollbar, indexer,
+  minimaps
 
 when defined(windows):
   import dialogs
-
 
 # TODO:
 #  - better line wrapping
 #  - regex search&replace; nah, just make it scriptable properly instead
 #  - nimsuggest integration
-#  - show declarations in a minimap
 #  - draw gradient for scrollbar
 #  - debugger support!
 #  - make F-keys scriptable
@@ -39,8 +38,7 @@ type
     requestedReplace
 
   Editor = ref object
-    focus, main, prompt, console, autocomplete: Buffer # focus points to either
-                                                       # main, prompt or console
+    focus, main, prompt, console, autocomplete, minimap: Buffer
     mainRect, promptRect, consoleRect: Rect
     statusMsg: string
     uiFont: FontPtr
@@ -73,6 +71,7 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.console.lang = langConsole
 
   ed.autocomplete = newBuffer("", addr ed.mgr)
+  ed.minimap = newBuffer("", addr ed.mgr)
 
   ed.buffersCounter = 1
   ed.main.next = ed.main
@@ -368,6 +367,11 @@ proc mainProc(ed: Editor) =
           elif focus==ed.autocomplete:
             indexer.selected(ed.autocomplete, main)
             focus = main
+          elif focus==ed.minimap:
+            let dest = minimaps.onEnter(ed.minimap)
+            if dest >= 0:
+              main.gotoLine(dest, -1)
+            focus = main
         of SDL_SCANCODE_ESCAPE:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
             if focus == console or not ed.hasConsole: focus = main
@@ -491,6 +495,12 @@ proc mainProc(ed: Editor) =
               removeBuffer(main)
             else:
               ed.askForQuitTab()
+          elif w.keysym.sym == ord('m'):
+            if main.lang == langNim:
+              populateMinimap(ed.minimap, main)
+              focus = ed.minimap
+            else:
+              ed.statusMsg = "Minimap only supported for Nim."
       else: discard
       # keydown means show the cursor:
       blink = 0
@@ -534,14 +544,14 @@ proc mainProc(ed: Editor) =
     mainBorder.w = ed.mainRect.x + ed.mainRect.w - 1 - mainBorder.x
     ed.theme.drawBorder(mainBorder, focus==main)
 
-    if focus == ed.autocomplete:
+    if focus == ed.autocomplete or focus == ed.miniMap:
       var autoRect = mainBorder
       autoRect.x += 10
       autoRect.w -= 20
       autoRect.y = cint(main.cursorDim.y + main.cursorDim.h + 10)
       autoRect.h = min(ed.mainRect.y + ed.mainRect.h - autoRect.y, 400)
       ed.theme.drawBorderBox(autoRect, true)
-      ed.theme.drawAutoComplete(ed.autocomplete, autoRect)
+      ed.theme.drawAutoComplete(focus, autoRect)
 
     if ed.hasConsole:
       ed.theme.draw(console, ed.consoleRect,
