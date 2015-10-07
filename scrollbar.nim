@@ -70,21 +70,18 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
     let p = point(w.x, w.y)
     if rect.contains(p):
       active = true
-    if grip.contains(p):
-      if (w.state and BUTTON_LMASK) != 0:
-        # psudo-code, you will have to fill in the missing variables yourself
-        # from your mouse controller!
-        # This only matters along the axis of the slider
-        let mousePositionDelta = w.yrel.float
+    #if grip.contains(p):
+    #  if (w.state and BUTTON_LMASK) != 0:
+      let mousePositionDelta = w.yrel.float
 
-        # Determine the new location of the grip
-        let newGripPosition = clamp(gripPositionOnTrack + mousePositionDelta,
-                                    0.0, trackScrollAreaSize)
-        let newGripPositionRatio = newGripPosition / trackScrollAreaSize
-        result = clamp((newGripPositionRatio * windowScrollAreaSize /
-           fontSize.float).int, 0, b.numberOfLines)
-        #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
-        #               0, b.numberOfLines)
+      # Determine the new location of the grip
+      let newGripPosition = clamp(gripPositionOnTrack + mousePositionDelta,
+                                  0.0, trackScrollAreaSize)
+      let newGripPositionRatio = newGripPosition / trackScrollAreaSize
+      result = clamp((newGripPositionRatio * windowScrollAreaSize /
+         fontSize.float).int, 0, b.numberOfLines)
+      #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
+      #               0, b.numberOfLines)
   elif e.kind == MouseButtonDown:
     let w = e.button
     let p = point(w.x, w.y)
