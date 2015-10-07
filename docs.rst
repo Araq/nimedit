@@ -48,6 +48,9 @@ CTRL+M         Open a minimap. The minimap contains
                a list of all declarations in the current Nim file.
 CTRL+Space     Open auto-complete.
 F1             Switch between editor and console.
+F3             Goto next editing location. Aporia Pro automatically tracks the
+               most recent locations that you edited. This feature replaces
+               the common "bookmarks" feature found in other editors.
 F5             Rerun the most recently executed console
                command.
 ==========     =========================================

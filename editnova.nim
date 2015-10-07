@@ -11,10 +11,6 @@ when defined(windows):
 
 # TODO:
 #  - better line wrapping
-#  - bookmarks:
-#    - mark what is long on the screen automatically (timeout).
-#    - mark the lines that actually have been edited.
-#    - Navigate through the list of bookmarks via F3.
 #  - indentation guidelines
 #  - regex search&replace; nah, just make it scriptable properly instead
 #  - nimsuggest integration
@@ -42,6 +38,15 @@ type
     requestedShutdown, requestedShutdownNext,
     requestedReplace
 
+  Spot = object
+    fullpath: string     # again, we are smarter that the other and re-open
+                         # the buffer when it comes to it.
+    line, col: int
+  Spots = object
+    wr, rd: int
+    a: array[7, Spot]    # keeping track of N different edit
+                         # positions should really be enough!
+
   Editor = ref object
     focus, main, prompt, console, autocomplete, minimap: Buffer
     mainRect, promptRect, consoleRect: Rect
@@ -61,7 +66,28 @@ type
     bar: TabBar
     ticker: int
     indexer: CritbitTree[int]
+    hotspots: Spots
 
+proc trackSpot(s: var Spots; b: Buffer) =
+  if b.filename.len == 0: return
+  # positions are only interesting if they are far away (roughly 1 screen):
+  const interestingDiff = 30
+  # it has to be a really new position:
+  let line = b.getLine
+  let col = b.getColumn
+  var i = 0
+  while i < s.a.len and not s.a[i].fullpath.isNil:
+    if b.filename == s.a[i].fullpath:
+      # update the existing spot:
+      if abs(s.a[i].line - line) < interestingDiff:
+        s.a[i].line = line
+        s.a[i].col = col
+        return
+    inc i
+  s.a[s.wr].fullpath = b.filename
+  s.a[s.wr].line = line
+  s.a[s.wr].col = col
+  s.wr = (s.wr+1) mod s.a.len
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
@@ -187,6 +213,21 @@ proc openTab(ed: Editor; filename: string): bool {.discardable.} =
   except IOError:
     ed.statusMsg = "cannot open: " & filename
 
+proc gotoNextSpot(ed: Editor; s: var Spots; b: Buffer) =
+  # again, be smart. Do not go to where we already are.
+  const interestingDiff = 30
+  var i = s.rd
+  var j = 0
+  while j < s.a.len:
+    if not s.a[i].fullpath.isNil:
+      if b.filename != s.a[i].fullpath or
+          abs(s.a[i].line - b.currentLine) >= interestingDiff:
+        if ed.openTab(s.a[i].fullpath):
+          ed.main.gotoLine(s.a[i].line+1, s.a[i].col+1)
+          s.rd = (i+1) mod s.a.len
+          return
+    i = (i+1) mod s.a.len
+    inc j
 
 include prompt
 
@@ -384,8 +425,10 @@ proc mainProc(ed: Editor) =
             # delegate to main, but keep the focus on the autocomplete!
             main.insertSingleKey($w.text)
             populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+            trackSpot(ed.hotspots, main)
           else:
             focus.insertSingleKey($w.text)
+            if focus==main: trackSpot(ed.hotspots, main)
       of KeyDown:
         let w = e.key
         case w.keysym.scancode
@@ -394,13 +437,17 @@ proc mainProc(ed: Editor) =
             # delegate to main, but keep the focus on the autocomplete!
             main.backspace()
             populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+            trackSpot(ed.hotspots, main)
           else:
             focus.backspace()
+            if focus==main: trackSpot(ed.hotspots, main)
         of SDL_SCANCODE_DELETE:
           focus.deleteKey()
+          if focus==main: trackSpot(ed.hotspots, main)
         of SDL_SCANCODE_RETURN:
           if focus==main:
             main.insertEnter()
+            trackSpot(ed.hotspots, main)
           elif focus==prompt:
             if ed.runCmd(prompt.fullText):
               saveOpenTabs(ed)
@@ -476,6 +523,9 @@ proc mainProc(ed: Editor) =
         of SDL_SCANCODE_F1:
           if focus == console or not ed.hasConsole: focus = main
           else: focus = console
+        of SDL_SCANCODE_F3:
+          ed.gotoNextSpot(ed.hotspots, main)
+          focus = main
         of SDL_SCANCODE_F5:
           handleF5(ed)
         else: discard
