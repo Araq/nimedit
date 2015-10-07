@@ -12,7 +12,6 @@ when defined(windows):
 
 # TODO:
 #  - better line wrapping
-#  - the indexer needs to get rid of mistyped words somehow. :-/
 #  - regex search&replace; nah, just make it scriptable properly instead
 #  - nimsuggest integration
 #  - show declarations in a minimap
@@ -54,6 +53,7 @@ type
     con, promptCon: Console
     mgr: StyleManager
     cfgColors, cfgActions: string
+    project: string
     state: EditorState
     bar: TabBar
     ticker: int

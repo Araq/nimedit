@@ -229,5 +229,8 @@ proc runCmd(ed: Editor; cmd: string): bool =
     var xx: int
     discard parseutils.parseInt(x, xx)
     if xx > 0 and xx <= 127: ed.main.tabSize = xx.int8
+  of "setproject", "proj", "project":
+    ed.project = ""
+    i = parseWord(cmd, ed.project, i)
   else:
     ed.statusMsg = "wrong command, try: open|save|find|replace|..."

@@ -99,4 +99,6 @@ Every command is case insensitive.
   Open the NimScript support. Note that scripting changes are applied as
   soon as the config is saved.
 
-
+``project`` [projectname]
+  Set the project name that you are currently working on. The nimsuggest tool
+  is called with this setting.

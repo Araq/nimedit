@@ -22,14 +22,18 @@ proc indexBuffer(database: var CritBitTree[int]; b: Buffer) =
         b.indexer.position = i+1
         return
     if c in {'A'..'Z', 'a'..'z', '_', '\128'..'\255'}:
+      # do not add the word that the cursor is currently over:
+      var metCursor = false
       word.setLen 0
       while true:
         let c = b[i]
+        if i == b.cursor: metCursor = true
         if c notin someWordChar: break
         word.add c
         inc i
+      if i == b.cursor: metCursor = true
       # do not index words of length 1:
-      if word.len > 1:
+      if word.len > 1 and not metCursor:
         database[word] = 0
     elif c in {'0'..'9'}:
       # prevent indexing numbers like 0xffff:
