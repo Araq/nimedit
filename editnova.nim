@@ -1,7 +1,6 @@
 
-import strutils, critbits
+import strutils, critbits, os
 from parseutils import parseInt
-from os import extractFilename, splitFile, expandFilename, cmpPaths, `/`
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
 import languages, themes, nimscriptsupport, tabbar, scrollbar, indexer,
@@ -122,26 +121,64 @@ template removeBuffer(n) =
     n = nxt
     dec ed.buffersCounter
 
+iterator allBuffers(ed: Editor): Buffer =
+  var it = ed.main
+  while true:
+    yield it
+    it = it.next
+    if it == ed.main: break
+
+proc findFile(ed: Editor; filename: string): string =
+  # be smart and use the list of open tabs as the search path. Ultimately
+  # this should also be scriptable.
+  if os.isAbsolute filename: return
+  for it in ed.allBuffers:
+    if it.filename.len > 0:
+      let res = splitPath(it.filename)[0] / filename
+      if fileExists(res): return res
+
 proc openTab(ed: Editor; filename: string): bool {.discardable.} =
   var fullpath: string
   try:
     fullpath = expandFilename(filename)
   except OSError:
-    ed.statusMsg = getCurrentExceptionMsg()
-    return false
+    fullpath = findFile(ed, filename)
+    if fullpath.len == 0:
+      ed.statusMsg = getCurrentExceptionMsg()
+      return false
 
   ed.statusMsg = readyMsg
   # be intelligent:
-  var it = ed.main
-  while true:
+  for it in ed.allBuffers:
     if cmpPaths(it.filename, fullpath) == 0:
       # just bring the existing tab into focus:
       ed.main = it
       return true
-    it = it.next
-    if it == ed.main: break
 
-  let x = newBuffer(fullpath.extractFilename, addr ed.mgr)
+  # be more intelligent; if now the display name is ambiguous, disambiguate it:
+  var displayname = fullpath.extractFilename
+  proc disamb(a, b: string; displayA, displayB: var string) =
+    # find the "word" in the path that disambiguates properly:
+    var aa = a.splitPath()[0]
+    var bb = b.splitPath()[0]
+    # the last thing we want is yet another fragile 'while true'
+    # that can make us hang for edge cases:
+    for i in 0..80:
+      let canA = aa.splitPath()[1]
+      let canB = bb.splitPath()[1]
+      if canA != canB:
+        displayA.add(":" & canA)
+        displayB.add(":" & canB)
+        break
+      elif canA.len == 0: break
+      aa = aa.splitPath()[0]
+      bb = bb.splitPath()[0]
+
+  for it in ed.allBuffers:
+    if it.heading == displayname:
+      disamb(it.filename, fullpath, it.heading, displayName)
+
+  let x = newBuffer(displayname, addr ed.mgr)
   try:
     x.loadFromFile(fullpath)
     insertBuffer(ed.main, x)
