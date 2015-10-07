@@ -44,6 +44,8 @@ CTRL+O         Open a file.
 CTRL+S         Save the current file.
 CTRL+N         Open a new buffer.
 CTRL+Q         Close the current buffer.
+CTRL+M         Open a minimap. The minimap contains
+               a list of all declarations in the current Nim file.
 CTRL+Space     Open auto-complete.
 F1             Switch between editor and console.
 F5             Rerun the most recently executed console

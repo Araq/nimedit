@@ -401,6 +401,12 @@ proc mainProc(ed: Editor) =
           else:
             focus.deselect()
             focus.down((w.keysym.modstate and controlKey) != 0)
+        of SDL_SCANCODE_PAGE_DOWN:
+          focus.scrollLines(focus.span)
+          focus.cursor = focus.firstLineOffset
+        of SDL_SCANCODE_PAGE_UP:
+          focus.scrollLines(-focus.span)
+          focus.cursor = focus.firstLineOffset
         of SDL_SCANCODE_UP:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
             focus.selectUp((w.keysym.modstate and controlKey) != 0)
