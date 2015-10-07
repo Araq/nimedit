@@ -210,7 +210,7 @@ proc left*(b: Buffer; jump: bool) =
   cursorMoved(b)
 
 proc rawRight(b: Buffer) =
-  if b.cursor < b.front.len+b.back.len:
+  if b.cursor < b.len:
     if b[b.cursor] == '\L':
       scroll(b, 1)
     b.cursor += graphemeLen(b, b.cursor)

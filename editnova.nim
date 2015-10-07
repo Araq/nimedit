@@ -348,7 +348,12 @@ proc mainProc(ed: Editor) =
         let w = e.key
         case w.keysym.scancode
         of SDL_SCANCODE_BACKSPACE:
-          focus.backspace()
+          if focus==ed.autocomplete:
+            # delegate to main, but keep the focus on the autocomplete!
+            main.backspace()
+            populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+          else:
+            focus.backspace()
         of SDL_SCANCODE_DELETE:
           focus.deleteKey()
         of SDL_SCANCODE_RETURN:
