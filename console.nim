@@ -40,11 +40,6 @@ type
     processRunning*: bool
     beforeSuggestionPos: int
 
-proc insertReadonly*(b: Buffer; s: string) =
-  b.readOnly = -1
-  b.insert(s)
-  b.readOnly = b.len-1
-
 proc insertReadonly*(c: Console; s: string) =
   insertReadonly(c.b, s)
 
@@ -212,7 +207,7 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
       elif c.files[sug] == "nimcache": inc sug
       elif c.files[sug].endsWith(".exe"): inc sug
       else: break
-  if sug >% c.files.high: return
+  if sug >=% c.files.len: return
   # these inserts&deletes do not count as changed event:
   let oldChanged = b.changed
   for i in 0..<c.beforeSuggestionPos: backspace(b, overrideUtf8=true)

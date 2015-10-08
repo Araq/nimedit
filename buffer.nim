@@ -354,13 +354,12 @@ proc loadFromFile*(b: Buffer; filename: string) =
   if b.tabSize < 0: b.tabSize = tabWidth
   highlightEverything(b)
 
-proc save*(b: Buffer) =
-  if b.filename.len == 0: b.filename = b.heading
-  let f = open(b.filename, fmWrite)
+proc saveAsTemp*(b: Buffer; filename: string) =
   if b.lineending.isNil or b.lineending.len == 0:
     b.lineending = "\L"
   let L = b.len
   var i = 0
+  let f = open(filename, fmWrite)
   while i < L:
     let ch = b[i]
     if ch > ' ':
@@ -380,6 +379,10 @@ proc save*(b: Buffer) =
       f.write(ch)
     inc(i)
   f.close
+
+proc save*(b: Buffer) =
+  if b.filename.len == 0: b.filename = b.heading
+  saveAsTemp(b, b.filename)
   b.changed = false
 
 proc saveAs*(b: Buffer; filename: string) =
@@ -711,6 +714,11 @@ proc gotoLine*(b: Buffer; line, col: int) =
     while c <= col and b[b.cursor] != '\L':
       rawRight(b)
       inc c
+
+proc insertReadonly*(b: Buffer; s: string) =
+  b.readOnly = -1
+  b.insert(s)
+  b.readOnly = b.len-1
 
 proc applyUndo(b: Buffer; a: Action) =
   let oldCursor = b.cursor

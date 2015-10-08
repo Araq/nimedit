@@ -4,20 +4,23 @@ from parseutils import parseInt
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
 import languages, themes, nimscriptsupport, tabbar, scrollbar, indexer,
-  minimaps
+  minimaps, nimsuggestclient
 
 when defined(windows):
   import dialogs
 
 # TODO:
 #  - better line wrapping
+#  - check if the file changed on the hard disk
+#  - exception handling for Nimscript
 #  - indentation guidelines
-#  - regex search&replace; nah, just make it scriptable properly instead
+#  - regex search&replace
+#  - make replace scriptable
 #  - nimsuggest integration
 #  - draw gradient for scrollbar
 #  - debugger support!
 #  - make F-keys scriptable
-#  - idea: switch between header and implemenation file for C/C++
+#  - idea: switch between header and implementation file for C/C++
 
 # Optional:
 #  - large file handling
@@ -48,7 +51,7 @@ type
                          # positions should really be enough!
 
   Editor = ref object
-    focus, main, prompt, console, autocomplete, minimap: Buffer
+    focus, main, prompt, console, autocomplete, minimap, sug: Buffer
     mainRect, promptRect, consoleRect: Rect
     statusMsg: string
     uiFont: FontPtr
@@ -103,6 +106,8 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
 
   ed.autocomplete = newBuffer("", addr ed.mgr)
   ed.minimap = newBuffer("", addr ed.mgr)
+  ed.sug = newBuffer("", addr ed.mgr)
+  ed.sug.lang = langNim
 
   ed.buffersCounter = 1
   ed.main.next = ed.main
@@ -321,7 +326,31 @@ proc tick(ed: Editor) =
     ed.ticker = 0
     saveOpenTabs(ed)
 
+proc findProject(ed: Editor): string =
+  for it in ed.allBuffers:
+    if it.filename.len > 0 and it.lang == langNim:
+      for ext in [".nims", ".nimcfg", ".nim.cfg"]:
+        let probe = it.filename.changeFileExt(ext)
+        if fileExists(probe):
+          return "'" & it.filename & "'"
+  return ""
+
+proc suggest(ed: Editor; cmd: string) =
+  if ed.project.len == 0:
+    ed.statusMsg = "Which project?"
+    let prompt = ed.prompt
+    ed.focus = ed.prompt
+    prompt.clear()
+    prompt.insert "project " & findProject(ed)
+  elif not startup(ed.project):
+    ed.statusMsg = "Nimsuggest failed for: " & ed.project
+  else:
+    requestSuggestion(ed.main, cmd)
+    ed.focus = ed.sug
+
 proc mainProc(ed: Editor) =
+  addQuitProc nimsuggestclient.shutdown
+
   var fontM: FontManager = @[]
   setDefaults(ed, fontM)
   setupNimscript(ed.cfgColors, ed.cfgActions)
@@ -369,7 +398,10 @@ proc mainProc(ed: Editor) =
     # if we have an external process running in the background, we have a
     # much shorter timeout. Nevertheless this should not affect our blinking
     # speed:
-    let timeout = if ed.con.processRunning: 100.cint else: DefaultTimeOut
+    let timeout = if ed.con.processRunning or nimsuggestclient.processing:
+                    100.cint
+                  else:
+                    DefaultTimeOut
     if waitEventTimeout(e, timeout) == SdlSuccess:
       case e.kind
       of QuitEvent:
@@ -531,8 +563,14 @@ proc mainProc(ed: Editor) =
         else: discard
         if (w.keysym.modstate and controlKey) != 0:
           if w.keysym.sym == ord(' '):
-            focus = ed.autocomplete
-            populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+            let prefix = main.getWordPrefix()
+            if prefix[^1] == '.':
+              ed.suggest("sug")
+            elif prefix[^1] == '(':
+              ed.suggest("con")
+            else:
+              focus = ed.autocomplete
+              populateBuffer(ed.indexer, ed.autocomplete, prefix)
           elif w.keysym.sym == ord('z'):
             # CTRL+Z: undo
             # CTRL+shift+Z: redo
@@ -622,6 +660,7 @@ proc mainProc(ed: Editor) =
       ed.askForQuitTab()
 
     update(ed.con)
+    nimsuggestclient.update(ed.sug)
     clear(renderer)
 
     # position of the tab bar hard coded for now as we don't want to adapt it
@@ -644,7 +683,7 @@ proc mainProc(ed: Editor) =
     mainBorder.w = ed.mainRect.x + ed.mainRect.w - 1 - mainBorder.x
     ed.theme.drawBorder(mainBorder, focus==main)
 
-    if focus == ed.autocomplete or focus == ed.miniMap:
+    if focus == ed.autocomplete or focus == ed.miniMap or focus == ed.sug:
       var autoRect = mainBorder
       autoRect.x += 10
       autoRect.w -= 20
