@@ -78,31 +78,37 @@ proc runCmd(ed: Editor; cmd: string): bool =
     success()
     ed.state = requestedNothing
   of "yes", "y":
-    if ed.state == requestedShutdown:
-      ed.prompt.clear()
+    case ed.state
+    of requestedShutdown, requestedCloseTab:
       ed.main.save()
       removeBuffer(ed.main)
-      ed.focus = ed.main
-      ed.state = requestedShutdownNext
-    elif ed.state == requestedReplace:
+      success()
+      ed.statusMsg = readyMsg
+      ed.state = if ed.state==requestedShutdown: requestedShutdownNext
+                 else: requestedNothing
+    of requestedReplace:
       if ed.main.doReplace():
         ed.main.gotoNextMarker()
       else:
         ed.statusMsg = readyMsg
         ed.state = requestedNothing
         ed.focus = ed.main
+    else: discard
   of "no", "n":
-    if ed.state == requestedShutdown:
-      ed.prompt.clear()
+    case ed.state
+    of requestedShutdown, requestedCloseTab:
       ed.main.changed = false
       removeBuffer(ed.main)
-      ed.focus = ed.main
-      ed.state = requestedShutdownNext
-    elif ed.state == requestedReplace:
+      success()
+      ed.statusMsg = readyMsg
+      ed.state = if ed.state==requestedShutdown: requestedShutdownNext
+                 else: requestedNothing
+    of requestedReplace:
       ed.main.gotoNextMarker()
+    else: discard
   of "abort", "a":
-    ed.prompt.clear()
-    ed.focus = ed.main
+    success()
+    ed.statusMsg = readyMsg
     ed.state = requestedNothing
   of "all":
     if ed.state == requestedReplace:
@@ -204,7 +210,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
     ed.main.lang = getSourceLanguage(lang)
     highlightEverything(ed.main)
     success()
-  of "config", "conf", "cfg":
+  of "config", "conf", "cfg", "colors":
     openTab(ed, ed.cfgColors)
     success()
   of "script", "scripts":

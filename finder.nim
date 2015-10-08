@@ -86,6 +86,9 @@ proc doReplace*(b: Buffer): bool =
     var x = m.a
     var y = m.b
     b.markers.delete b.activeMarker
+    inc b.version
     removeSelectedText(b, x, y)
-    if m.replacement.len > 0: insert(b, m.replacement)
+    if m.replacement.len > 0:
+      dec b.version
+      insert(b, m.replacement)
     result = true

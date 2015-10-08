@@ -472,12 +472,14 @@ proc selectLeft*(b: Buffer; jump: bool) =
     if b.selected.b < 0: b.selected.b = b.cursor-1
     left(b, jump)
     b.selected.a = b.cursor
+    #if b.selected.a > b.selected.b: swap(b.selected.a, b.selected.b)
 
 proc selectUp*(b: Buffer; jump: bool) =
   if b.cursor > 0:
     if b.selected.b < 0: b.selected.b = b.cursor-1
     up(b, jump)
     b.selected.a = b.cursor
+    #if b.selected.a > b.selected.b: swap(b.selected.a, b.selected.b)
 
 proc selectRight*(b: Buffer; jump: bool) =
   if b.cursor < b.len:
@@ -485,6 +487,7 @@ proc selectRight*(b: Buffer; jump: bool) =
     right(b, jump)
     let (_, L) = lastRune(b, b.cursor-1)
     b.selected.b = b.cursor-L
+    #if b.selected.a > b.selected.b: swap(b.selected.a, b.selected.b)
 
 proc selectDown*(b: Buffer; jump: bool) =
   if b.cursor < b.len:
@@ -492,6 +495,7 @@ proc selectDown*(b: Buffer; jump: bool) =
     down(b, jump)
     let (_, L) = lastRune(b, b.cursor-1)
     b.selected.b = b.cursor-L
+    #if b.selected.a > b.selected.b: swap(b.selected.a, b.selected.b)
 
 proc backspace*(b: Buffer; overrideUtf8=false) =
   inc b.version

@@ -27,8 +27,8 @@ theme.foreground = foreground
 theme.cursor = foreground
 theme.lines = 0x898989
 
-theme.selected = 0x1d1d1d
-theme.highlighted = Deeppink
+theme.selected = 0x00 # 0x1d1d1d
+theme.highlighted = 0x440000
 theme.showLines = true
 theme.cursorWidth = 2
 

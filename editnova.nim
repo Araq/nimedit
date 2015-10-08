@@ -36,7 +36,7 @@ type
   EditorState = enum
     requestedNothing,
     requestedShutdown, requestedShutdownNext,
-    requestedReplace
+    requestedReplace, requestedCloseTab
 
   Spot = object
     fullpath: string     # again, we are smarter that the other and re-open
@@ -593,6 +593,7 @@ proc mainProc(ed: Editor) =
             if not main.changed:
               removeBuffer(main)
             else:
+              ed.state = requestedCloseTab
               ed.askForQuitTab()
           elif w.keysym.sym == ord('m'):
             if main.lang == langNim:
