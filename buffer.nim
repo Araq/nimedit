@@ -467,35 +467,57 @@ proc removeSelectedText*(b: Buffer) =
 
 proc deselect*(b: Buffer) {.inline.} = b.selected.b = -1
 
+proc select(b: Buffer; oldPos, newPos: int; left: bool) =
+  # cursor moved into the current selection?
+  if b.cursor >= b.selected.a and b.cursor <= b.selected.b:
+    # then deselect this piece:
+    if left:
+      let (_, L) = lastRune(b, newPos-1)
+      b.selected.b = newPos-L
+    else:
+      b.selected.a = newPos
+  else:
+    # else select this piece:
+    if b.selected.b < 0:
+      if oldPos <= newPos:
+        b.selected.a = oldPos
+        let (_, L) = lastRune(b, newPos-1)
+        b.selected.b = newPos-L
+      else:
+        b.selected.a = newPos
+        let (_, L) = lastRune(b, oldPos-1)
+        b.selected.b = oldPos-L
+    else:
+      if left:
+        b.selected.a = newPos
+      else:
+        let (_, L) = lastRune(b, newPos-1)
+        b.selected.b = newPos-L
+  if b.selected.b < b.selected.a: deselect(b)
+
 proc selectLeft*(b: Buffer; jump: bool) =
   if b.cursor > 0:
-    if b.selected.b < 0: b.selected.b = b.cursor-1
+    let old = b.cursor
     left(b, jump)
-    b.selected.a = b.cursor
-    #if b.selected.a > b.selected.b: swap(b.selected.a, b.selected.b)
+    select(b, old, b.cursor, true)
 
 proc selectUp*(b: Buffer; jump: bool) =
   if b.cursor > 0:
-    if b.selected.b < 0: b.selected.b = b.cursor-1
+    let old = b.cursor
     up(b, jump)
-    b.selected.a = b.cursor
-    #if b.selected.a > b.selected.b: swap(b.selected.a, b.selected.b)
+    select(b, old, b.cursor, true)
 
 proc selectRight*(b: Buffer; jump: bool) =
   if b.cursor < b.len:
-    if b.selected.b < 0: b.selected.a = b.cursor
+    let old = b.cursor
     right(b, jump)
-    let (_, L) = lastRune(b, b.cursor-1)
-    b.selected.b = b.cursor-L
-    #if b.selected.a > b.selected.b: swap(b.selected.a, b.selected.b)
+    select(b, old, b.cursor, false)
 
 proc selectDown*(b: Buffer; jump: bool) =
   if b.cursor < b.len:
-    if b.selected.b < 0: b.selected.a = b.cursor
+    let old = b.cursor
     down(b, jump)
-    let (_, L) = lastRune(b, b.cursor-1)
-    b.selected.b = b.cursor-L
-    #if b.selected.a > b.selected.b: swap(b.selected.a, b.selected.b)
+    select(b, old, b.cursor, false)
 
 proc backspace*(b: Buffer; overrideUtf8=false) =
   inc b.version
