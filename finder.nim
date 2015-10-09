@@ -9,12 +9,16 @@ type
   SearchOptions* = set[SearchOption]
 
 proc parseSearchOptions*(s: string): SearchOptions =
+  result = {ignoreStyle}
   for i in 0..high(s):
     case s[i]
     #of 'r', 'R': result.incl searchRe
     of 'i', 'I': result.incl ignoreCase
     of 'y', 'Y': result.incl ignoreStyle
     of 'w', 'W', 'b', 'B': result.incl wordBoundary
+    of 'p', 'P', 'c', 'C':
+      result.excl ignoreCase
+      result.excl ignoreStyle
     else: discard
 
 type

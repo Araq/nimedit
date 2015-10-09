@@ -27,6 +27,8 @@ proc parseNimSuggestLine(line: string, item: var SuggestItem): bool =
     if dots.len() == 2:
       item.moduleName = dots[0]
       item.name = dots[1]
+    else:
+      item.moduleName = ""
     result = true
 
 proc `$`(item: SuggestItem): string =

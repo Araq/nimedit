@@ -11,11 +11,10 @@ when defined(windows):
 
 # TODO:
 #  - nimsuggest integration
-#    - sug
-#    - con
-#    - goto definition
-#    - find usages
-#  - simple refactorings: rename
+#    - sug: still buggy
+#    - con: untested
+#    - goto definition: not implemented
+#    - find usages: not implemented
 #  - better line wrapping
 #  - check if the file changed on the hard disk
 #  - exception handling for Nimscript
@@ -25,9 +24,11 @@ when defined(windows):
 #  - draw gradient for scrollbar
 #  - debugger support!
 #  - make F-keys scriptable
+#  - highlighting for XML
 #  - idea: switch between header and implementation file for C/C++
 
 # Optional:
+#  - simple refactorings: rename
 #  - large file handling
 #  - highlighting of substring occurences
 # Optimizations:
@@ -37,7 +38,7 @@ const
   readyMsg = "Ready."
 
   controlKey = when defined(macosx): KMOD_GUI or KMOD_CTRL else: KMOD_CTRL
-  windowTitle = "Aporia Pro"
+  windowTitle = "Edit.nim"
 
 
 type
@@ -189,6 +190,8 @@ proc openTab(ed: Editor; filename: string): bool {.discardable.} =
   try:
     fullpath = expandFilename(filename)
   except OSError:
+    discard
+  if fullpath.len == 0 or not fileExists(fullpath):
     fullpath = findFile(ed, filename)
     if fullpath.len == 0:
       ed.statusMsg = getCurrentExceptionMsg()
@@ -611,6 +614,7 @@ proc mainProc(ed: Editor) =
           if focus == console or not ed.hasConsole: focus = main
           else: focus = console
         of SDL_SCANCODE_F3:
+          trackSpot(ed.hotspots, main)
           ed.gotoNextSpot(ed.hotspots, main)
           focus = main
         of SDL_SCANCODE_F5:
@@ -675,6 +679,7 @@ proc mainProc(ed: Editor) =
             main.save()
             if cmpPaths(main.filename, ed.cfgColors) == 0:
               loadTheme()
+              layout(ed)
             elif cmpPaths(main.filename, ed.cfgActions) == 0:
               loadActions(ed.cfgActions)
             ed.statusMsg = readyMsg

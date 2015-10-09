@@ -17,7 +17,7 @@ type
     tabWidth*: byte
     uiXGap*: Natural
     uiYGap*: Natural
-    consoleAfter*: Natural
+    consoleAfter*: int
     consoleWidth*: Natural
     lines*: Color
     showLines*: bool

@@ -1,10 +1,10 @@
 ======================================================
-        Aporia Pro User Manual
+        Edit.nim User Manual
 ======================================================
 
   "Copying bad design is not good design."
 
-Aporia Pro is a new editor / IDE written completely in Nim for Nim.
+Edit.nim is a new editor / IDE written completely in Nim for Nim.
 Its design is minimalistic and yet it is one of the most powerful
 editors out there. Once you tried it for a while, you cannot go
 back to other tools.
@@ -12,7 +12,7 @@ back to other tools.
 Concepts
 ========
 
-Aporia Pro consists of an "editor", a "prompt", a list of "tabs" as
+Edit.nim consists of an "editor", a "prompt", a list of "tabs" as
 well as a "console":
 
 .. image:: ui_desc.png
@@ -48,7 +48,7 @@ CTRL+M         Open a minimap. The minimap contains
                a list of all declarations in the current Nim file.
 CTRL+Space     Open auto-complete.
 F1             Switch between editor and console.
-F3             Goto next editing location. Aporia Pro automatically tracks the
+F3             Goto next editing location. Edit.nim automatically tracks the
                most recent locations that you edited. This feature replaces
                the common "bookmarks" feature found in other editors.
 F5             Rerun the most recently executed console
