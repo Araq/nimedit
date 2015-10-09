@@ -331,6 +331,31 @@ proc handleF5(ed: Editor) =
   else:
     ed.statusMsg = "No console open. Make the window wider."
 
+proc sugSelected(ed: Editor; s: Buffer) =
+  # this is a bit hacky: We parse the line and if it looks like a
+  # filename(line, col) information, we pretend it is:
+  var (file, line, col) = extractFilePosition(s)
+  if line >= 0:
+    # extract directory information:
+    let currline = s.getCurrentLine
+    let pos = find(currline, '\t')
+    if pos >= 0:
+      file = currline.substr(pos+1) / file
+    if openTab(ed, file):
+      gotoLine(ed.main, line, col)
+    else:
+      ed.statusMsg = "Cannot open: " & file
+  else:
+    var main = ed.main
+    inc main.version
+    let p = main.getWordPrefix
+    for i in 0..<p.len:
+      dec main.version
+      backspace(main, overrideUtf8=true)
+    # undo the upcoming version increase that 'insert' performs:
+    dec main.version
+    insert(main, s.getCurrentWord)
+
 const
   DefaultTimeOut = 500.cint
   TimeoutsPerSecond = 1000 div DefaultTimeOut
@@ -517,7 +542,7 @@ proc mainProc(ed: Editor) =
             indexer.selected(ed.autocomplete, main)
             focus = main
           elif focus==ed.sug:
-            nimsuggestclient.selected(ed.sug, main)
+            sugSelected(ed, ed.sug)
             focus = main
           elif focus==ed.minimap:
             let dest = minimaps.onEnter(ed.minimap)
@@ -700,6 +725,12 @@ proc mainProc(ed: Editor) =
     if activeTab != nil:
       main = activeTab
       focus = main
+      if (getMouseState(nil, nil) and SDL_BUTTON(BUTTON_RIGHT)) != 0:
+        if not main.changed:
+          removeBuffer(main)
+        else:
+          ed.state = requestedCloseTab
+          ed.askForQuitTab()
 
     ed.theme.draw(main, rawMainRect, (blink==0 and focus==main) or
                                       focus==ed.autocomplete,
