@@ -1,8 +1,7 @@
 
 
-import critbits, buffertype, buffer, strutils
-
-const someWordChar = {'A'..'Z', 'a'..'z', '_', '\128'..'\255', '0'..'9'}
+import critbits, buffertype, buffer
+import strutils except Letters
 
 proc indexBuffer(database: var CritBitTree[int]; b: Buffer) =
   # do not do too much work so that everything remains responsive. We don't
@@ -28,7 +27,7 @@ proc indexBuffer(database: var CritBitTree[int]; b: Buffer) =
       while true:
         let c = b[i]
         if i == b.cursor: metCursor = true
-        if c notin someWordChar: break
+        if c notin Letters: break
         word.add c
         inc i
       if i == b.cursor: metCursor = true
@@ -40,22 +39,13 @@ proc indexBuffer(database: var CritBitTree[int]; b: Buffer) =
       inc i
       while true:
         let c = b[i]
-        if c notin someWordChar: break
+        if c notin Letters: break
         inc i
     else:
       inc i
   # we indexed the whole buffer:
   b.indexer.version = b.version
   b.indexer.currentlyIndexing = 0
-
-proc getWordPrefix*(b: Buffer): string =
-  result = ""
-  var i = b.cursor-1
-  while i > 0 and b[i-1] in someWordChar:
-    dec i
-  while i < b.cursor:
-    result.add b[i]
-    inc i
 
 proc bufferWithWorkToDo(start: Buffer): Buffer =
   var it = start

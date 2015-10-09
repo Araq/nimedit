@@ -10,13 +10,18 @@ when defined(windows):
   import dialogs
 
 # TODO:
+#  - nimsuggest integration
+#    - sug
+#    - con
+#    - goto definition
+#    - find usages
+#  - simple refactorings: rename
 #  - better line wrapping
 #  - check if the file changed on the hard disk
 #  - exception handling for Nimscript
 #  - indentation guidelines
 #  - regex search&replace
 #  - make replace scriptable
-#  - nimsuggest integration
 #  - draw gradient for scrollbar
 #  - debugger support!
 #  - make F-keys scriptable
@@ -70,6 +75,9 @@ type
     ticker: int
     indexer: CritbitTree[int]
     hotspots: Spots
+    searchPath: seq[string] # we use an explicit search path rather than
+                            # the list of open buffers so that it's dead
+                            # simple to reopen a recently closed file.
 
 proc trackSpot(s: var Spots; b: Buffer) =
   if b.filename.len == 0: return
@@ -127,6 +135,7 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.theme.cursor = ed.theme.fg
   ed.cfgColors = os.getAppDir() / "nimscript" / "colors.nims"
   ed.cfgActions = os.getAppDir() / "nimscript" / "actions.nims"
+  ed.searchPath = @[]
 
 proc destroy(ed: Editor) =
   destroyRenderer ed.renderer
@@ -159,14 +168,21 @@ iterator allBuffers(ed: Editor): Buffer =
     it = it.next
     if it == ed.main: break
 
+proc addSearchPath(ed: Editor; path: string) =
+  for i in 0..ed.searchPath.high:
+    if cmpPaths(ed.searchPath[i], path) == 0:
+      # move to front so we remember it's a path that's preferred:
+      swap(ed.searchPath[i], ed.searchPath[0])
+      return
+  ed.searchPath.add path
+
 proc findFile(ed: Editor; filename: string): string =
   # be smart and use the list of open tabs as the search path. Ultimately
   # this should also be scriptable.
   if os.isAbsolute filename: return
-  for it in ed.allBuffers:
-    if it.filename.len > 0:
-      let res = splitPath(it.filename)[0] / filename
-      if fileExists(res): return res
+  for i in 0..ed.searchPath.high:
+    let res = ed.searchPath[i] / filename
+    if fileExists(res): return res
 
 proc openTab(ed: Editor; filename: string): bool {.discardable.} =
   var fullpath: string
@@ -209,6 +225,7 @@ proc openTab(ed: Editor; filename: string): bool {.discardable.} =
     if it.heading == displayname:
       disamb(it.filename, fullpath, it.heading, displayName)
 
+  ed.addSearchPath(fullpath.splitFile.dir)
   let x = newBuffer(displayname, addr ed.mgr)
   try:
     x.loadFromFile(fullpath)
@@ -283,6 +300,7 @@ proc filelistFile(): string =
 proc saveOpenTabs(ed: Editor) =
   var f: File
   if open(f, filelistFile(), fmWrite):
+    f.writeline(ed.project)
     var it = ed.main.prev
     while it != nil:
       if it.filename.len > 0:
@@ -295,6 +313,7 @@ proc loadOpenTabs(ed: Editor) =
   var oldRoot = ed.main
   var f: File
   if open(f, filelistFile()):
+    ed.project = f.readline
     for line in lines(f):
       let x = line.split('\t')
       if ed.openTab(x[0]):
@@ -380,6 +399,8 @@ proc mainProc(ed: Editor) =
   var clickOnFilename = false
   layout(ed)
   loadOpenTabs(ed)
+  if ed.project.len > 0:
+    ed.window.setTitle(windowTitle & " - " & ed.project.extractFilename)
   while true:
     # we need to wait for the next frame until the cursor has moved to the
     # right position:
@@ -453,10 +474,13 @@ proc mainProc(ed: Editor) =
              keys[SDL_SCANCODE_RCTRL.int] == 1:
             surpress = true
         if not surpress:
-          if focus==ed.autocomplete:
+          if focus==ed.autocomplete or focus==ed.sug:
             # delegate to main, but keep the focus on the autocomplete!
             main.insertSingleKey($w.text)
-            populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+            if focus==ed.autocomplete:
+              populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+            else:
+              gotoPrefix(ed.sug, main.getWordPrefix())
             trackSpot(ed.hotspots, main)
           else:
             focus.insertSingleKey($w.text)
@@ -465,10 +489,13 @@ proc mainProc(ed: Editor) =
         let w = e.key
         case w.keysym.scancode
         of SDL_SCANCODE_BACKSPACE:
-          if focus==ed.autocomplete:
+          if focus==ed.autocomplete or focus==ed.sug:
             # delegate to main, but keep the focus on the autocomplete!
             main.backspace()
-            populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+            if focus==ed.autocomplete:
+              populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+            else:
+              gotoPrefix(ed.sug, main.getWordPrefix())
             trackSpot(ed.hotspots, main)
           else:
             focus.backspace()
@@ -488,6 +515,9 @@ proc mainProc(ed: Editor) =
             enterPressed(ed.con)
           elif focus==ed.autocomplete:
             indexer.selected(ed.autocomplete, main)
+            focus = main
+          elif focus==ed.sug:
+            nimsuggestclient.selected(ed.sug, main)
             focus = main
           elif focus==ed.minimap:
             let dest = minimaps.onEnter(ed.minimap)

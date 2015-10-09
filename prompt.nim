@@ -236,8 +236,12 @@ proc runCmd(ed: Editor; cmd: string): bool =
   of "setproject", "proj", "project":
     ed.project = ""
     i = parseWord(cmd, ed.project, i)
-    if ed.project.len == 0: ed.window.setTitle(windowTitle)
-    else: ed.window.setTitle(windowTitle & " - " & ed.project)
+    if ed.project.len == 0:
+      ed.window.setTitle(windowTitle)
+    else:
+      let p = findFile(ed, ed.project.addFileExt("nim"))
+      if p.len != 0: ed.project = p
+      ed.window.setTitle(windowTitle & " - " & ed.project.extractFilename)
     success()
   else:
     ed.statusMsg = "wrong command, try: open|save|find|replace|..."

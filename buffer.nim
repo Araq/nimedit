@@ -8,7 +8,7 @@ from os import splitFile
 
 const
   tabWidth = 2
-  Letters = {'a'..'z', 'A'..'Z', '0'..'9', '_', '\128'..'\255'}
+  Letters* = {'a'..'z', 'A'..'Z', '0'..'9', '_', '\128'..'\255'}
 
 proc cursorMoved(b: Buffer) =
   proc forwards(b: Buffer; le, ri: char) =
@@ -183,6 +183,23 @@ proc getCurrentLine*(b: Buffer): string =
   while i > 0 and b[i-1] != '\L': dec i
   result = ""
   while i < b.len and b[i] != '\L':
+    result.add b[i]
+    inc i
+
+proc getCurrentWord*(b: Buffer): string =
+  var i = b.cursor
+  while i > 0 and b[i-1] in Letters: dec i
+  result = ""
+  while b[i] in Letters:
+    result.add b[i]
+    inc i
+
+proc getWordPrefix*(b: Buffer): string =
+  result = ""
+  var i = b.cursor-1
+  while i > 0 and b[i-1] in Letters:
+    dec i
+  while i < b.cursor:
     result.add b[i]
     inc i
 
