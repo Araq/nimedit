@@ -1,5 +1,5 @@
 
-import strutils, critbits, os
+import strutils, critbits, os, times
 from parseutils import parseInt
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
@@ -17,7 +17,6 @@ when defined(windows):
 #    - goto definition: not implemented
 #    - find usages: not implemented
 #  - better line wrapping
-#  - check if the file changed on the hard disk
 #  - exception handling for Nimscript
 #  - indentation guidelines
 #  - regex search&replace
@@ -45,7 +44,7 @@ type
   EditorState = enum
     requestedNothing,
     requestedShutdown, requestedShutdownNext,
-    requestedReplace, requestedCloseTab
+    requestedReplace, requestedCloseTab, requestedReload
 
   Spot = object
     fullpath: string     # again, we are smarter that the other and re-open
@@ -163,11 +162,12 @@ template removeBuffer(n) =
     dec ed.buffersCounter
 
 iterator allBuffers(ed: Editor): Buffer =
-  var it = ed.main
+  let start = ed.main
+  var it = start
   while true:
     yield it
     it = it.next
-    if it == ed.main: break
+    if it == start: break
 
 proc addSearchPath(ed: Editor; path: string) =
   for i in 0..ed.searchPath.high:
@@ -359,6 +359,19 @@ proc sugSelected(ed: Editor; s: Buffer) =
     dec main.version
     insert(main, s.getCurrentWord)
 
+proc harddiskCheck(ed: Editor) =
+  for it in ed.allBuffers:
+    if it.filename.len > 0:
+      let newTimestamp = os.getLastModificationTime(it.filename)
+      if it.timestamp != newTimestamp:
+        it.timestamp = newTimestamp
+        ed.state = requestedReload
+        ed.main = it
+        ed.main.changed = true
+        ed.focus = ed.prompt
+        ed.statusMsg = "File changed on disk. Reload?"
+        break
+
 const
   DefaultTimeOut = 500.cint
   TimeoutsPerSecond = 1000 div DefaultTimeOut
@@ -367,6 +380,11 @@ proc tick(ed: Editor) =
   inc ed.ticker
   # run the index every 500ms. It's incremental and fast.
   indexBuffers(ed.indexer, ed.main)
+
+  # every 10 seconds check if the file's contents have changed on the hard disk
+  # behind our back:
+  if ed.ticker mod (TimeoutsPerSecond*10) == 0:
+    harddiskCheck(ed)
 
   # periodic events. Every 5 minutes we save the list of open tabs.
   if ed.ticker > TimeoutsPerSecond*60*5:

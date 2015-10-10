@@ -370,6 +370,8 @@ proc loadFromFile*(b: Buffer; filename: string) =
       b.front.add Cell(c: s[i])
   if b.tabSize < 0: b.tabSize = tabWidth
   highlightEverything(b)
+  b.timestamp = os.getLastModificationTime(b.filename)
+  b.changed = false
 
 proc saveAsTemp*(b: Buffer; filename: string) =
   if b.lineending.isNil or b.lineending.len == 0:
@@ -401,6 +403,7 @@ proc save*(b: Buffer) =
   if b.filename.len == 0: b.filename = b.heading
   saveAsTemp(b, b.filename)
   b.changed = false
+  b.timestamp = os.getLastModificationTime(b.filename)
 
 proc saveAs*(b: Buffer; filename: string) =
   b.filename = filename

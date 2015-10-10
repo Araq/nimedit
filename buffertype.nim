@@ -1,5 +1,6 @@
 
 import styles, languages, common
+from times import Time
 
 type
   ActionKind* = enum
@@ -49,6 +50,7 @@ type
     lineending*: string # CR-LF, CR or LF
     indexer*: Indexer
     cursorDim*: tuple[x, y, h: int]
+    timestamp*: Time
 
 proc getCell*(b: Buffer; i: Natural): Cell =
   if i < b.front.len:

@@ -93,6 +93,10 @@ proc runCmd(ed: Editor; cmd: string): bool =
         ed.statusMsg = readyMsg
         ed.state = requestedNothing
         ed.focus = ed.main
+    of requestedReload:
+      loadFromFile(ed.main, ed.main.filename)
+      success()
+      ed.statusMsg = readyMsg
     else: discard
   of "no", "n":
     case ed.state
@@ -105,6 +109,10 @@ proc runCmd(ed: Editor; cmd: string): bool =
                  else: requestedNothing
     of requestedReplace:
       ed.main.gotoNextMarker()
+    of requestedReload:
+      ed.state = requestedNothing
+      ed.statusMsg = readyMsg
+      success()
     else: discard
   of "abort", "a":
     success()
