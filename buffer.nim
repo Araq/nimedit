@@ -464,9 +464,22 @@ proc getSelectedText*(b: Buffer): string =
   for i in b.selected.a .. b.selected.b:
     result.add b[i]
 
+proc getLineFromOffset(b: Buffer; pos: int): Natural =
+  result = 0
+  var pos = pos
+  # do not count the newline at the very end at b[pos]:
+  if pos >= 0 and b[pos] == '\L': dec pos
+  while pos >= 0:
+    if b[pos] == '\L': inc result
+    dec pos
+
+proc setCaret*(b: Buffer; pos: int) =
+  b.cursor = pos
+  b.currentLine = getLineFromOffset(b, b.cursor)
+
 proc removeSelectedText(b: Buffer; selectedA, selectedB: var int) =
   if selectedB < 0: return
-  b.cursor = selectedB+1
+  b.setCaret(selectedB+1)
   let oldCursor = b.cursor
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
   b.actions.add(Action(k: delFinished, pos: b.cursor, word: "",
@@ -601,14 +614,14 @@ include finder
 
 proc dedentSingleLine(b: Buffer; i: int) =
   if b[i] == '\t':
-    b.cursor = i+1
+    b.setCaret(i+1)
     backspaceNoSelect(b)
     if b.selected.b >= 0: dec b.selected.b
   elif b[i] == ' ':
     var spaces = 1
     while spaces < b.tabSize and b[i+spaces] == ' ':
       inc spaces
-    b.cursor = i+spaces
+    b.setCaret i+spaces
     for j in 1..spaces:
       backspaceNoSelect(b)
       if b.selected.b >= 0: dec b.selected.b
@@ -629,7 +642,7 @@ proc dedent*(b: Buffer) =
       if b[i] == '\L': inc i
 
 proc indentSingleLine(b: Buffer; i: int) =
-  b.cursor = i
+  b.setCaret i
   for j in 1..b.tabSize:
     insertNoSelect(b, " ")
     assert b.selected.b >= 0
@@ -648,15 +661,6 @@ proc indent*(b: Buffer) =
       inc i
       while i < b.len and b[i] != '\L': inc i
       if b[i] == '\L': inc i
-
-proc getLineFromOffset(b: Buffer; pos: int): Natural =
-  result = 0
-  var pos = pos
-  # do not count the newline at the very end at b[pos]:
-  if pos >= 0 and b[pos] == '\L': dec pos
-  while pos >= 0:
-    if b[pos] == '\L': inc result
-    dec pos
 
 proc gotoPos*(b: Buffer; pos: int) =
   let pos = clamp(pos, 0, b.len)

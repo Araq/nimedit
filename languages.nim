@@ -35,6 +35,7 @@ proc fileExtToLanguage*(ext: string): SourceLanguage =
   of ".nim", ".nims": langNim
   of ".cpp", ".hpp", ".cxx", ".h": langCpp
   of ".c": langC
+  of ".js": langJs
   of ".java": langJava
   of ".cs": langCsharp
   of ".xml": langXml

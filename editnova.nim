@@ -10,7 +10,7 @@ when defined(windows):
   import dialogs
 
 # TODO:
-#  - BUG: Remove selection at beginning of file!
+#  - incremental refreshes for the syntax highlighting
 #  - nimsuggest integration
 #    - sug: still buggy
 #    - con: untested
