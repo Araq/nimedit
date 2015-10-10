@@ -137,7 +137,6 @@ proc parseTag(my: var GeneralTokenizer) =
   parseWhitespace(my)
   if my.buf[my.pos] in NameStartChar:
     my.kind = TokenClass.TagStart
-    my.state = my.kind
   else:
     if my.buf[my.pos] == '/' and my.buf[my.pos+1] == '>':
       inc(my.pos, 2)
@@ -205,9 +204,6 @@ proc xmlNextToken(my: var GeneralTokenizer) =
   var pos = my.pos
   var buf = my.buf
   my.start = my.pos
-  #let state = my.state
-  # ensure the state machine is not fragile when it comes to errors:
-  #my.state = TokenClass.None
   let state = if pos == 0: TokenClass.None else: getCell(buf, pos-1).s
   case state
   of TokenClass.RawData:
@@ -241,7 +237,6 @@ proc xmlNextToken(my: var GeneralTokenizer) =
         my.kind = TokenClass.None
       else:
         my.kind = TokenClass.Key
-        my.state = TokenClass.Operator
     else:
       xmlTokenStart(my)
   of TokenClass.Key:
@@ -250,7 +245,6 @@ proc xmlNextToken(my: var GeneralTokenizer) =
       inc my.pos
       parseWhitespace(my)
       my.kind = TokenClass.Operator
-      my.state = my.kind
     elif buf[pos] == '>':
       inc my.pos
       my.kind = TokenClass.TagStart
@@ -286,7 +280,6 @@ proc xmlNextToken(my: var GeneralTokenizer) =
         # no name was parsed, error:
         inc my.pos
         my.kind = TokenClass.None
-    my.state = TokenClass.TagStart
     parseWhitespace(my)
   of TokenClass.Value:
     if buf[pos] == '>':
@@ -304,7 +297,6 @@ proc xmlNextToken(my: var GeneralTokenizer) =
         my.kind = TokenClass.None
       else:
         my.kind = TokenClass.Key
-      my.state = TokenClass.TagStart
   else:
     xmlTokenStart(my)
   my.length = my.pos - oldpos

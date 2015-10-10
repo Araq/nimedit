@@ -10,6 +10,7 @@ when defined(windows):
   import dialogs
 
 # TODO:
+#  - BUG: Remove selection at beginning of file!
 #  - nimsuggest integration
 #    - sug: still buggy
 #    - con: untested
@@ -24,7 +25,6 @@ when defined(windows):
 #  - draw gradient for scrollbar
 #  - debugger support!
 #  - make F-keys scriptable
-#  - highlighting for XML
 #  - idea: switch between header and implementation file for C/C++
 
 # Optional:

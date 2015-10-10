@@ -402,6 +402,7 @@ proc clikeNextToken(g: var GeneralTokenizer, keywords: openArray[string],
         while g.buf[lookAhead] != '\L':
           if g.buf[lookAhead] == '/':
             inc(lookAhead)
+            pos = lookAhead
             g.kind = TokenClass.RegularExpression
             break
           inc(lookAhead)
