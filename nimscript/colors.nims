@@ -56,6 +56,7 @@ ss Keyword, White, FontStyle.Bold
 ss StringLit, Orange
 ss LongStringLit, Orange
 ss CharLit, Orange
+ss Backticks, Orange
 ss EscapeSequence, Gray
 ss Operator, White
 ss Punctuation, White
@@ -63,8 +64,9 @@ ss Comment, Green, FontStyle.Italic
 ss LongComment, DeepPink
 ss RegularExpression, Pink
 ss TagStart, Yellow
+ss TagStandalone, Yellow
 ss TagEnd, Yellow
-ss Key, White
+ss Key, 0xff44ff
 ss Value, Blue
 ss RawData, Pink
 ss Assembler, Pink
@@ -75,6 +77,7 @@ ss Rule, Yellow
 ss Link, Blue, FontStyle.Bold
 ss Label, Blue
 ss Reference, Blue
+ss Text, White
 ss Other, White
 ss Red, Red
 ss Green, Green

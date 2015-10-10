@@ -22,7 +22,7 @@ well as a "console":
 Shortcuts
 =========
 
-==========     =========================================
+============   =========================================
 CTRL+A         Select everything.
 CTRL+B         Abort the currently running program (break). Note that
                CTRL+C always copies.
@@ -47,13 +47,14 @@ CTRL+Q         Close the current buffer.
 CTRL+M         Open a minimap. The minimap contains
                a list of all declarations in the current Nim file.
 CTRL+Space     Open auto-complete.
+ESC            Switch between editor and prompt.
 F1             Switch between editor and console.
 F3             Goto next editing location. Edit.nim automatically tracks the
                most recent locations that you edited. This feature replaces
                the common "bookmarks" feature found in other editors.
 F5             Rerun the most recently executed console
                command.
-==========     =========================================
+============   =========================================
 
 Commands
 ========

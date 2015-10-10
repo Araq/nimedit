@@ -3,19 +3,12 @@ import common
 
 type
   SourceLanguage* = enum
-    langNone, langNim, langCpp, langCsharp, langC, langJava,
-    langConsole
+    langNone, langNim, langCpp, langCsharp, langC, langJava, langJs,
+    langXml, langHtml, langConsole
 
 const
   sourceLanguageToStr*: array[SourceLanguage, string] = ["none",
-    "Nim", "C++", "C#", "C", "Java", "Console"]
-  tokenClassToStr*: array[TokenClass, string] = ["None", "Whitespace",
-    "DecNumber", "BinNumber", "HexNumber", "OctNumber", "FloatNumber",
-    "Identifier", "Keyword", "StringLit", "LongStringLit", "CharLit",
-    "EscapeSequence", "Operator", "Punctuation", "Comment", "LongComment",
-    "RegularExpression", "TagStart", "TagEnd", "Key", "Value", "RawData",
-    "Assembler", "Preprocessor", "Directive", "Command", "Rule", "Link",
-    "Label", "Reference", "Other", "Green", "Yellow", "Red"]
+    "Nim", "C++", "C#", "C", "Java", "JavaScript", "XML", "HTML", "Console"]
 
   additionalIndentChars*: array [SourceLanguage, set[char]] = [
     langNone: {},
@@ -24,6 +17,9 @@ const
     langCsharp: {'(', '[', '{'},
     langC: {'(', '[', '{'},
     langJava: {'(', '[', '{'},
+    langJs: {'(', '[', '{'},
+    langXml: {'>'},
+    langHtml: {'>'},
     langConsole: {}]
 
 from strutils import toLower, cmpIgnoreStyle
@@ -41,4 +37,6 @@ proc fileExtToLanguage*(ext: string): SourceLanguage =
   of ".c": langC
   of ".java": langJava
   of ".cs": langCsharp
+  of ".xml": langXml
+  of ".html", ".htm": langHtml
   else: langNone

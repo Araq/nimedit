@@ -24,6 +24,8 @@ type
     pos: int
     state: TokenClass
 
+include "highlighters/xml"
+
 const
   # The following list comes from doc/keywords.txt, make sure it is
   # synchronized with this array by running the module itself as a test case.
@@ -314,7 +316,7 @@ proc isKeywordIgnoreCase(x: openArray[string], y: string): int =
 
 type
   TokenizerFlag = enum
-    hasPreprocessor, hasNestedComments
+    hasPreprocessor, hasNestedComments, hasRe, hasBackticks
   TokenizerFlags = set[TokenizerFlag]
 
 proc clikeNextToken(g: var GeneralTokenizer, keywords: openArray[string],
@@ -394,6 +396,17 @@ proc clikeNextToken(g: var GeneralTokenizer, keywords: openArray[string],
               inc(pos)
               if hasNestedComments in flags: inc(nested)
           else: inc(pos)
+      elif g.buf[pos] notin {'\L', ' ', '\t'} and hasRe in flags:
+        g.kind = TokenClass.Operator
+        var lookAhead = pos
+        while g.buf[lookAhead] != '\L':
+          if g.buf[lookAhead] == '/':
+            inc(lookAhead)
+            g.kind = TokenClass.RegularExpression
+            break
+          inc(lookAhead)
+      else:
+        g.kind = TokenClass.Operator
     of '#':
       inc(pos)
       if hasPreprocessor in flags:
@@ -433,6 +446,13 @@ proc clikeNextToken(g: var GeneralTokenizer, keywords: openArray[string],
     of '\'':
       pos = generalStrLit(g, pos)
       g.kind = TokenClass.CharLit
+    of '`':
+      if hasBackticks in flags:
+        pos = generalStrLit(g, pos)
+        g.kind = TokenClass.Backticks
+      else:
+        inc(pos)
+        g.kind = TokenClass.None
     of '\"':
       inc(pos)
       g.kind = TokenClass.StringLit
@@ -571,6 +591,21 @@ proc javaNextToken(g: var GeneralTokenizer) =
       "try", "void", "volatile", "while"]
   clikeNextToken(g, keywords, {})
 
+proc jsNextToken(g: var GeneralTokenizer) =
+  const
+    keywords = ["abstract", "arguments", "boolean", "break", "byte",
+        "case", "catch", "char", "class", "const", "continue", "debugger",
+        "default", "delete", "do", "double", "else", "enum", "eval", "export",
+        "extends", "false", "final", "finally", "float", "for", "function",
+        "goto", "if", "implements", "import", "in", "instanceof", "int",
+        "interface", "let", "long", "native", "new", "null",
+        "package", "private", "protected", "public", "return",
+        "short", "static", "super", "switch", "synchronized",
+        "this", "throw", "throws", "transient", "true", "try", "typeof",
+        "var", "void", "volatile", "while", "with", "yield"]
+  clikeNextToken(g, keywords, {hasRe, hasBackticks})
+
+
 proc getNextToken(g: var GeneralTokenizer, lang: SourceLanguage) =
   case lang
   of langNone: assert false
@@ -579,6 +614,8 @@ proc getNextToken(g: var GeneralTokenizer, lang: SourceLanguage) =
   of langCsharp: csharpNextToken(g)
   of langC: cNextToken(g)
   of langJava: javaNextToken(g)
+  of langJs: jsNextToken(g)
+  of langXml, langHtml: xmlNextToken(g)
   of langConsole: consoleNextToken(g)
 
 proc highlight(b: Buffer; first, last: int;
