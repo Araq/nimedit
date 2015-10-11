@@ -9,30 +9,6 @@ import common, languages, themes, nimscriptsupport, tabbar, scrollbar, indexer,
 when defined(windows):
   import dialogs
 
-# TODO:
-#  - unknown commands crash again :-(
-#  - incremental refreshes for the syntax highlighting
-#  - nimsuggest integration
-#    - sug: still buggy
-#    - con: untested
-#    - goto definition: not implemented
-#    - find usages: not implemented
-#  - better line wrapping
-#  - indentation guidelines
-#  - regex search&replace
-#  - draw gradient for scrollbar
-#  - debugger support!
-#  - idea: switch between header and implementation file for C/C++
-
-# Optional:
-#  - show which 'when' sections are active
-#  - make replace scriptable
-#  - simple refactorings: rename
-#  - large file handling
-#  - highlighting of substring occurences
-# Optimizations:
-#  - cache font renderings
-
 const
   readyMsg = "Ready."
 
@@ -184,7 +160,7 @@ proc findFile(ed: Editor; filename: string): string =
     let res = ed.searchPath[i] / filename
     if fileExists(res): return res
 
-proc openTab(ed: Editor; filename: string): bool {.discardable.} =
+proc openTab(ed: Editor; filename: string; doTrack=false): bool {.discardable.} =
   var fullpath: string
   try:
     fullpath = expandFilename(filename)
@@ -201,6 +177,7 @@ proc openTab(ed: Editor; filename: string): bool {.discardable.} =
   for it in ed.allBuffers:
     if cmpPaths(it.filename, fullpath) == 0:
       # just bring the existing tab into focus:
+      if doTrack: trackSpot(ed.hotspots, ed.main)
       ed.main = it
       return true
 
@@ -231,6 +208,7 @@ proc openTab(ed: Editor; filename: string): bool {.discardable.} =
   let x = newBuffer(displayname, addr ed.mgr)
   try:
     x.loadFromFile(fullpath)
+    if doTrack: trackSpot(ed.hotspots, ed.main)
     insertBuffer(ed.main, x)
     ed.focus = ed.main
     result = true
@@ -333,10 +311,10 @@ proc sugSelected(ed: Editor; s: Buffer) =
   if line >= 0:
     # extract directory information:
     let currline = s.getCurrentLine
-    let pos = find(currline, '\t')
+    let pos = find(currline, '#')
     if pos >= 0:
       file = currline.substr(pos+1) / file
-    if openTab(ed, file):
+    if ed.openTab(file, true):
       gotoLine(ed.main, line, col)
     else:
       ed.statusMsg = "Cannot open: " & file
@@ -358,7 +336,9 @@ proc harddiskCheck(ed: Editor) =
       if it.timestamp != newTimestamp:
         it.timestamp = newTimestamp
         ed.state = requestedReload
-        ed.main = it
+        if it != ed.main:
+          trackSpot(ed.hotspots, ed.main)
+          ed.main = it
         ed.main.changed = true
         ed.focus = ed.prompt
         ed.statusMsg = "File changed on disk. Reload?"
@@ -403,6 +383,7 @@ proc suggest(ed: Editor; cmd: string) =
     ed.statusMsg = "Nimsuggest failed for: " & ed.project
   else:
     requestSuggestion(ed.main, cmd)
+    ed.sug.clear()
     ed.focus = ed.sug
 
 include api
@@ -456,7 +437,7 @@ proc mainProc(ed: Editor) =
       clickOnFilename = false
       let (file, line, col) = console.extractFilePosition()
       if file.len > 0 and line > 0:
-        if ed.openTab(file):
+        if ed.openTab(file, true):
           gotoLine(main, line, col)
           focus = main
 
@@ -570,6 +551,7 @@ proc mainProc(ed: Editor) =
           elif focus==ed.minimap:
             let dest = minimaps.onEnter(ed.minimap)
             if dest >= 0:
+              trackSpot(ed.hotspots, main)
               main.gotoLine(dest, -1)
             focus = main
         of SDL_SCANCODE_ESCAPE:
@@ -633,6 +615,8 @@ proc mainProc(ed: Editor) =
         of SDL_SCANCODE_F1:
           if focus == console or not ed.hasConsole: focus = main
           else: focus = console
+        of SDL_SCANCODE_F2:
+          ed.suggest("dus")
         of SDL_SCANCODE_F3:
           trackSpot(ed.hotspots, main)
           ed.gotoNextSpot(ed.hotspots, main)

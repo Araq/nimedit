@@ -39,7 +39,8 @@ proc `$`(item: SuggestItem): string =
     result = join([item.nimType, item.moduleName], "\t")
   of "def", "use":
     let (dir, file) = splitPath(item.file)
-    result = file & "(" &  item.line & ", " & item.col & ")" & "\t" & dir
+    result = file & "(" & item.line & ", " & item.col & ") " &
+             item.cmd & "#" & dir
   else: doAssert(false, "unknown nimsuggest result: " & item.cmd)
 
 
@@ -73,7 +74,7 @@ proc suggestThread() {.thread.} =
     let cmd = commands.recv()
     case cmd
     of endToken: break
-    of pauseToken: os.sleep(3000)
+    of pauseToken: os.sleep(300)
     else: processTask(cmd)
 
 var nimsuggest: Process
@@ -86,7 +87,7 @@ proc shutdown*() {.noconv.} =
     nimsuggest = nil
 
 proc startup*(project: string): bool =
-  if nimsuggest.isNil or project != prevProject:
+  if nimsuggest.isNil or project != prevProject or not nimsuggest.running:
     prevProject = project
     try:
       shutdown()
@@ -95,14 +96,14 @@ proc startup*(project: string): bool =
                        ["--port:" & $port, project],
                        options = {poStdErrToStdOut, poUsePath})
       # give it some time to startup:
-      commands.send(pauseToken)
+      #commands.send(pauseToken)
     except OSError:
       discard
   result = nimsuggest != nil
 
 var processing*: bool
 
-# sug|con|def|use
+# sug|con|def|use|dus
 proc requestSuggestion*(b: Buffer; cmd: string) =
   var sugCmd: string
   if b.changed:

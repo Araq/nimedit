@@ -1,0 +1,30 @@
+TODO:
+ - unknown commands crash again: "unknown"
+ - incremental refreshes for the syntax highlighting
+ - better line wrapping
+ - indentation guidelines
+ - regex search&replace
+ - draw gradient for scrollbar
+ - debugger support!
+ - optimize line offset calculations
+
+
+Optional:
+ - show which 'when' sections are active
+ - make replace scriptable
+ - simple refactorings: rename
+ - large file handling
+ - highlighting of substring occurences
+Optimizations:
+ - cache font renderings
+
+
+
+Font rendering
+--------------
+
+Windows now uses Consolas by default, and will give better results when
+using Direct Write.
+Improved sub-pixel positioning on OS X, matching Core Text output.
+Linux now uses Pango, giving better results for unicode text.
+Rendering of rulers, line highlights and misspellings has been improved.

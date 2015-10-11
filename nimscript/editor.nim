@@ -13,7 +13,7 @@ proc gotoPos*(line: Natural; col = -1) = builtin
 proc clear*() = builtin
 
 type
-  UiElement* = enum
+  UiElement* {.pure.} = enum
     Main, Prompt, Console
 
 proc setFocus*(element: UiElement) = builtin
@@ -23,6 +23,7 @@ proc getPrompt*(): string = builtin
 proc setSelection*(a: Natural; b: int) = builtin
 proc getSelection*(): (int, int) = builtin
 proc currentLineNumber*(): Natural = builtin
+proc currentFilename*(): string = builtin
 
 proc remove*(a, b: Natural) = builtin
 
@@ -34,7 +35,13 @@ proc charAt*(i: int): char = builtin
 proc tokenAt*(i: int): TokenClass = builtin
 
 proc getHistory*(i: int): string = builtin
+proc historyLen*(): int = builtin
 proc runConsoleCmd*(cmd: string) = builtin
+
+proc getSearchPath*(i: int): string = builtin
+proc addSearchPath*(path: string) = builtin
+
+proc setStatus*(msg: string) = builtin
 
 proc getCurrentIdent*(del=false): string =
   ## Retrives the current identifier, the one left to the caret. If `del` is

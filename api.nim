@@ -9,7 +9,7 @@ proc setupApi(result: PEvalContext; ed: Editor) =
   msgs.writelnHook = proc (msg: string) =
     ed.console.insertReadOnly(msg & '\L')
 
-  # XXX: Expose path handling and markers.
+  # XXX: Expose markers.
   template expose(name, body) {.dirty.} =
     result.registerCallback "aporiapro.editor." & astToStr(name),
       proc (a: VmArgs) =
@@ -90,7 +90,7 @@ proc setupApi(result: PEvalContext; ed: Editor) =
     setResult(a, b.currentLine)
   expose openTab:
     let x = getString(a, 0)
-    setResult(a, ed.openTab(x))
+    setResult(a, ed.openTab(x, true))
   expose closeTab:
     ed.removeBuffer(ed.main)
   expose getHistory:
@@ -99,6 +99,20 @@ proc setupApi(result: PEvalContext; ed: Editor) =
       setResult(a, "")
     else:
       setResult(a, ed.con.hist.cmds[i])
+  expose historyLen:
+    setResult(a, ed.con.hist.cmds.len)
   expose runConsoleCmd:
     ed.console.insert(getString(a, 0))
     ed.con.enterPressed()
+  expose currentFilename:
+    setResult(a, ed.main.filename)
+  expose addSearchPath:
+    ed.addSearchPath(getString(a, 0))
+  expose getSearchPath:
+    let i = getInt(a, 0).int
+    if i < 0 or i >= ed.searchPath.len:
+      setResult(a, "")
+    else:
+      setResult(a, ed.searchPath[i])
+  expose setStatus:
+    ed.statusMsg = getString(a, 0)

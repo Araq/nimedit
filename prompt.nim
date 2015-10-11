@@ -210,7 +210,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
   of "open", "o":
     var p = ""
     i = parseWord(cmd, p, i)
-    if p.len > 0: openTab(ed, p)
+    if p.len > 0: ed.openTab(p, true)
     success()
   of "lang":
     var lang = ""
@@ -219,10 +219,10 @@ proc runCmd(ed: Editor; cmd: string): bool =
     highlightEverything(ed.main)
     success()
   of "config", "conf", "cfg", "colors":
-    openTab(ed, ed.cfgColors)
+    openTab(ed, ed.cfgColors, true)
     success()
-  of "script", "scripts":
-    openTab(ed, ed.cfgActions)
+  of "script", "scripts", "actions":
+    openTab(ed, ed.cfgActions, true)
     success()
   of "cr":
     ed.main.lineending = "\C"
