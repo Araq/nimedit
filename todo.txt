@@ -1,19 +1,19 @@
 TODO:
- - unknown commands crash again: "unknown"
  - incremental refreshes for the syntax highlighting
  - better line wrapping
  - indentation guidelines
  - regex search&replace
  - draw gradient for scrollbar
- - debugger support!
  - optimize line offset calculations
 
+Later versions:
+ - debugger support!
+ - show which 'when' sections are active
+ - large file handling
 
 Optional:
- - show which 'when' sections are active
  - make replace scriptable
  - simple refactorings: rename
- - large file handling
  - highlighting of substring occurences
 Optimizations:
  - cache font renderings

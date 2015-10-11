@@ -293,16 +293,16 @@ proc execThreadProc() {.thread.} =
         else:
           if not started:
             let (bin, args) = cmdToArgs(task)
-            started = true
             try:
               p = startProcess(bin, os.getCurrentDir(), args,
                         options = {poStdErrToStdOut, poUsePath, poInteractive})
+              o = p.outputStream
+              started = true
             except:
               started = false
               responses.send getCurrentExceptionMsg()
               responses.send EndToken
             echod "STARTED " & bin
-            o = p.outputStream
           else:
             echod("[Thread] Ignored request " & task)
     # Check if process exited.
