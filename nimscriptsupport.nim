@@ -88,7 +88,7 @@ proc extractStyles(result: var StyleManager; fm: var FontManager;
   else:
     raiseVariableError("tokens", "array[TokenClass, (Color, FontStyle)]")
 
-proc setupNimscript*(colorsScript, actionsScript: string) =
+proc setupNimscript*(colorsScript: string): PEvalContext =
   passes.gIncludeFile = includeModule
   passes.gImportModule = importModule
 
@@ -107,16 +107,18 @@ proc setupNimscript*(colorsScript, actionsScript: string) =
   incl(colorsModule.flags, sfMainModule)
   vm.globalCtx = setupVM(colorsModule, colorsScript)
   compileSystemModule()
+  result = vm.globalCtx
 
+proc compileActions*(actionsScript: string) =
+  ## Compiles the actions module for the first time.
   actionsModule = makeModule(actionsScript)
   processModule(actionsModule, llStreamOpen(actionsScript, fmRead), nil)
 
-
-proc loadActions*(actionsScript: string) =
+proc reloadActions*(actionsScript: string) =
   resetModule(actionsModule)
   processModule(actionsModule, llStreamOpen(actionsScript, fmRead), nil)
 
-proc handleEvent*(procname: string) =
+proc execProc*(procname: string) =
   let a = getAction(procname)
   if a != nil:
     discard vm.execProc(vm.globalCtx, a, [])

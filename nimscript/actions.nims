@@ -1,10 +1,7 @@
 
 
 
-proc onTabPressed*() =
-  echo "tab pressed"
-
-import strutils
+import strutils, editor
 
 proc doQuote*(selected: string): string =
   result = ""
@@ -18,4 +15,11 @@ proc commas*(selected: string): string =
     if result.len > 0: result.add ", "
     result.add x
 
+proc pressedF5*() =
+  echo "echo redirected!"
+
+proc pressedF6*() =
+  let w = getCurrentIdent(true)
+  insert("<$1></$1>" % w)
+  setCaret(getCaret() - w.len - "</>".len)
 

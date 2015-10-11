@@ -81,7 +81,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
     case ed.state
     of requestedShutdown, requestedCloseTab:
       ed.main.save()
-      removeBuffer(ed.main)
+      ed.removeBuffer(ed.main)
       success()
       ed.statusMsg = readyMsg
       ed.state = if ed.state==requestedShutdown: requestedShutdownNext
@@ -102,7 +102,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
     case ed.state
     of requestedShutdown, requestedCloseTab:
       ed.main.changed = false
-      removeBuffer(ed.main)
+      ed.removeBuffer(ed.main)
       success()
       ed.statusMsg = readyMsg
       ed.state = if ed.state==requestedShutdown: requestedShutdownNext

@@ -3,13 +3,14 @@ import strutils, critbits, os, times
 from parseutils import parseInt
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
-import languages, themes, nimscriptsupport, tabbar, scrollbar, indexer,
+import common, languages, themes, nimscriptsupport, tabbar, scrollbar, indexer,
   minimaps, nimsuggestclient
 
 when defined(windows):
   import dialogs
 
 # TODO:
+#  - unknown commands crash again :-(
 #  - incremental refreshes for the syntax highlighting
 #  - nimsuggest integration
 #    - sug: still buggy
@@ -17,16 +18,15 @@ when defined(windows):
 #    - goto definition: not implemented
 #    - find usages: not implemented
 #  - better line wrapping
-#  - exception handling for Nimscript
 #  - indentation guidelines
 #  - regex search&replace
-#  - make replace scriptable
 #  - draw gradient for scrollbar
 #  - debugger support!
-#  - make F-keys scriptable
 #  - idea: switch between header and implementation file for C/C++
 
 # Optional:
+#  - show which 'when' sections are active
+#  - make replace scriptable
 #  - simple refactorings: rename
 #  - large file handling
 #  - highlighting of substring occurences
@@ -129,7 +129,6 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.uiFont = fontM.fontByName("Arial", 12)
   ed.theme.active[true] = parseColor"#FFA500"
   ed.theme.active[false] = parseColor"#C0C0C0"
-  #ed.theme.bg = parseColor"#0c090a"
   ed.theme.bg = parseColor"#292929"
   ed.theme.fg = parseColor"#fafafa"
   ed.theme.cursor = ed.theme.fg
@@ -149,7 +148,7 @@ template insertBuffer(head, n) =
   head = n
   inc ed.buffersCounter
 
-template removeBuffer(n) =
+proc removeBuffer(ed: Editor; n: Buffer) =
   if ed.buffersCounter > 1:
     let nxt = n.next
     if n == ed.bar:
@@ -158,7 +157,7 @@ template removeBuffer(n) =
       ed.focus = nxt
     n.next.prev = n.prev
     n.prev.next = n.next
-    n = nxt
+    ed.main = nxt
     dec ed.buffersCounter
 
 iterator allBuffers(ed: Editor): Buffer =
@@ -323,16 +322,9 @@ proc loadOpenTabs(ed: Editor) =
         gotoLine(ed.main, parseInt(x[1]), parseInt(x[2]))
         ed.focus = ed.main
         if oldRoot != nil:
-          removeBuffer(oldRoot)
+          ed.removeBuffer(oldRoot)
           oldRoot = nil
     f.close()
-
-proc handleF5(ed: Editor) =
-  if hasConsole(ed):
-    upPressed(ed.con)
-    enterPressed(ed.con)
-  else:
-    ed.statusMsg = "No console open. Make the window wider."
 
 proc sugSelected(ed: Editor; s: Buffer) =
   # this is a bit hacky: We parse the line and if it looks like a
@@ -413,12 +405,22 @@ proc suggest(ed: Editor; cmd: string) =
     requestSuggestion(ed.main, cmd)
     ed.focus = ed.sug
 
+include api
+
+proc handleEvent(ed: Editor; procname: string) =
+  try:
+    nimscriptsupport.execProc procname
+  except:
+    ed.con.insertReadonly(getCurrentExceptionMsg())
+
 proc mainProc(ed: Editor) =
   addQuitProc nimsuggestclient.shutdown
 
   var fontM: FontManager = @[]
   setDefaults(ed, fontM)
-  setupNimscript(ed.cfgColors, ed.cfgActions)
+  let scriptContext = setupNimscript(ed.cfgColors)
+  scriptContext.setupApi(ed)
+  compileActions(ed.cfgActions)
 
   template loadTheme() =
     loadTheme(ed.cfgColors, ed.theme, ed.mgr, fontM)
@@ -635,8 +637,14 @@ proc mainProc(ed: Editor) =
           trackSpot(ed.hotspots, main)
           ed.gotoNextSpot(ed.hotspots, main)
           focus = main
-        of SDL_SCANCODE_F5:
-          handleF5(ed)
+        of SDL_SCANCODE_F5: ed.handleEvent("pressedF5")
+        of SDL_SCANCODE_F6: ed.handleEvent("pressedF6")
+        of SDL_SCANCODE_F7: ed.handleEvent("pressedF7")
+        of SDL_SCANCODE_F8: ed.handleEvent("pressedF8")
+        of SDL_SCANCODE_F9: ed.handleEvent("pressedF9")
+        of SDL_SCANCODE_F10: ed.handleEvent("pressedF10")
+        of SDL_SCANCODE_F11: ed.handleEvent("pressedF11")
+        of SDL_SCANCODE_F12: ed.handleEvent("pressedF12")
         else: discard
         if (w.keysym.modstate and controlKey) != 0:
           if w.keysym.sym == ord(' '):
@@ -699,7 +707,7 @@ proc mainProc(ed: Editor) =
               loadTheme()
               layout(ed)
             elif cmpPaths(main.filename, ed.cfgActions) == 0:
-              loadActions(ed.cfgActions)
+              reloadActions(ed.cfgActions)
             ed.statusMsg = readyMsg
           elif w.keysym.sym == ord('n'):
             let x = newBuffer(unkownName(), addr ed.mgr)
@@ -707,7 +715,7 @@ proc mainProc(ed: Editor) =
             focus = main
           elif w.keysym.sym == ord('q'):
             if not main.changed:
-              removeBuffer(main)
+              ed.removeBuffer(main)
             else:
               ed.state = requestedCloseTab
               ed.askForQuitTab()
@@ -750,7 +758,7 @@ proc mainProc(ed: Editor) =
       focus = main
       if (getMouseState(nil, nil) and SDL_BUTTON(BUTTON_RIGHT)) != 0:
         if not main.changed:
-          removeBuffer(main)
+          ed.removeBuffer(main)
         else:
           ed.state = requestedCloseTab
           ed.askForQuitTab()

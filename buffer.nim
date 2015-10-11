@@ -498,6 +498,11 @@ proc removeSelectedText(b: Buffer; selectedA, selectedB: var int) =
   highlightLine(b, oldCursor)
   selectedB = -1
 
+proc removeText*(b: Buffer; selectedA, selectedB: int) =
+  var x = selectedA.clamp(0, b.len-1)
+  var y = selectedB.clamp(0, b.len-1)
+  removeSelectedText(b, x, y)
+
 proc removeSelectedText*(b: Buffer) =
   removeSelectedText(b, b.selected.a, b.selected.b)
 

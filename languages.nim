@@ -1,11 +1,6 @@
 
 import common
 
-type
-  SourceLanguage* = enum
-    langNone, langNim, langCpp, langCsharp, langC, langJava, langJs,
-    langXml, langHtml, langConsole
-
 const
   sourceLanguageToStr*: array[SourceLanguage, string] = ["none",
     "Nim", "C++", "C#", "C", "Java", "JavaScript", "XML", "HTML", "Console"]

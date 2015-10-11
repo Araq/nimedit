@@ -14,3 +14,8 @@ type
 
   FontStyle* {.pure.} = enum
     Normal, Bold, Italic, BoldItalic
+
+type
+  SourceLanguage* = enum
+    langNone, langNim, langCpp, langCsharp, langC, langJava, langJs,
+    langXml, langHtml, langConsole
