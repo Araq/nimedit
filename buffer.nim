@@ -127,12 +127,14 @@ proc upFirstLineOffset(b: Buffer) =
   var i = b.firstLineOffset-1
   while i > 0 and b[i-1] != '\L': dec i
   b.firstLineOffset = max(0, i)
+  assert b.firstLineOffset == 0 or b[b.firstLineOffset-1] == '\L'
 
 proc downFirstLineOffset(b: Buffer) =
   assert b.firstLineOffset == 0 or b[b.firstLineOffset-1] == '\L'
   var i = b.firstLineOffset
   while b[i] != '\L': inc i
   b.firstLineOffset = i+1
+  assert b.firstLineOffset == 0 or b[b.firstLineOffset-1] == '\L'
 
 proc scrollLines*(b: Buffer; amount: int) =
   let oldFirstLine = b.firstLine
@@ -680,6 +682,7 @@ proc gotoPos*(b: Buffer; pos: int) =
   else:
     b.firstLine = max(0, b.currentLine - (b.span div 2))
     b.firstLineOffset = getLineOffset(b, b.firstLine)
+    assert b.firstLineOffset == 0 or b[b.firstLineOffset-1] == '\L'
 
 proc gotoFirstMarker*(b: Buffer): bool =
   b.activeMarker = 0
@@ -738,6 +741,7 @@ proc gotoLine*(b: Buffer; line, col: int) =
   let span = if b.span > 0: b.span else: 30
   b.firstLine = max(0, line - (span div 2))
   b.firstLineOffset = getLineOffset(b, b.firstLine)
+  assert b.firstLineOffset == 0 or b[b.firstLineOffset-1] == '\L'
   if col > 0:
     var c = 1
     while c <= col and b[b.cursor] != '\L':

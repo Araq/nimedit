@@ -69,8 +69,10 @@ proc trackSpot(s: var Spots; b: Buffer) =
       if abs(s.a[i].line - line) < interestingDiff:
         s.a[i].line = line
         s.a[i].col = col
+        s.rd = i
         return
     inc i
+  s.rd = s.wr
   s.a[s.wr].fullpath = b.filename
   s.a[s.wr].line = line
   s.a[s.wr].col = col
@@ -224,11 +226,17 @@ proc gotoNextSpot(ed: Editor; s: var Spots; b: Buffer) =
     if not s.a[i].fullpath.isNil:
       if b.filename != s.a[i].fullpath or
           abs(s.a[i].line - b.currentLine) >= interestingDiff:
-        if ed.openTab(s.a[i].fullpath):
-          ed.main.gotoLine(s.a[i].line+1, s.a[i].col+1)
-          s.rd = (i+1) mod s.a.len
-          return
-    i = (i+1) mod s.a.len
+        for it in ed.allBuffers:
+          if cmpPaths(it.filename, s.a[i].fullpath) == 0:
+            ed.main = it
+            ed.focus = ed.main
+            it.gotoLine(s.a[i].line+1, s.a[i].col+1)
+            dec i
+            if i < 0: i = s.a.len-1
+            s.rd = i
+            return
+    dec i
+    if i < 0: i = s.a.len-1
     inc j
 
 include prompt
@@ -373,6 +381,7 @@ proc findProject(ed: Editor): string =
   return ""
 
 proc suggest(ed: Editor; cmd: string) =
+  if ed.main.lang != langNim: return
   if ed.project.len == 0:
     ed.statusMsg = "Which project?"
     let prompt = ed.prompt

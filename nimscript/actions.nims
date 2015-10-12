@@ -32,7 +32,7 @@ when false:
 
   proc pressedF7*() =
     # switch between header and implementation file for C/C++
-    let f = currentFilename
+    let f = currentFilename()
     case f.splitFile.ext
     of ".cpp":
       discard openTab(f.changeFileExt(".hpp")) or
