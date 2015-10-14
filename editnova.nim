@@ -747,14 +747,18 @@ proc mainProc(ed: Editor) =
     let activeTab = drawTabBar(ed.bar, ed.theme, 47, ed.screenW,
                                e, ed.main)
     if activeTab != nil:
-      main = activeTab
-      focus = main
       if (getMouseState(nil, nil) and SDL_BUTTON(BUTTON_RIGHT)) != 0:
-        if not main.changed:
-          ed.removeBuffer(main)
+        let oldMain = main
+        if not activeTab.changed:
+          ed.removeBuffer(activeTab)
+          if oldMain != activeTab: main = oldMain
         else:
           ed.state = requestedCloseTab
+          main = activeTab
           ed.askForQuitTab()
+      else:
+        main = activeTab
+      focus = main
 
     ed.theme.draw(main, rawMainRect, (blink==0 and focus==main) or
                                       focus==ed.autocomplete,

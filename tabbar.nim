@@ -87,39 +87,22 @@ proc swapBuffers(a, b: Buffer) =
 
     let pa = a.prev
     let sb = b.next
-
     # remove a from list
     pa.next = a.next
     pa.next.prev = pa
-
     # remove b from list
     sb.prev = b.prev
     sb.prev.next = sb
-
     # add a before sb
     a.prev = sb.prev
     a.next = sb
     a.prev.next = a
     a.next.prev = a
-
     # add b after pa
     b.next = pa.next
     b.prev = pa
     b.prev.next = b
     b.next.prev = b
-
-    when false:
-      let bn = b.next
-      let ap = a.prev
-      if a.prev != b:
-        a.prev.next = b
-      a.next = bn
-      a.prev = b
-
-      if b.next != a.prev:
-        b.next.prev = a
-      b.next = a
-      b.prev = ap
 
 proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
                  x, screenW: cint; e: var Event;
