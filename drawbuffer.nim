@@ -302,8 +302,10 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   while dim.y+fontSize < endY:
     inc dim.y, lineHeight
     inc b.span
-  # if not found, ignore mouse request anyway:
-  b.clicks = 0
+  # if not found, set the cursor to the last possible position (this is
+  # required when the screen is not completely filled with text lines):
+  mouseAfterNewLine(b, min(i, b.len),
+    (x: cint(b.mouseX-1), y: 100_000i32, w: 0'i32, h: 0'i32), lineHeight.byte)
 
 proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
   let realOffset = getLineOffset(b, b.firstLine)

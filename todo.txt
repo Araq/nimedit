@@ -1,7 +1,8 @@
 TODO:
- - incremental refreshes for the syntax highlighting
  - better line wrapping
+ - incremental refreshes for the syntax highlighting
  - indentation guidelines
+ - on the fly search
  - regex search&replace
  - draw gradient for scrollbar
  - optimize line offset calculations
