@@ -78,58 +78,128 @@ proc mouseSelectCurrentToken(b: Buffer) =
   b.selected = (first, last)
   cursorMoved(b)
 
-proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: byte) =
+proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: cint) =
   # requested cursor update?
   if b.clicks > 0:
-    if b.mouseX > dim.x and dim.y+maxh.cint > b.mouseY:
+    if b.mouseX > dim.x and dim.y+maxh > b.mouseY:
       b.cursor = i
       b.currentLine = max(b.firstLine + b.span, 0)
       if b.clicks > 1: mouseSelectWholeLine(b)
       b.clicks = 0
       cursorMoved(b)
 
-proc blit(r: RendererPtr; b: Buffer; i: int; tex: TexturePtr; dim: Rect;
-          font: FontPtr; msg: cstring) =
-  var d = dim
+type
+  DrawBuffer = object
+    b: Buffer
+    dim, cursorDim: Rect
+    i, charsLen: int
+    font: FontPtr
+    oldX, maxY, lineH: cint
+    ra, rb: int
+    chars: array[CharBufSize, char]
+
+proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr) =
+  # Draws the part of the token that actually still fits in the line. Also
+  # does the click checking and the cursor tracking.
+  var d = db.dim
   queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
 
   # requested cursor update?
-  if b.clicks > 0:
-    let p = point(b.mouseX, b.mouseY)
+  if db.b.clicks > 0:
+    let p = point(db.b.mouseX, db.b.mouseY)
     if d.contains(p):
-      b.cursor = i - len(msg) + whichColumn(b, i-len(msg), d, font, msg)
-      b.currentLine = max(b.firstLine + b.span, 0)
-      mouseSelectCurrentToken(b)
-      b.clicks = 0
-      cursorMoved(b)
+      db.b.cursor = db.i - db.charsLen + whichColumn(db.b, db.i - db.charsLen,
+                                                     d, db.font, db.chars)
+      db.b.currentLine = max(db.b.firstLine + db.b.span, 0)
+      mouseSelectCurrentToken(db.b)
+      db.b.clicks = 0
+      cursorMoved(db.b)
+  # track where to draw the cursor:
+  if db.cursorDim.h == 0 and
+      db.b.cursor >= db.ra+db.i and db.b.cursor <= db.rb+db.i:
+    var buffer: array[CharBufSize, char]
+    var j = db.ra+db.i
+    var r = 0
+    let ending = db.rb+db.i
+    while j < ending:
+      var L = graphemeLen(db.b, j)
+      for k in 0..<L:
+        buffer[r] = db.b[k+j]
+        inc r
+      buffer[r] = '\0'
+      let w = textSize(db.font, buffer)
+      if j == db.b.cursor:
+        db.cursorDim = db.dim
+        db.cursorDim.x += w
+        break
+      inc j, L
 
   r.copy(tex, nil, addr d)
 
-proc drawText(t: InternalTheme; b: Buffer; i: int; dim: var Rect; oldX: cint;
-              font: FontPtr; msg: cstring; fg, bg: Color) =
-  assert font != nil
+proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
+  # Draws a single token, potentially splitting it up over multiple lines.
+  assert db.font != nil
   let r = t.renderer
-  #echo "drawText ", msg
-  let text = r.drawTexture(font, msg, fg, bg)
+  let text = r.drawTexture(db.font, db.chars, fg, bg)
   var w, h: cint
   queryTexture(text, nil, nil, addr(w), addr(h))
 
-  if dim.x + w > dim.w+oldX:
-    # draw line continuation and contine in the next line:
-    let cont = r.drawTexture(font, Ellipsis, fg, bg)
-    r.blit(b, i, cont, dim, font, msg)
-    destroy cont
-    dim.x = oldX
-    dim.y += fontLineSkip(font)
-    let dots = r.drawTexture(font, Ellipsis, fg, bg)
-    var dotsW: cint
-    queryTexture(dots, nil, nil, addr(dotsW), nil)
-    r.blit(b, i, dots, dim, font, msg)
-    destroy dots
-    dim.x += dotsW
+  if db.dim.x + w <= db.dim.w + db.oldX:
+    # fast common case: the token still fits:
+    r.drawSubtoken(db, text)
+    db.dim.x += w
+  else:
+    # slow uncommon case: we have to wrap the line.
+    # * split the buffer and see how many still fit into the current line.
+    # * don't draw over the valid rectangle
+    # * consider the current cursor just like in the main loop
+    # * XXX Unicode support!
+    db.ra = 0
+    db.rb = 0
+    while db.ra < db.charsLen:
+      var start = cstring(addr db.chars[db.ra])
+      var probe = 0
+      while db.chars[probe] != '\0':
+        let ch = db.chars[probe]
+        db.chars[probe] = '\0'
+        let w2 = db.font.textSize(start)
+        db.chars[probe] = ch
+        if db.dim.x + w2 > db.dim.w + db.oldX:
+          dec probe
+          break
+        inc probe
+      # leave space for the three dots:
+      dec probe
+      if probe <= 0:
+        # cannot happen, give up:
+        doAssert false
+      # draw until we still have room:
+      let ch = db.chars[probe]
+      db.chars[probe] = '\0'
+      if start[0] == '\0': break
+      let text = r.drawTexture(db.font, start, fg, bg)
+      db.rb = db.ra + probe
+      db.chars[probe] = ch
+      var w, h: cint
+      queryTexture(text, nil, nil, addr(w), addr(h))
+      r.drawSubtoken(db, text)
+      inc db.ra, probe
+      db.dim.x += w
+      destroy text
 
-  r.blit(b, i, text, dim, font, msg)
-  dim.x += w
+      # draw line continuation and contine in the next line:
+      let cont = r.drawTexture(db.font, Ellipsis, fg, bg)
+      r.drawSubtoken(db, cont)
+      destroy cont
+      db.dim.x = db.oldX
+      db.dim.y += db.lineH
+      if db.dim.y > db.maxY: break
+      let dots = r.drawTexture(db.font, Ellipsis, fg, bg)
+      var dotsW: cint
+      queryTexture(dots, nil, nil, addr(dotsW), nil)
+      r.drawSubtoken(db, dots)
+      destroy dots
+      db.dim.x += dotsW
   destroy text
 
 proc drawCursor(t: InternalTheme; dim: Rect; h: cint) =
@@ -164,83 +234,59 @@ proc getBg(b: Buffer; i: int; t: InternalTheme): Color =
   if t.showBracket and i == b.bracketToHighlight: return t.bracket
   return t.bg
 
-proc drawUnderscore(t: InternalTheme; dim: Rect; buf: cstring; style: Style) =
-  var u: array[2, char]
-  u[0] = '_'
-  u[1] = '\0'
-  let w = textSize(style.font, u)
-  let w2 = textSize(style.font, buf)
-  t.renderer.setDrawColor style.attr.color
-  t.renderer.drawLine(dim.x + w2, dim.y-6, dim.x + w2 + w - 1, dim.y-6)
-
 proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
                   blink: bool): int =
-  var j = i
-  var style = b.mgr[].getStyle(getCell(b, j).s)
-  var styleBg = getBg(b, j, t)
-  var maxh = style.attr.size
-  let oldX = dim.x
+  var style = b.mgr[].getStyle(getCell(b, i).s)
+  var styleBg = getBg(b, i, t)
 
-  var cursorDim: Rect
+  var db: DrawBuffer
+  db.oldX = dim.x
+  db.maxY = dim.y + dim.h - 1
+  db.dim = dim
+  db.font = style.font
+  db.b = b
+  db.i = i
+  db.lineH = fontLineSkip(db.font)
 
-  var buffer: array[CharBufSize, char]
-  var cb = true
-  template cursorCheck(): expr = cb and j == b.cursor
   block outerLoop:
-    while true:
-      var bufres = 0
+    while db.dim.y+db.lineH <= db.maxY:
+      db.charsLen = 0
       while true:
-        let cell = getCell(b, j)
+        let cell = getCell(b, db.i)
 
         if cell.c == '\L':
-          buffer[bufres] = '\0'
-          if bufres >= 1:
-            t.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color,
-                       styleBg)
-          mouseAfterNewLine(b, j, dim, maxh)
-          if cursorCheck(): cursorDim = dim
+          db.chars[db.charsLen] = '\0'
+          if db.charsLen >= 1:
+            t.drawToken(db, style.attr.color, styleBg)
+          mouseAfterNewLine(b, db.i, dim, db.lineH)
           break outerLoop
 
-        if cursorCheck():
-          cursorDim = dim
-          buffer[bufres] = '\0'
-          let size = textSize(style.font, buffer)
-          # overflow:
-          if cursorDim.x + size > dim.w+oldX: break
-          cursorDim.x += size
-
-        if b.mgr[].getStyle(cell.s) != style or getBg(b, j, t) != styleBg:
+        if b.mgr[].getStyle(cell.s) != style or getBg(b, db.i, t) != styleBg:
           break
-        elif bufres == high(buffer): #or cursorCheck():
+        elif db.charsLen == high(db.chars):
           break
 
         if cell.c == '\t':
-          tabFill(b, buffer, bufres, j)
+          tabFill(b, db.chars, db.charsLen, db.i)
         else:
-          #if cell.c == '_':
-          #  buffer[bufres] = '\0'
-          #  drawUnderscore(t, dim, buffer, style)
-          buffer[bufres] = cell.c
-          inc bufres
-        inc j
+          db.chars[db.charsLen] = cell.c
+          inc db.charsLen
+        inc db.i
 
-      buffer[bufres] = '\0'
-      if bufres >= 1:
-        t.drawText(b, j, dim, oldX, style.font, buffer, style.attr.color,
-                   styleBg)
-        style = b.mgr[].getStyle(getCell(b, j).s)
-        styleBg = getBg(b, j, t)
-        maxh = max(maxh, style.attr.size)
+      db.chars[db.charsLen] = '\0'
+      if db.charsLen >= 1:
+        t.drawToken(db, style.attr.color, styleBg)
+        style = b.mgr[].getStyle(getCell(b, db.i).s)
+        styleBg = getBg(b, db.i, t)
+        db.font = style.font
 
-      if j == b.cursor:
-        cursorDim = dim
-        cb = false
+  dim = db.dim
   dim.y += fontLineSkip(t.editorFontPtr) # maxh.cint+2
-  dim.x = oldX
-  if cursorDim.h > 0 and blink:
-    t.drawCursor(cursorDim, maxh.cint)
-    b.cursorDim = (cursorDim.x.int, cursorDim.y.int, maxh.int)
-  result = j+1
+  dim.x = db.oldX
+  if db.cursorDim.h > 0 and blink:
+    t.drawCursor(db.cursorDim, db.lineH)
+    b.cursorDim = (db.cursorDim.x.int, db.cursorDim.y.int, db.lineH.int)
+  result = db.i+1
 
 proc getLineOffset(b: Buffer; lines: Natural): int =
   var lines = lines
@@ -298,14 +344,14 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
     inc b.span
   # we need to tell the buffer how many lines *can* be shown to prevent
   # that scrolling is triggered way too early:
-  let lineHeight = fontLineSkip(t.editorFontPtr)
+  let lineH = fontLineSkip(t.editorFontPtr)
   while dim.y+fontSize < endY:
-    inc dim.y, lineHeight
+    inc dim.y, lineH
     inc b.span
   # if not found, set the cursor to the last possible position (this is
   # required when the screen is not completely filled with text lines):
   mouseAfterNewLine(b, min(i, b.len),
-    (x: cint(b.mouseX-1), y: 100_000i32, w: 0'i32, h: 0'i32), lineHeight.byte)
+    (x: cint(b.mouseX-1), y: 100_000i32, w: 0'i32, h: 0'i32), lineH)
 
 proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
   let realOffset = getLineOffset(b, b.firstLine)
@@ -336,9 +382,9 @@ proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
     inc b.span
   # we need to tell the buffer how many lines *can* be shown to prevent
   # that scrolling is triggered way too early:
-  let lineHeight = fontLineSkip(t.editorFontPtr)
+  let lineH = fontLineSkip(t.editorFontPtr)
   while dim.y+fontSize < endY:
-    inc dim.y, lineHeight
+    inc dim.y, lineH
     inc b.span
   # if not found, ignore mouse request anyway:
   b.clicks = 0
