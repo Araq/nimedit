@@ -804,10 +804,6 @@ proc mainProc(ed: Editor) =
     renderer.draw(position,
       ed.mainRect.x + ed.mainRect.w - 14*ed.theme.uiFontSize.int, bottom)
 
-    #ed.renderer.setDrawColor(color(0xff, 0x00, 0x00, 0xff))
-    ed.renderer.pixel(rawMainRect.x + rawMainRect.w, 300, color(0xff, 0x00, 0x00, 0xff))
-    ed.renderer.setDrawColor(ed.theme.bg)
-
     present(renderer)
   freeFonts fontM
   destroy ed

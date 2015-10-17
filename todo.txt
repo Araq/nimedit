@@ -1,5 +1,5 @@
 TODO:
- - cursor wrong for tabs and in edge cases
+ - cursor wrong for tabs!!! and in edge cases
  - indentation guidelines
  - on the fly search
  - regex search&replace

@@ -118,7 +118,7 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
     if d.contains(p):
       db.b.cursor = i + whichColumn(db, ra, rb)
       db.b.currentLine = max(db.b.firstLine + db.b.span, 0)
-      mouseSelectCurrentToken(db.b)
+      if db.b.clicks > 1: mouseSelectCurrentToken(db.b)
       db.b.clicks = 0
       cursorMoved(db.b)
   # track where to draw the cursor:
@@ -129,7 +129,7 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
     if j+i == db.b.cursor:
       let ch = db.chars[j]
       db.chars[j] = '\0'
-      db.cursorDim = db.dim
+      db.cursorDim = d
       db.cursorDim.x += textSize(db.font, addr db.chars[ra])
       db.chars[j] = ch
   r.copy(tex, nil, addr d)
@@ -137,7 +137,7 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
 proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
   # Draws a single token, potentially splitting it up over multiple lines.
   assert db.font != nil
-  if db.dim.y >= db.maxY: return
+  if db.dim.y+db.lineH > db.maxY: return
   let r = t.renderer
   let text = r.drawTexture(db.font, db.chars, fg, bg)
   var w, h: cint
@@ -197,7 +197,7 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
       destroy cont
       db.dim.x = db.oldX
       db.dim.y += db.lineH
-      if db.dim.y >= db.maxY: break
+      if db.dim.y+db.lineH > db.maxY: break
       let dots = r.drawTexture(db.font, Ellipsis, fg, bg)
       var dotsW: cint
       queryTexture(dots, nil, nil, addr(dotsW), nil)
@@ -245,7 +245,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
 
   var db: DrawBuffer
   db.oldX = dim.x
-  db.maxY = dim.y + dim.h - 1
+  db.maxY = dim.h
   db.dim = dim
   db.font = style.font
   db.b = b
@@ -337,6 +337,7 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   let endX = dim.x + dim.w - 1
   var dim = dim
   dim.w = endX
+  dim.h = endY
   let spl = cint(spaceForLines(b, t) + RoomForMargin)
   if showLines:
     t.drawNumber(b.firstLine+1, b.currentLine+1, spl, dim.y)
@@ -373,6 +374,8 @@ proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
   let endY = dim.y + dim.h - 1
   var dim = dim
   b.span = 0
+  dim.w = endX
+  dim.h = endY
 
   template drawCurrent =
     let y = dim.y
