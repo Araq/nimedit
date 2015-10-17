@@ -1,7 +1,5 @@
 TODO:
- - cursor wrong for tabs
- - mouse clicks into wrapped lines do not work
- - incremental refreshes for the syntax highlighting
+ - cursor wrong for tabs and in edge cases
  - indentation guidelines
  - on the fly search
  - regex search&replace

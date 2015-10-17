@@ -360,6 +360,7 @@ proc tick(ed: Editor) =
   inc ed.ticker
   # run the index every 500ms. It's incremental and fast.
   indexBuffers(ed.indexer, ed.main)
+  highlightIncrementally(ed.main)
 
   # every 10 seconds check if the file's contents have changed on the hard disk
   # behind our back:

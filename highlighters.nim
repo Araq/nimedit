@@ -634,9 +634,6 @@ proc highlight(b: Buffer; first, last: int;
     for i in 0 ..< g.length:
       b.setCellStyle(g.start+i, g.kind)
 
-proc isCriticalDelete*(b: Buffer; deleted: seq[Cell]) =
-  discard
-
 proc highlightLine*(b: Buffer; oldCursor: Natural) =
   # Updating everything turned out to be way too slow even for files of
   # moderate size.
@@ -654,6 +651,38 @@ proc highlightLine*(b: Buffer; oldCursor: Natural) =
 proc highlightEverything*(b: Buffer) =
   if b.lang != langNone:
     highlight(b, 0, b.len-1, TokenClass.None)
+
+proc highlightIncrementally*(b: Buffer) =
+  if b.lang == langNone or b.highlighter.version == b.version: return
+  const charsToIndex = 40*40
+  if b.highlighter.currentlyIndexing != b.version:
+    b.highlighter.currentlyIndexing = b.version
+    b.highlighter.position = 0
+  var i = b.highlighter.position
+  if i < b.len:
+    let initialState = if i == 0: TokenClass.None else: getCell(b, i-1).s
+    let last = min(b.len-1, i+charsToIndex)
+    highlight(b, i, last, initialState)
+    b.highlighter.position = last+1
+  else:
+    # we highlighted the whole buffer:
+    b.highlighter.version = b.version
+    b.highlighter.currentlyIndexing = 0
+
+when false:
+  proc bufferWithWorkToDo(start: Buffer): Buffer =
+    var it = start
+    while true:
+      if it.highlighter.version != it.version: return it
+      it = it.next
+      if it == start: break
+
+  proc indexBuffers*(start: Buffer) =
+    # search for a single buffer that can be indexed and index it. Since we
+    # store the version, eventually everything will be indexed. Works
+    # incrementally.
+    let it = bufferWithWorkToDo(start)
+    if it != nil: indexBuffer(it)
 
 
 when isMainModule:

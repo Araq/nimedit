@@ -48,7 +48,7 @@ type
     lang*: SourceLanguage
     next*, prev*: Buffer
     lineending*: string # CR-LF, CR or LF
-    indexer*: Indexer
+    indexer*, highlighter*: Indexer
     cursorDim*: tuple[x, y, h: int]
     timestamp*: Time
 

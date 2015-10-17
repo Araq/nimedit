@@ -124,7 +124,6 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
   # track where to draw the cursor:
   if db.cursorDim.h == 0 and
       ra+i <= db.b.cursor and db.b.cursor <= rb+i+1:
-    var buffer: array[CharBufSize, char]
     var j = ra
     while j <= rb and j+i != db.b.cursor: inc(j)
     if j+i == db.b.cursor:
@@ -133,29 +132,6 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
       db.cursorDim = db.dim
       db.cursorDim.x += textSize(db.font, addr db.chars[ra])
       db.chars[j] = ch
-    when false:
-      var r = 0
-      let ending = rb+i
-      while j <= ending:
-        var L = graphemeLen(db.b, j)
-        for k in 0..<L:
-          buffer[r] = db.b[k+j]
-          inc r
-        buffer[r] = '\0'
-        let w = textSize(db.font, buffer)
-        if j == db.b.cursor:
-          db.cursorDim = db.dim
-          db.cursorDim.x += w
-          if db.b.heading != "console":
-            echo "found here ", db.cursorDim
-            echo "Ra ", ra, " rb: ", rb, " j: ", j,
-                " cursor: ", db.b.cursor, " i: ", i,
-                " heading: ", db.b.heading
-          break
-        inc j, L
-      if j > ending and j == db.b.cursor:
-        db.cursorDim = db.dim
-        db.cursorDim.x += textSize(db.font, db.chars)
   r.copy(tex, nil, addr d)
 
 proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
