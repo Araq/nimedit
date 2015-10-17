@@ -143,7 +143,7 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
   var w, h: cint
   queryTexture(text, nil, nil, addr(w), addr(h))
 
-  if db.dim.x + w <= db.dim.w + db.oldX:
+  if db.dim.x + w <= db.dim.w:
     # fast common case: the token still fits:
     r.drawSubtoken(db, text, 0, db.charsLen-1)
     db.dim.x += w
@@ -166,30 +166,30 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
         db.chars[probe] = '\0'
         let w2 = db.font.textSize(start)
         db.chars[probe] = ch
-        if db.dim.x + w2 > db.dim.w + db.oldX:
+        if db.dim.x + w2 > db.dim.w:
           #echo "breaking ", db.dim.x, " ", w2, " ", probe-1 - db.ra
-          dec probe
+          # leave space for the three dots:
+          dec probe, 2
           dotsrequired = true
           break
         inc probe
-      # leave space for the three dots:
-      dec probe
       if probe <= 0:
-        # cannot happen, give up:
-        doAssert false
-      # draw until we still have room:
-      let ch = db.chars[probe]
-      db.chars[probe] = '\0'
-      assert start[0] != '\0'
-      let text = r.drawTexture(db.font, start, fg, bg)
-      db.rb = probe-1
-      db.chars[probe] = ch
-      var w, h: cint
-      queryTexture(text, nil, nil, addr(w), addr(h))
-      r.drawSubtoken(db, text, db.ra, db.rb)
-      db.ra = probe
-      db.dim.x += w
-      destroy text
+        # not successful, try the next line:
+        discard
+      else:
+        # draw until we still have room:
+        let ch = db.chars[probe]
+        db.chars[probe] = '\0'
+        assert start[0] != '\0'
+        let text = r.drawTexture(db.font, start, fg, bg)
+        db.rb = probe-1
+        db.chars[probe] = ch
+        var w, h: cint
+        queryTexture(text, nil, nil, addr(w), addr(h))
+        r.drawSubtoken(db, text, db.ra, db.rb)
+        db.ra = probe
+        db.dim.x += w
+        destroy text
       if not dotsRequired: break
       # draw line continuation and continue in the next line:
       let cont = r.drawTexture(db.font, Ellipsis, fg, bg)
@@ -287,7 +287,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
         db.font = style.font
 
   dim = db.dim
-  dim.y += fontLineSkip(t.editorFontPtr) # maxh.cint+2
+  dim.y += fontLineSkip(t.editorFontPtr)
   dim.x = db.oldX
   if db.cursorDim.h > 0 and blink:
     t.drawCursor(db.cursorDim, db.lineH)
@@ -334,7 +334,9 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
     assert false
   var i = b.firstLineOffset
   let endY = dim.y + dim.h - 1
+  let endX = dim.x + dim.w - 1
   var dim = dim
+  dim.w = endX
   let spl = cint(spaceForLines(b, t) + RoomForMargin)
   if showLines:
     t.drawNumber(b.firstLine+1, b.currentLine+1, spl, dim.y)
