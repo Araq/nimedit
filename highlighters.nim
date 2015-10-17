@@ -661,7 +661,11 @@ proc highlightIncrementally*(b: Buffer) =
   var i = b.highlighter.position
   if i < b.len:
     let initialState = if i == 0: TokenClass.None else: getCell(b, i-1).s
-    let last = min(b.len-1, i+charsToIndex)
+    var last = i+charsToIndex
+    if last > b.len-1:
+      last = b.len-1
+    else:
+      while b[last] != '\L': inc last
     highlight(b, i, last, initialState)
     b.highlighter.position = last+1
   else:
