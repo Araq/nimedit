@@ -40,23 +40,6 @@ proc drawNumber*(t: InternalTheme; number, current: int; w, y: cint) =
 proc textSize*(font: FontPtr; buffer: cstring): cint =
   discard sizeUtf8(font, buffer, addr result, nil)
 
-proc whichColumn(b: Buffer; i: int; dim: Rect; font: FontPtr;
-                 msg: cstring): int =
-  var buffer: array[CharBufSize, char]
-  var j = i
-  var r = 0
-  let ending = i+msg.len
-  while j < ending:
-    var L = graphemeLen(b, j)
-    for k in 0..<L:
-      buffer[r] = b[k+j]
-      inc r
-    buffer[r] = '\0'
-    let w = textSize(font, buffer)
-    if dim.x+w >= b.mouseX-1:
-      return r
-    inc j, L
-
 proc mouseSelectWholeLine(b: Buffer) =
   var first = b.cursor
   while first > 0 and b[first-1] != '\L': dec first
@@ -74,7 +57,6 @@ proc mouseSelectCurrentToken(b: Buffer) =
       dec first
     while last < b.len and b.getCell(last+1).s == b.getCell(b.cursor).s:
       inc last
-  echo "mouseSelectCurrentToken: setting cursor to ", first
   b.cursor = first
   b.selected = (first, last)
   cursorMoved(b)
@@ -84,7 +66,6 @@ proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: cint) =
   if b.clicks > 0:
     if b.mouseX > dim.x and dim.y+maxh > b.mouseY:
       b.cursor = i
-      echo "mouseAfterNewLine: setting cursor to ", i
       b.currentLine = max(b.firstLine + b.span, 0)
       if b.clicks > 1: mouseSelectWholeLine(b)
       b.clicks = 0
@@ -105,6 +86,24 @@ proc blit(r: RendererPtr; tex: TexturePtr; dim: Rect) =
   queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
   r.copy(tex, nil, addr d)
 
+
+
+proc whichColumn(db: var DrawBuffer; ra, rb: int): int =
+  var buffer: array[CharBufSize, char]
+  var j = db.i - db.charsLen + ra
+  var r = 0
+  let ending = j+(rb-ra+1)
+  while j < ending:
+    var L = graphemeLen(db.b, j)
+    for k in 0..<L:
+      buffer[r] = db.b[k+j]
+      inc r
+    buffer[r] = '\0'
+    let w = textSize(db.font, buffer)
+    if db.dim.x+w >= db.b.mouseX-1:
+      return r
+    inc j, L
+
 proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
                   ra, rb: int) =
   # Draws the part of the token that actually still fits in the line. Also
@@ -117,8 +116,7 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
   if db.b.clicks > 0:
     let p = point(db.b.mouseX, db.b.mouseY)
     if d.contains(p):
-      db.b.cursor = i + whichColumn(db.b, i, d, db.font, db.chars)
-      echo "drawSubtoken: setting cursor to ", db.b.cursor
+      db.b.cursor = i + whichColumn(db, ra, rb)
       db.b.currentLine = max(db.b.firstLine + db.b.span, 0)
       mouseSelectCurrentToken(db.b)
       db.b.clicks = 0
@@ -288,6 +286,8 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
           db.chars[db.charsLen] = '\0'
           if db.charsLen >= 1:
             t.drawToken(db, style.attr.color, styleBg)
+          elif db.i == b.cursor:
+            db.cursorDim = db.dim
           mouseAfterNewLine(b, db.i, dim, db.lineH)
           break outerLoop
 

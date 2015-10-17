@@ -1,5 +1,6 @@
 TODO:
- - cursor wrong for tabs and completely empty lines
+ - cursor wrong for tabs
+ - mouse clicks into wrapped lines do not work
  - incremental refreshes for the syntax highlighting
  - indentation guidelines
  - on the fly search
