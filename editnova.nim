@@ -86,13 +86,13 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.statusMsg = readyMsg
 
   ed.main = newBuffer(unkownName(), addr ed.mgr)
-  ed.prompt = newBuffer("", addr ed.mgr)
-  ed.console = newBuffer("", addr ed.mgr)
+  ed.prompt = newBuffer("prompt", addr ed.mgr)
+  ed.console = newBuffer("console", addr ed.mgr)
   ed.console.lang = langConsole
 
-  ed.autocomplete = newBuffer("", addr ed.mgr)
-  ed.minimap = newBuffer("", addr ed.mgr)
-  ed.sug = newBuffer("", addr ed.mgr)
+  ed.autocomplete = newBuffer("autocomplete", addr ed.mgr)
+  ed.minimap = newBuffer("minimap", addr ed.mgr)
+  ed.sug = newBuffer("sug", addr ed.mgr)
   ed.sug.lang = langNim
 
   ed.buffersCounter = 1

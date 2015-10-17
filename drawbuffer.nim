@@ -74,6 +74,7 @@ proc mouseSelectCurrentToken(b: Buffer) =
       dec first
     while last < b.len and b.getCell(last+1).s == b.getCell(b.cursor).s:
       inc last
+  echo "mouseSelectCurrentToken: setting cursor to ", first
   b.cursor = first
   b.selected = (first, last)
   cursorMoved(b)
@@ -83,6 +84,7 @@ proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: cint) =
   if b.clicks > 0:
     if b.mouseX > dim.x and dim.y+maxh > b.mouseY:
       b.cursor = i
+      echo "mouseAfterNewLine: setting cursor to ", i
       b.currentLine = max(b.firstLine + b.span, 0)
       if b.clicks > 1: mouseSelectWholeLine(b)
       b.clicks = 0
@@ -98,47 +100,70 @@ type
     ra, rb: int
     chars: array[CharBufSize, char]
 
-proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr) =
+proc blit(r: RendererPtr; tex: TexturePtr; dim: Rect) =
+  var d = dim
+  queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
+  r.copy(tex, nil, addr d)
+
+proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
+                  ra, rb: int) =
   # Draws the part of the token that actually still fits in the line. Also
   # does the click checking and the cursor tracking.
   var d = db.dim
   queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
 
   # requested cursor update?
+  let i = db.i - db.charsLen
   if db.b.clicks > 0:
     let p = point(db.b.mouseX, db.b.mouseY)
     if d.contains(p):
-      db.b.cursor = db.i - db.charsLen + whichColumn(db.b, db.i - db.charsLen,
-                                                     d, db.font, db.chars)
+      db.b.cursor = i + whichColumn(db.b, i, d, db.font, db.chars)
+      echo "drawSubtoken: setting cursor to ", db.b.cursor
       db.b.currentLine = max(db.b.firstLine + db.b.span, 0)
       mouseSelectCurrentToken(db.b)
       db.b.clicks = 0
       cursorMoved(db.b)
   # track where to draw the cursor:
   if db.cursorDim.h == 0 and
-      db.b.cursor >= db.ra+db.i and db.b.cursor <= db.rb+db.i:
+      ra+i <= db.b.cursor and db.b.cursor <= rb+i+1:
     var buffer: array[CharBufSize, char]
-    var j = db.ra+db.i
-    var r = 0
-    let ending = db.rb+db.i
-    while j < ending:
-      var L = graphemeLen(db.b, j)
-      for k in 0..<L:
-        buffer[r] = db.b[k+j]
-        inc r
-      buffer[r] = '\0'
-      let w = textSize(db.font, buffer)
-      if j == db.b.cursor:
+    var j = ra
+    while j <= rb and j+i != db.b.cursor: inc(j)
+    if j+i == db.b.cursor:
+      let ch = db.chars[j]
+      db.chars[j] = '\0'
+      db.cursorDim = db.dim
+      db.cursorDim.x += textSize(db.font, addr db.chars[ra])
+      db.chars[j] = ch
+    when false:
+      var r = 0
+      let ending = rb+i
+      while j <= ending:
+        var L = graphemeLen(db.b, j)
+        for k in 0..<L:
+          buffer[r] = db.b[k+j]
+          inc r
+        buffer[r] = '\0'
+        let w = textSize(db.font, buffer)
+        if j == db.b.cursor:
+          db.cursorDim = db.dim
+          db.cursorDim.x += w
+          if db.b.heading != "console":
+            echo "found here ", db.cursorDim
+            echo "Ra ", ra, " rb: ", rb, " j: ", j,
+                " cursor: ", db.b.cursor, " i: ", i,
+                " heading: ", db.b.heading
+          break
+        inc j, L
+      if j > ending and j == db.b.cursor:
         db.cursorDim = db.dim
-        db.cursorDim.x += w
-        break
-      inc j, L
-
+        db.cursorDim.x += textSize(db.font, db.chars)
   r.copy(tex, nil, addr d)
 
 proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
   # Draws a single token, potentially splitting it up over multiple lines.
   assert db.font != nil
+  if db.dim.y >= db.maxY: return
   let r = t.renderer
   let text = r.drawTexture(db.font, db.chars, fg, bg)
   var w, h: cint
@@ -146,7 +171,7 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
 
   if db.dim.x + w <= db.dim.w + db.oldX:
     # fast common case: the token still fits:
-    r.drawSubtoken(db, text)
+    r.drawSubtoken(db, text, 0, db.charsLen-1)
     db.dim.x += w
   else:
     # slow uncommon case: we have to wrap the line.
@@ -158,14 +183,19 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
     db.rb = 0
     while db.ra < db.charsLen:
       var start = cstring(addr db.chars[db.ra])
-      var probe = 0
-      while db.chars[probe] != '\0':
+      assert start[0] != '\0'
+
+      var probe = db.ra
+      var dotsrequired = false
+      while probe < db.charsLen:
         let ch = db.chars[probe]
         db.chars[probe] = '\0'
         let w2 = db.font.textSize(start)
         db.chars[probe] = ch
         if db.dim.x + w2 > db.dim.w + db.oldX:
+          #echo "breaking ", db.dim.x, " ", w2, " ", probe-1 - db.ra
           dec probe
+          dotsrequired = true
           break
         inc probe
       # leave space for the three dots:
@@ -176,28 +206,28 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
       # draw until we still have room:
       let ch = db.chars[probe]
       db.chars[probe] = '\0'
-      if start[0] == '\0': break
+      assert start[0] != '\0'
       let text = r.drawTexture(db.font, start, fg, bg)
-      db.rb = db.ra + probe
+      db.rb = probe-1
       db.chars[probe] = ch
       var w, h: cint
       queryTexture(text, nil, nil, addr(w), addr(h))
-      r.drawSubtoken(db, text)
-      inc db.ra, probe
+      r.drawSubtoken(db, text, db.ra, db.rb)
+      db.ra = probe
       db.dim.x += w
       destroy text
-
-      # draw line continuation and contine in the next line:
+      if not dotsRequired: break
+      # draw line continuation and continue in the next line:
       let cont = r.drawTexture(db.font, Ellipsis, fg, bg)
-      r.drawSubtoken(db, cont)
+      r.blit(cont, db.dim)
       destroy cont
       db.dim.x = db.oldX
       db.dim.y += db.lineH
-      if db.dim.y > db.maxY: break
+      if db.dim.y >= db.maxY: break
       let dots = r.drawTexture(db.font, Ellipsis, fg, bg)
       var dotsW: cint
       queryTexture(dots, nil, nil, addr(dotsW), nil)
-      r.drawSubtoken(db, dots)
+      r.blit(dots, db.dim)
       destroy dots
       db.dim.x += dotsW
   destroy text

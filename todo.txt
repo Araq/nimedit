@@ -1,5 +1,5 @@
 TODO:
- - better line wrapping
+ - cursor wrong for tabs and completely empty lines
  - incremental refreshes for the syntax highlighting
  - indentation guidelines
  - on the fly search
