@@ -139,44 +139,6 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
       db.cursorDim = d
       db.cursorDim.x += textSize(db.font, addr db.chars[ra])
       db.chars[j] = ch
-
-    when false:
-      when false:
-        var j = ra
-        while j <= rb and j+i != db.b.cursor:
-          var L = graphemeLen(db.b, j)
-          if db.b[j] == '\t':
-            L = db.b.tabSize
-
-          inc(j, L)
-        if j+i == db.b.cursor:
-          let ch = db.chars[j]
-          db.chars[j] = '\0'
-          db.cursorDim = d
-          db.cursorDim.x += textSize(db.font, addr db.chars[ra])
-          db.chars[j] = ch
-      var buffer: array[CharBufSize, char]
-      var j = i + ra
-      var r = 0
-      let ending = j+(rb-ra+1)
-      while j <= ending:
-        if j == db.b.cursor:
-          db.cursorDim = d
-          #if db.b.heading != "console":
-          #  echo "##", buffer, "## ", i+ra
-          db.cursorDim.x += textSize(db.font, buffer)
-        var L = graphemeLen(db.b, j)
-        if db.b[j] == '\t':
-          L = db.b.tabSize
-          for k in 0..<L:
-            buffer[r] = ' '
-            inc r
-        else:
-          for k in 0..<L:
-            buffer[r] = db.b[k+j]
-            inc r
-        buffer[r] = '\0'
-        inc j, L
   r.copy(tex, nil, addr d)
 
 proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
