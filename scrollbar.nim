@@ -71,7 +71,7 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
     if rect.contains(p):
       active = true
     #if grip.contains(p):
-    #  if (w.state and BUTTON_LMASK) != 0:
+    if (w.state and BUTTON_LMASK) != 0:
       let mousePositionDelta = w.yrel.float
 
       # Determine the new location of the grip

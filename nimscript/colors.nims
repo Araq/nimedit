@@ -33,6 +33,9 @@ theme.showLines = true
 theme.showIndentation = true
 theme.indentation = theme.lines
 theme.cursorWidth = 2
+# Note: This is the default tab width used when the tabsize could not be
+# detected.
+theme.tabWidth = 2
 
 theme.showBracket = true
 theme.bracket = Deeppink

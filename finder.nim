@@ -52,8 +52,11 @@ proc find(s: Buffer; sub: string, start: Natural; options: SearchOptions): int =
   preprocessSub(sub, a, options)
   result = findAux(s, sub, start, a, options)
 
+#from unicode import runeLen
+
 proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
                toReplaceWith: string = nil) =
+  let options = options + (if searchTerm.runeLen == 1: {wordBoundary} else: {})
   assert searchTerm.len > 0
   const Letters = {'a'..'z', '_', 'A'..'Z', '\128'..'\255', '0'..'9'}
   template inWordBoundary(): untyped =
