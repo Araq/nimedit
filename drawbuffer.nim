@@ -129,11 +129,8 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
       db.cursorDim = d
     else:
       while db.toCursor[i] != db.b.cursor: inc i
-      var diff = 0
-      while i <= rb and db.toCursor[i+1] == db.b.cursor:
-        inc i
-        diff = 1
-      let j = i-diff
+      #while i <= rb and db.toCursor[i+1] == db.b.cursor: inc i
+      let j = i
       let ch = db.chars[j]
       db.chars[j] = '\0'
       db.cursorDim = d
@@ -174,7 +171,6 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
         let w2 = db.font.textSize(start)
         db.chars[probe] = ch
         if db.dim.x + w2 > db.dim.w:
-          #echo "breaking ", db.dim.x, " ", w2, " ", probe-1 - db.ra
           # leave space for the three dots:
           dec probe, 2
           dotsrequired = true
@@ -231,7 +227,7 @@ proc tabFill(db: var DrawBuffer; j: int) {.noinline.} =
   db.chars[db.charsLen] = ' '
   db.toCursor[db.charsLen] = j
   inc db.charsLen
-  inc col, 2
+  inc col
   while col < db.b.tabSize and db.charsLen < high(db.chars):
     db.chars[db.charsLen] = ' '
     db.toCursor[db.charsLen] = j
@@ -297,6 +293,19 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
         style = b.mgr[].getStyle(getCell(b, db.i).s)
         styleBg = getBg(b, db.i, t)
         db.font = style.font
+
+  if t.showIndentation:
+    var
+      i = i
+      w = textSize(db.font, " ")
+      r = 0
+    while b[i] in {'\t', ' '}:
+      if r mod b.tabSize == 0 and r > 1:
+        vlineDotted(t.renderer, w*r+db.oldX, dim.y, dim.y+db.lineH,
+                    t.indentation)
+      if b[i] == '\t': inc r, b.tabsize
+      else: inc r
+      inc i
 
   dim = db.dim
   dim.y += fontLineSkip(t.editorFontPtr)

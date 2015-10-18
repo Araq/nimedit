@@ -108,6 +108,13 @@ proc vline*(renderer: RendererPtr; x: int; y1: int; y2: int; p: Pixel) =
   else:
     vLineGradient(renderer, x.cint, y1.cint, (y2-y1+1).cint, p)
 
+proc vlineDotted*(renderer: RendererPtr; x: int; y1: int; y2: int; c: Color) =
+  setDrawColor(renderer, c)
+  var i = y1
+  while i <= y2:
+    drawPoint(renderer, x.cint, i.cint)
+    inc i, 2
+
 proc vline*(renderer: RendererPtr; x: int; y1: int; y2: int; c: Color) =
   setDrawColor(renderer, c)
   drawLine(renderer, x.cint, y1.cint, x.cint, y2.cint)

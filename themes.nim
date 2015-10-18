@@ -21,5 +21,5 @@ type
     editorFontPtr*: FontPtr
     showLines*: bool
     bracket*: Color
-    showBracket*: bool
-
+    showBracket*, showIndentation*: bool
+    indentation*: Color

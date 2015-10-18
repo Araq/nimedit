@@ -16,6 +16,7 @@ proc parseSearchOptions*(s: string): SearchOptions =
     of 'i', 'I': result.incl ignoreCase
     of 'y', 'Y': result.incl ignoreStyle
     of 'w', 'W', 'b', 'B': result.incl wordBoundary
+    of 's', 'S': result.excl wordBoundary
     of 'p', 'P', 'c', 'C':
       result.excl ignoreCase
       result.excl ignoreStyle

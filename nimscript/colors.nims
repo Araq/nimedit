@@ -30,6 +30,8 @@ theme.lines = 0x898989
 theme.selected = 0x00 # 0x1d1d1d
 theme.highlighted = 0x440000
 theme.showLines = true
+theme.showIndentation = true
+theme.indentation = theme.lines
 theme.cursorWidth = 2
 
 theme.showBracket = true

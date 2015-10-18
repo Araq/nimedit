@@ -2,7 +2,7 @@
 
 import strutils, unicode
 import styles, highlighters, common, themes
-import sdl2, sdl2/ttf
+import sdl2, sdl2/ttf, prims
 import buffertype, unihelp, languages
 from os import splitFile
 

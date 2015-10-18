@@ -23,6 +23,8 @@ type
     showLines*: bool
     bracket*: Color
     showBracket*: bool
+    showIndentation*: bool
+    indentation*: Color
 
 var
   theme* {.exportNims.}: Theme
