@@ -129,8 +129,11 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
       db.cursorDim = d
     else:
       while db.toCursor[i] != db.b.cursor: inc i
-      while i <= rb and db.toCursor[i+1] == db.b.cursor: inc i
-      let j = i
+      var diff = 0
+      while i <= rb and db.toCursor[i+1] == db.b.cursor:
+        inc i
+        diff = 1
+      let j = i-diff
       let ch = db.chars[j]
       db.chars[j] = '\0'
       db.cursorDim = d
@@ -260,13 +263,14 @@ proc tabFill(db: var DrawBuffer; j: int) {.noinline.} =
     dec i
   var col = 0
   while i < j:
+    if db.b[i] == '\t' or col == db.b.tabSize: col = 0
+    else: inc col
     i += graphemeLen(db.b, i)
-    inc col
   db.chars[db.charsLen] = ' '
   db.toCursor[db.charsLen] = j
   inc db.charsLen
-  inc col
-  while (col mod db.b.tabSize) != 0 and db.charsLen < high(db.chars):
+  inc col, 2
+  while col < db.b.tabSize and db.charsLen < high(db.chars):
     db.chars[db.charsLen] = ' '
     db.toCursor[db.charsLen] = j
     inc db.charsLen
