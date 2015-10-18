@@ -80,19 +80,18 @@ type
     oldX, maxY, lineH: cint
     ra, rb: int
     chars: array[CharBufSize, char]
+    toCursor: array[CharBufSize, int]
 
 proc blit(r: RendererPtr; tex: TexturePtr; dim: Rect) =
   var d = dim
   queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
   r.copy(tex, nil, addr d)
 
-
-
 proc whichColumn(db: var DrawBuffer; ra, rb: int): int =
   var buffer: array[CharBufSize, char]
-  var j = db.i - db.charsLen + ra
+  var j = db.toCursor[ra] # db.i - db.charsLen + ra
   var r = 0
-  let ending = j+(rb-ra+1)
+  let ending = db.toCursor[rb] # j+(rb-ra+1)
   while j < ending:
     var L = graphemeLen(db.b, j)
     for k in 0..<L:
@@ -112,7 +111,7 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
   queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
 
   # requested cursor update?
-  let i = db.i - db.charsLen
+  let i = db.toCursor[ra] # db.i - db.charsLen
   if db.b.clicks > 0:
     let p = point(db.b.mouseX, db.b.mouseY)
     if d.contains(p):
@@ -123,15 +122,58 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
       cursorMoved(db.b)
   # track where to draw the cursor:
   if db.cursorDim.h == 0 and
-      ra+i <= db.b.cursor and db.b.cursor <= rb+i+1:
-    var j = ra
-    while j <= rb and j+i != db.b.cursor: inc(j)
-    if j+i == db.b.cursor:
+      db.toCursor[ra] <= db.b.cursor and db.b.cursor <= db.toCursor[rb+1]:
+    #  ra+i <= db.b.cursor and db.b.cursor <= rb+i+1:
+    var i = ra
+    if db.toCursor[i] == db.b.cursor:
+      db.cursorDim = d
+    else:
+      while db.toCursor[i] != db.b.cursor: inc i
+      while i <= rb and db.toCursor[i+1] == db.b.cursor: inc i
+      let j = i
       let ch = db.chars[j]
       db.chars[j] = '\0'
       db.cursorDim = d
       db.cursorDim.x += textSize(db.font, addr db.chars[ra])
       db.chars[j] = ch
+
+    when false:
+      when false:
+        var j = ra
+        while j <= rb and j+i != db.b.cursor:
+          var L = graphemeLen(db.b, j)
+          if db.b[j] == '\t':
+            L = db.b.tabSize
+
+          inc(j, L)
+        if j+i == db.b.cursor:
+          let ch = db.chars[j]
+          db.chars[j] = '\0'
+          db.cursorDim = d
+          db.cursorDim.x += textSize(db.font, addr db.chars[ra])
+          db.chars[j] = ch
+      var buffer: array[CharBufSize, char]
+      var j = i + ra
+      var r = 0
+      let ending = j+(rb-ra+1)
+      while j <= ending:
+        if j == db.b.cursor:
+          db.cursorDim = d
+          #if db.b.heading != "console":
+          #  echo "##", buffer, "## ", i+ra
+          db.cursorDim.x += textSize(db.font, buffer)
+        var L = graphemeLen(db.b, j)
+        if db.b[j] == '\t':
+          L = db.b.tabSize
+          for k in 0..<L:
+            buffer[r] = ' '
+            inc r
+        else:
+          for k in 0..<L:
+            buffer[r] = db.b[k+j]
+            inc r
+        buffer[r] = '\0'
+        inc j, L
   r.copy(tex, nil, addr d)
 
 proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
@@ -212,23 +254,24 @@ proc drawCursor(t: InternalTheme; dim: Rect; h: cint) =
   t.renderer.fillRect(d)
   t.renderer.setDrawColor(t.bg)
 
-proc tabFill(b: Buffer; buffer: var array[CharBufSize, char]; bufres: var int;
-             j: int) {.noinline.} =
+proc tabFill(db: var DrawBuffer; j: int) {.noinline.} =
   var i = j
-  while i > 0 and b[i-1] != '\L':
+  while i > 0 and db.b[i-1] != '\L':
     dec i
   var col = 0
   while i < j:
-    i += graphemeLen(b, i)
+    i += graphemeLen(db.b, i)
     inc col
-  buffer[bufres] = ' '
-  inc bufres
+  db.chars[db.charsLen] = ' '
+  db.toCursor[db.charsLen] = j
+  inc db.charsLen
   inc col
-  while (col mod b.tabSize) != 0 and bufres < high(buffer):
-    buffer[bufres] = ' '
-    inc bufres
+  while (col mod db.b.tabSize) != 0 and db.charsLen < high(db.chars):
+    db.chars[db.charsLen] = ' '
+    db.toCursor[db.charsLen] = j
+    inc db.charsLen
     inc col
-  buffer[bufres] = '\0'
+  db.chars[db.charsLen] = '\0'
 
 proc getBg(b: Buffer; i: int; t: InternalTheme): Color =
   if i <= b.selected.b and b.selected.a <= i: return b.mgr.b[mcSelected]
@@ -260,6 +303,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
 
         if cell.c == '\L':
           db.chars[db.charsLen] = '\0'
+          db.toCursor[db.charsLen] = db.i
           if db.charsLen >= 1:
             t.drawToken(db, style.attr.color, styleBg)
           elif db.i == b.cursor:
@@ -273,13 +317,15 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
           break
 
         if cell.c == '\t':
-          tabFill(b, db.chars, db.charsLen, db.i)
+          tabFill(db, db.i)
         else:
           db.chars[db.charsLen] = cell.c
+          db.toCursor[db.charsLen] = db.i
           inc db.charsLen
         inc db.i
 
       db.chars[db.charsLen] = '\0'
+      db.toCursor[db.charsLen] = db.i
       if db.charsLen >= 1:
         t.drawToken(db, style.attr.color, styleBg)
         style = b.mgr[].getStyle(getCell(b, db.i).s)
