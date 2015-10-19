@@ -734,7 +734,7 @@ proc insertEnter*(b: Buffer; smartIndent=true) =
   b.insert(toInsert)
 
 proc gotoLine*(b: Buffer; line, col: int) =
-  let line = clamp(line-1, 0, b.numberOfLines-1)
+  let line = clamp(line-1, 0, max(0, b.numberOfLines-1))
   b.cursor = getLineOffset(b, line)
   b.currentLine = line
   # if span has not been computed yet, take a guess:

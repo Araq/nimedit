@@ -1,10 +1,10 @@
 ======================================================
-        Edit.nim User Manual
+        NimEdit User Manual
 ======================================================
 
   "Copying bad design is not good design."
 
-Edit.nim is a new editor / IDE written completely in Nim for Nim.
+NimEdit is a new editor / IDE written completely in Nim for Nim.
 Its design is minimalistic and yet it is one of the most powerful
 editors out there. Once you tried it for a while, you cannot go
 back to other tools.
@@ -12,7 +12,7 @@ back to other tools.
 Concepts
 ========
 
-Edit.nim consists of an "editor", a "prompt", a list of "tabs" as
+NimEdit consists of an "editor", a "prompt", a list of "tabs" as
 well as a "console":
 
 .. image:: ui_desc.png
@@ -49,7 +49,7 @@ CTRL+M         Open a minimap. The minimap contains
 CTRL+Space     Open auto-complete.
 ESC            Switch between editor and prompt.
 F1             Switch between editor and console.
-F3             Goto next editing location. Edit.nim automatically tracks the
+F3             Goto next editing location. NimEdit automatically tracks the
                most recent locations that you edited. This feature replaces
                the common "bookmarks" feature found in other editors.
 F5             Rerun the most recently executed console
@@ -108,3 +108,15 @@ Every command is case insensitive.
 ``project`` [projectname]
   Set the project name that you are currently working on. The nimsuggest tool
   is called with this setting.
+
+``sug start``
+  Restart nimsuggest.
+
+``sug stop``
+  Stop nimsuggest.
+
+``sug debug``
+  Enable nimsuggest debug mode, passes ``--debug`` to nimsuggest.
+
+``sug debug off``
+  Disable nimsuggest debug mode.

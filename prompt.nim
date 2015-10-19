@@ -251,5 +251,24 @@ proc runCmd(ed: Editor; cmd: string): bool =
       if p.len != 0: ed.project = p
       ed.window.setTitle(windowTitle & " - " & ed.project.extractFilename)
     success()
+  of "nimsug", "nimsuggest", "sug":
+    var a = ""
+    i = parseWord(cmd, a, i, true)
+    case a
+    of "shutdown", "stop", "quit", "halt", "exit":
+      nimsuggestclient.shutdown()
+    of "restart", "start":
+      if not startup(ed.project, ed.nimsuggestDebug):
+        ed.statusMsg = "Nimsuggest failed for: " & ed.project
+    of "debug":
+      var onoff = ""
+      i = parseWord(cmd, onoff, i, true)
+      ed.nimsuggestDebug = onoff != "off"
+    else:
+      ed.statusMsg = "wrong command, try: start|stop|debug"
+    success()
+  of "help":
+    openDefaultBrowser getAppDir() / "docs.html"
+    success()
   else:
-    ed.statusMsg = "wrong command, try: open|save|find|replace|..."
+    ed.statusMsg = "wrong command, try: help|open|save|find|..."

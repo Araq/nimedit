@@ -86,14 +86,17 @@ proc shutdown*() {.noconv.} =
     nimsuggest.close()
     nimsuggest = nil
 
-proc startup*(project: string): bool =
+proc startup*(project: string; debug: bool): bool =
   if nimsuggest.isNil or project != prevProject or not nimsuggest.running:
     prevProject = project
     try:
       shutdown()
       let nimPath = findExe("nim").splitFile.dir.parentDir
-      nimsuggest = startProcess(findExe("nimsuggest"), nimPath,
-                       ["--port:" & $port, project],
+      var args = if debug: @["--debug"] else: @[]
+      args.add("--port:" & $port)
+      args.add(project)
+
+      nimsuggest = startProcess(findExe("nimsuggest"), nimPath, args,
                        options = {poStdErrToStdOut, poUsePath})
       # give it some time to startup:
       #commands.send(pauseToken)

@@ -1,5 +1,10 @@
 
-import strutils, critbits, os, times
+
+when defined(gcc) and defined(windows):
+  when defined(x86):
+    {.link: "icons/crown.o".}
+
+import strutils, critbits, os, times, browsers
 from parseutils import parseInt
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
@@ -13,7 +18,7 @@ const
   readyMsg = "Ready."
 
   controlKey = when defined(macosx): KMOD_GUI or KMOD_CTRL else: KMOD_CTRL
-  windowTitle = "Edit.nim"
+  windowTitle = "NimEdit"
 
 
 type
@@ -54,6 +59,7 @@ type
     searchPath: seq[string] # we use an explicit search path rather than
                             # the list of open buffers so that it's dead
                             # simple to reopen a recently closed file.
+    nimsuggestDebug: bool
 
 proc trackSpot(s: var Spots; b: Buffer) =
   if b.filename.len == 0: return
@@ -389,7 +395,7 @@ proc suggest(ed: Editor; cmd: string) =
     ed.focus = ed.prompt
     prompt.clear()
     prompt.insert "project " & findProject(ed)
-  elif not startup(ed.project):
+  elif not startup(ed.project, ed.nimsuggestDebug):
     ed.statusMsg = "Nimsuggest failed for: " & ed.project
   else:
     requestSuggestion(ed.main, cmd)
@@ -403,6 +409,8 @@ proc handleEvent(ed: Editor; procname: string) =
     nimscriptsupport.execProc procname
   except:
     ed.con.insertReadonly(getCurrentExceptionMsg())
+    if not ed.hasConsole:
+      ed.statusMsg = "Errors! Open console to see them."
 
 proc mainProc(ed: Editor) =
   addQuitProc nimsuggestclient.shutdown

@@ -11,14 +11,14 @@ proc setupApi(result: PEvalContext; ed: Editor) =
 
   # XXX: Expose markers.
   template expose(name, body) {.dirty.} =
-    result.registerCallback "aporiapro.editor." & astToStr(name),
+    result.registerCallback "nimedit.editor." & astToStr(name),
       proc (a: VmArgs) =
         body
 
   when false:
     var errorMsg: string
     template edex(name, body) {.dirty.} =
-      result.registerCallback "aporiapro.editor." & astToStr(name),
+      result.registerCallback "nimedit.editor." & astToStr(name),
         proc (a: VmArgs) =
           try:
             body
