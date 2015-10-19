@@ -57,27 +57,30 @@ proc regSetValueEx(hKey: HKEY, lpValueName: WideCString, reserved: int32,
                    dwType: int32, lpData: pointer, cbData: int32): int32 {.
   importc: "RegSetValueExW", dynlib: "Advapi32.dll", stdcall.}
 
+template call(f) =
+  let err = f
+  if err != 0:
+    raiseOSError(err.OSErrorCode, "")
+
 proc open*(hKey = HKEY_CURRENT_USER): HKEY =
   ## Opens a connection to the registry. Usually not required.
-  if regConnectRegistry(nil, hKey, result) != 0:
-    raiseOSError(osLastError())
+  call regConnectRegistry(nil, hKey, result)
 
 proc close*(handle: HKEY) =
   ## Closes the connection.
-  if regCloseKey(handle) != 0:
-    raiseOSError(osLastError())
+  call regCloseKey(handle)
 
 proc getUnicodeValue*(key: string; handle: HKEY = HKEY_CURRENT_USER): string =
-  let hh = newWideCString key
+  let (a, b) = os.splitPath(key)
+  let hh = newWideCString a
+  let kk = newWideCString b
   var bufsize: int32
   # try a couple of different flag settings:
   var flags: int32 = RRF_RT_ANY
-  if regGetValue(handle, hh, nil, flags, nil, nil, addr bufsize) != 0:
-    raiseOSError(osLastError())
+  call regGetValue(handle, hh, kk, flags, nil, nil, addr bufsize)
   var res = newWideCString("", bufsize)
-  if regGetValue(handle, hh, nil, flags, nil, cast[pointer](res),
-                 addr bufsize) != 0:
-    raiseOSError(osLastError())
+  call regGetValue(handle, hh, kk, flags, nil, cast[pointer](res),
+                 addr bufsize)
   result = res $ bufsize
 
 proc getBlobValue*(key: string; handle: HKEY = HKEY_CURRENT_USER): string =
@@ -85,40 +88,40 @@ proc getBlobValue*(key: string; handle: HKEY = HKEY_CURRENT_USER): string =
   var bufsize: int32
   # try a couple of different flag settings:
   var flags: int32 = RRF_RT_ANY or 0x00010000
-  if regGetValue(handle, hh, nil, flags, nil, nil, addr bufsize) != 0:
-    raiseOSError(osLastError())
+  call regGetValue(handle, hh, nil, flags, nil, nil, addr bufsize)
   result = newString(bufsize)
-  if regGetValue(handle, hh, nil, flags, nil, addr result[0],
-                 addr bufsize) != 0:
-    raiseOSError(osLastError())
+  call regGetValue(handle, hh, nil, flags, nil, addr result[0],
+                 addr bufsize)
 
 proc setUnicodeValue*(key, value: string; handle: HKEY = HKEY_CURRENT_USER) =
-  if regSetValue(handle, newWideCString key, REG_SZ,
-                 cast[pointer](newWideCString value), value.len.int32*2) != 0:
-    raiseOSError(osLastError())
+  call regSetValue(handle, newWideCString key, REG_SZ,
+                 cast[pointer](newWideCString value), value.len.int32*2)
 
 proc setBlobValue*(key, value: string; handle: HKEY = HKEY_CURRENT_USER) =
-  if regSetValueEx(handle, newWideCString key, 0, REG_BINARY,
-                 cast[pointer](cstring(value)), value.len.int32) != 0:
-    raiseOSError(osLastError())
+  call regSetValueEx(handle, newWideCString key, 0, REG_BINARY,
+                     cast[pointer](cstring(value)), value.len.int32)
 
 proc setBlobValue*(key: string, value: pointer; valueLen: Natural;
                    handle: HKEY = HKEY_CURRENT_USER) =
-  if regSetValueEx(handle, newWideCString key, 0, REG_BINARY,
-                 value, valueLen.int32) == 0:
-    raiseOSError(osLastError())
+  call regSetValueEx(handle, newWideCString key, 0, REG_BINARY,
+                     value, valueLen.int32)
 
 when isMainModule:
   #let x = open()
-  #setUnicodeValue(r"Software\TestAndreas\ProductKey", "abc", HKEY_CURRENT_USER)
+  setUnicodeValue(r"Software\TestAndreas\ProductKey", "abc", HKEY_CURRENT_USER)
+
+  echo getUnicodeValue(r"SOFTWARE\Microsoft\Cryptography\MachineGuid",
+    HKEY_LOCAL_MACHINE)
+
   echo getUnicodeValue(r"Software\TestAndreas\ProductKey") #, HKEY_CURRENT_USER)
+
   #echo getUnicodeValue(r"hardware\acpi\facs\00000000") #, HKEY_CURRENT_USER)
   #discard stdin.readline()
   #echo getUnicodeValue(r"Software\Microsoft\Windows\CurrentVersion\GameInstaller")
  #   HKEY_CURRENT_USER)
-  var data = [64'u8, 65'u8, 66'u8]
-  setBlobValue(r"Software\TestAndreas\ProductID", addr data, 3)
-  echo getBlobValue(r"Software\TestAndreas\ProductID")
+  #var data = [64'u8, 65'u8, 66'u8]
+  #setBlobValue(r"Software\TestAndreas\ProductID", addr data, 3)
+  #echo getBlobValue(r"Software\TestAndreas\ProductID")
 
   #echo getUnicodeValue(r"Software\Microsoft\Windows\CurrentVersion\DigitalProductId")
 #  echo getUnicodeValue(r"SOFTWARE\Wow6432Node\Microsoft\Cryptography\MachineGuid")

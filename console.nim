@@ -304,7 +304,8 @@ proc execThreadProc() {.thread.} =
               responses.send EndToken
             echod "STARTED " & bin
           else:
-            echod("[Thread] Ignored request " & task)
+            p.inputStream.writeline task
+            #echod("[Thread] Ignored request " & task)
     # Check if process exited.
     if started:
       if not p.running:
