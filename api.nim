@@ -1,4 +1,4 @@
-# Included from editnova.nim. Implements the exposed API for Nimscript support.
+# Included from nimedit.nim. Implements the exposed API for Nimscript support.
 
 # List only the imports that the main file doesn't already import here:
 import

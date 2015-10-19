@@ -24,9 +24,9 @@ proc parseNimSuggestLine(line: string, item: var SuggestItem): bool =
     item.docs = unescape(s[7])
     # Get the name without the module name in front of it.
     var dots = item.name.split('.')
-    if dots.len() == 2:
+    if dots.len() >= 2:
       item.moduleName = dots[0]
-      item.name = dots[1]
+      item.name = dots[^1]
     else:
       item.moduleName = ""
     result = true
@@ -40,7 +40,7 @@ proc `$`(item: SuggestItem): string =
   of "def", "use":
     let (dir, file) = splitPath(item.file)
     result = file & "(" & item.line & ", " & item.col & ") " &
-             item.cmd & "#" & dir
+             item.cmd & " #" & dir
   else: doAssert(false, "unknown nimsuggest result: " & item.cmd)
 
 
@@ -97,7 +97,7 @@ proc startup*(project: string; debug: bool): bool =
       args.add(project)
 
       nimsuggest = startProcess(findExe("nimsuggest"), nimPath, args,
-                       options = {poStdErrToStdOut, poUsePath})
+                       options = {poStdErrToStdOut, poUsePath, poDemon})
       # give it some time to startup:
       #commands.send(pauseToken)
     except OSError:

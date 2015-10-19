@@ -15,6 +15,7 @@ when defined(windows):
   import dialogs
 
 const
+  Version = "0.9"
   readyMsg = "Ready."
 
   controlKey = when defined(macosx): KMOD_GUI or KMOD_CTRL else: KMOD_CTRL
@@ -119,6 +120,7 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.cfgColors = os.getAppDir() / "nimscript" / "colors.nims"
   ed.cfgActions = os.getAppDir() / "nimscript" / "actions.nims"
   ed.searchPath = @[]
+  ed.nimsuggestDebug = true
 
 proc destroy(ed: Editor) =
   destroyRenderer ed.renderer
@@ -806,7 +808,8 @@ proc mainProc(ed: Editor) =
     let position = ed.theme.renderText("Ln: " & $(getLine(main)+1) &
                                        " Col: " & $(getColumn(main)+1) &
                                        " \\t: " & $main.tabSize &
-                                       " " & main.lineending.displayNL,
+                                       " " & main.lineending.displayNL &
+                                       " v" & Version,
                                        ed.uiFont, ed.theme.fg)
     renderer.draw(statusBar, 15, bottom)
     renderer.draw(position,
