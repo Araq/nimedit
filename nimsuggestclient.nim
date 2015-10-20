@@ -97,7 +97,7 @@ proc startup*(project: string; debug: bool): bool =
       args.add(project)
 
       nimsuggest = startProcess(findExe("nimsuggest"), nimPath, args,
-                       options = {poStdErrToStdOut, poUsePath, poDemon})
+                       options = {poStdErrToStdOut, poUsePath})
       # give it some time to startup:
       #commands.send(pauseToken)
     except OSError:

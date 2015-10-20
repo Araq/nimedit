@@ -78,7 +78,7 @@ type
     i, charsLen: int
     font: FontPtr
     oldX, maxY, lineH: cint
-    ra, rb: int
+    ra, rb, startedWith: int
     chars: array[CharBufSize, char]
     toCursor: array[CharBufSize, int]
 
@@ -138,6 +138,30 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
       db.chars[j] = ch
   r.copy(tex, nil, addr d)
 
+proc indWidth(db: DrawBuffer): cint =
+  var
+    i = db.startedWith
+    r = 0.cint
+    b = db.b
+  while b[i] in {'\t', ' '}:
+    if b[i] == '\t': inc r, b.tabsize
+    else: inc r
+    inc i
+  if r > 0: inc r, b.tabSize
+  result = textSize(db.font, " ").cint * r
+
+proc smartWrap(db: DrawBuffer; origP: int; critical): int =
+  # search for a nice split position, but don't go back too much:
+  var p = origP
+  var broke = false
+  while p > db.ra+1:
+    if (db.chars[p] in Letters) != (db.chars[p-1] in Letters):
+      return p
+    dec p
+  # cannot find a good positions, give up: We could also return -1 but this
+  # risks endless loops for pathological cases (full buffer consists of Letters)
+  return if critical: origP else: -1
+
 proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
   # Draws a single token, potentially splitting it up over multiple lines.
   assert db.font != nil
@@ -159,7 +183,9 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
     # * XXX Unicode support!
     db.ra = 0
     db.rb = 0
+    var iters = 0
     while db.ra < db.charsLen:
+      inc iters
       var start = cstring(addr db.chars[db.ra])
       assert start[0] != '\0'
 
@@ -173,6 +199,7 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
         if db.dim.x + w2 > db.dim.w:
           # leave space for the three dots:
           dec probe, 2
+          probe = smartWrap(db, probe, iters > db.b.span)
           dotsrequired = true
           break
         inc probe
@@ -201,6 +228,8 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
       db.dim.x = db.oldX
       db.dim.y += db.lineH
       if db.dim.y+db.lineH > db.maxY: break
+      # indent the wrapped line properly, but don't overdo it:
+      db.dim.x += min(indWidth(db), (db.dim.w - db.oldX) div 2)
       let dots = r.drawTexture(db.font, Ellipsis, fg, bg)
       var dotsW: cint
       queryTexture(dots, nil, nil, addr(dotsW), nil)
@@ -245,7 +274,8 @@ proc getBg(b: Buffer; i: int; t: InternalTheme): Color =
 
 proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
                   blink: bool): int =
-  var style = b.mgr[].getStyle(getCell(b, i).s)
+  var tokenClass = getCell(b, i).s
+  var style = b.mgr[].getStyle(tokenClass)
   var styleBg = getBg(b, i, t)
 
   var db: DrawBuffer
@@ -255,6 +285,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
   db.font = style.font
   db.b = b
   db.i = i
+  db.startedWith = i
   db.lineH = fontLineSkip(db.font)
 
   block outerLoop:
@@ -273,7 +304,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
           mouseAfterNewLine(b, db.i, dim, db.lineH)
           break outerLoop
 
-        if b.mgr[].getStyle(cell.s) != style or getBg(b, db.i, t) != styleBg:
+        if cell.s != tokenClass or getBg(b, db.i, t) != styleBg:
           break
         elif db.charsLen == high(db.chars):
           break
@@ -290,7 +321,8 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
       db.toCursor[db.charsLen] = db.i
       if db.charsLen >= 1:
         t.drawToken(db, style.attr.color, styleBg)
-        style = b.mgr[].getStyle(getCell(b, db.i).s)
+        tokenClass = getCell(b, db.i).s
+        style = b.mgr[].getStyle(tokenClass)
         styleBg = getBg(b, db.i, t)
         db.font = style.font
 

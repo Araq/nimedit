@@ -274,7 +274,10 @@ proc execThreadProc() {.thread.} =
     if exitCode != 0:
       responses.send("Process terminated with exitcode: " & $exitCode & "\L")
     responses.send EndToken
-  template echod(msg) = echo msg
+  when defined(consoleapp):
+    template echod(msg) = echo msg
+  else:
+    template echod(msg) = discard
 
   var p: Process
   var o: Stream

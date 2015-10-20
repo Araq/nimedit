@@ -49,12 +49,15 @@ CTRL+M         Open a minimap. The minimap contains
 CTRL+Space     Open auto-complete.
 ESC            Switch between editor and prompt.
 F1             Switch between editor and console.
+F2             Nimsuggest integration: Goto definitions/usages.
 F3             Goto next editing location. NimEdit automatically tracks the
                most recent locations that you edited. This feature replaces
                the common "bookmarks" feature found in other editors.
-F5             Rerun the most recently executed console
-               command.
+F5             Rerun the most recently executed nim
+               command. Scriptable.
+F6-F12         Scriptable.
 ============   =========================================
+
 
 Commands
 ========

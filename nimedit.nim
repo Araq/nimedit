@@ -450,6 +450,7 @@ proc mainProc(ed: Editor) =
   loadOpenTabs(ed)
   if ed.project.len > 0:
     ed.window.setTitle(windowTitle & " - " & ed.project.extractFilename)
+  var windowHasFocus = true
   while true:
     # we need to wait for the next frame until the cursor has moved to the
     # right position:
@@ -472,7 +473,9 @@ proc mainProc(ed: Editor) =
                     100.cint
                   else:
                     DefaultTimeOut
-    if waitEventTimeout(e, timeout) == SdlSuccess:
+    let eventRes = if windowHasFocus: waitEventTimeout(e, timeout)
+                   else: waitEvent(e)
+    if eventRes == SdlSuccess:
       case e.kind
       of QuitEvent:
         saveOpenTabs(ed)
@@ -487,6 +490,10 @@ proc mainProc(ed: Editor) =
           ed.screenW = w.data1
           ed.screenH = w.data2
           layout(ed)
+        elif w.event == WindowEvent_FocusLost:
+          windowHasFocus = false
+        elif w.event == WindowEvent_FocusGained:
+          windowHasFocus = true
       of MouseButtonDown:
         let w = e.button
         let p = point(w.x, w.y)
@@ -796,6 +803,7 @@ proc mainProc(ed: Editor) =
       ed.theme.draw(console, ed.consoleRect,
                     blink==0 and focus==console)
       ed.theme.drawBorder(ed.consoleRect, focus==console)
+      #console.span = ed.consoleRect.h div fontLineSkip(ed.theme.editorFontPtr)
 
     ed.theme.draw(prompt, ed.promptRect, blink==0 and focus==prompt)
     ed.theme.drawBorder(ed.promptRect, focus==prompt)

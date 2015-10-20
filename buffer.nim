@@ -158,7 +158,7 @@ proc scroll(b: Buffer; amount: int) =
   inc b.currentLine, amount
   if b.currentLine < b.firstLine:
     # bring into view:
-    scrollLines(b, b.currentLine-b.firstLine)
+    scrollLines(b, b.currentLine - b.firstLine)
   elif b.currentLine > b.firstLine + b.span-2:
     scrollLines(b, b.currentLine - (b.firstLine + b.span-2))
   when false:
