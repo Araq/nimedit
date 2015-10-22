@@ -6,6 +6,8 @@ TODO:
 
 Later versions:
  - debugger support!
+   - have support for conditional breakpoints: only tell gdb about breakpoints
+     after a special event! --> much better debugging than VS!
  - show which 'when' sections are active
  - large file handling
 
