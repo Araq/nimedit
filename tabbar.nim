@@ -104,6 +104,10 @@ proc swapBuffers(a, b: Buffer) =
     b.prev.next = b
     b.next.prev = b
 
+proc drawButtonList*(buttons: openArray[string];
+                     x, screenW: cint; e: var Event): int =
+  discard
+
 proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
                  x, screenW: cint; e: var Event;
                  active: Buffer): Buffer =
