@@ -335,7 +335,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
         styleBg = getBg(b, db.i, t)
         db.font = style.font
 
-  if t.showIndentation:
+  if t.showIndentation and b.lang notin {langNone, langConsole}:
     var
       i = i
       w = textSize(db.font, " ")
