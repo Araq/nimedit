@@ -654,7 +654,7 @@ proc highlightEverything*(b: Buffer) =
 
 proc highlightIncrementally*(b: Buffer) =
   if b.lang == langNone or b.highlighter.version == b.version: return
-  const charsToIndex = 40*40
+  const charsToIndex = 10*40
   if b.highlighter.currentlyIndexing != b.version:
     b.highlighter.currentlyIndexing = b.version
     b.highlighter.position = 0
