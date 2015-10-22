@@ -469,8 +469,10 @@ proc mainProc(ed: Editor) =
                     100.cint
                   else:
                     DefaultTimeOut
-    let eventRes = if windowHasFocus: waitEventTimeout(e, timeout)
-                   else: waitEvent(e)
+    let eventRes = if windowHasFocus or ed.con.processRunning:
+                     waitEventTimeout(e, timeout)
+                   else:
+                     waitEvent(e)
     if eventRes == SdlSuccess:
       case e.kind
       of QuitEvent:
