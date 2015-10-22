@@ -723,7 +723,8 @@ proc insertEnter*(b: Buffer; smartIndent=true) =
   while i >= 1:
     case b[i-1]
     of '\L': break
-    of '#': if b.lang == langNim: inComment = true
+    of '#':
+      if b.lang == langNim: inComment = true
     else: discard
     dec i
   var toInsert = "\L"
