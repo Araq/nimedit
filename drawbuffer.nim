@@ -147,7 +147,16 @@ proc indWidth(db: DrawBuffer): cint =
     if b[i] == '\t': inc r, b.tabsize
     else: inc r
     inc i
-  if r > 0: inc r, b.tabSize
+  if r > 0:
+    inc r, b.tabSize
+  elif db.b.lang notin {langNone, langConsole}:
+    while true:
+      case b[i]
+      of '(', '{', '[', ',', ';':
+        r = cint(i - db.startedWith)
+        break
+      of '\L': break
+      else: inc i
   result = textSize(db.font, " ").cint * r
 
 proc smartWrap(db: DrawBuffer; origP: int; critical): int =
