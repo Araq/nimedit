@@ -367,9 +367,11 @@ proc extractFilePosition*(b: Buffer): (string, int, int) =
       inc i
       while b[i] == ' ': inc i
       parseNumber(col)
-      if b[i] == ')':
-        result[1] = line
-        result[2] = col
+    else:
+      col = -1
+    if b[i] == ')':
+      result[1] = line
+      result[2] = col
   elif b[i] == ':' and b[i+1] in Digits:
     inc i
     parseNumber(line)
@@ -381,6 +383,7 @@ proc extractFilePosition*(b: Buffer): (string, int, int) =
         result[2] = col
 
 proc enterPressed*(c: Console) =
+  c.b.gotoPos(c.b.len)
   c.files.setLen 0
   let cmd = getCommand(c)
   addCmd(c.hist, cmd)
