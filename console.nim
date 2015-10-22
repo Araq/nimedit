@@ -404,6 +404,10 @@ proc enterPressed*(c: Console) =
     except OSError:
       c.insertReadOnly(getCurrentExceptionMsg() & "\L")
     insertPrompt c
+  of "save":
+    var filename = ""
+    i = parseWord(cmd, filename, i)
+    if filename.len > 0: c.b.saveAs(filename)
   else:
     if i >= cmd.len-1 and (a.endsWith".html" or a.startsWith"http://" or
         a.startsWith"https://"):
