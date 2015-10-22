@@ -104,9 +104,19 @@ proc swapBuffers(a, b: Buffer) =
     b.prev.next = b
     b.next.prev = b
 
-proc drawButtonList*(buttons: openArray[string];
-                     x, screenW: cint; e: var Event): int =
-  discard
+proc drawButtonList*(buttons: openArray[string]; t: Internaltheme;
+                     x, y, screenW: cint; e: var Event; active = -1): int =
+  var xx = x # 15.cint
+  for i in 0..buttons.high:
+    let b = buttons[i]
+    let rect = drawTextWithBorder(t, b, i == active, xx, y, screenW)
+    if e.kind == MouseButtonDown:
+      let w = e.button
+      if w.clicks.int >= 1:
+        let p = point(w.x, w.y)
+        if rect.contains(p):
+          result = i
+    inc xx, rect.w + t.uiXGap*2
 
 proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
                  x, screenW: cint; e: var Event;

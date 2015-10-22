@@ -11,7 +11,7 @@ Later versions:
 
  - control+w marks the current word, then string, then string with quotes,
    then AST subtree, then walks up the tree.
-
+ - separate view
 
 Optional:
  - make replace scriptable

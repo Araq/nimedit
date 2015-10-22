@@ -47,7 +47,7 @@ type
     window: WindowPtr
     theme: InternalTheme
     screenW, screenH: cint
-    buffersCounter: int
+    buffersCounter, idle: int
     con, promptCon: Console
     mgr: StyleManager
     cfgColors, cfgActions: string
@@ -165,22 +165,17 @@ proc addSearchPath(ed: Editor; path: string) =
 proc findFile(ed: Editor; filename: string): string =
   # be smart and use the list of open tabs as the search path. Ultimately
   # this should also be scriptable.
-  if os.isAbsolute filename: return
+  if os.isAbsolute filename: return filename
   for i in 0..ed.searchPath.high:
     let res = ed.searchPath[i] / filename
     if fileExists(res): return res
 
-proc openTab(ed: Editor; filename: string; doTrack=false): bool {.discardable.} =
-  var fullpath: string
-  try:
-    fullpath = expandFilename(filename)
-  except OSError:
-    discard
-  if fullpath.len == 0 or not fileExists(fullpath):
-    fullpath = findFile(ed, filename)
-    if fullpath.len == 0:
-      ed.statusMsg = getCurrentExceptionMsg()
-      return false
+proc openTab(ed: Editor; filename: string;
+             doTrack=false): bool {.discardable.} =
+  let fullpath = findFile(ed, filename)
+  if fullpath.len == 0:
+    ed.statusMsg = "cannot open: " & filename
+    return false
 
   ed.statusMsg = readyMsg
   # be intelligent:
@@ -366,9 +361,10 @@ const
 
 proc tick(ed: Editor) =
   inc ed.ticker
-  # run the index every 500ms. It's incremental and fast.
-  indexBuffers(ed.indexer, ed.main)
-  highlightIncrementally(ed.main)
+  if ed.idle > 2:
+    # run the index every 500ms. It's incremental and fast.
+    indexBuffers(ed.indexer, ed.main)
+    highlightIncrementally(ed.main)
 
   # every 10 seconds check if the file's contents have changed on the hard disk
   # behind our back:
@@ -739,8 +735,10 @@ proc mainProc(ed: Editor) =
       else: discard
       # keydown means show the cursor:
       blink = 0
+      ed.idle = 0
     else:
       # timeout, so update the blinking:
+      inc ed.idle
       if timeout == 500:
         blink = 1-blink
         tick(ed)
