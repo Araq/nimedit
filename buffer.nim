@@ -563,10 +563,29 @@ proc selectDown*(b: Buffer; jump: bool) =
     down(b, jump)
     select(b, old, b.cursor, false)
 
-proc backspace*(b: Buffer; overrideUtf8=false) =
+proc backspace*(b: Buffer; smartIndent: bool; overrideUtf8=false) =
   inc b.version
   if b.selected.b < 0:
-    backspaceNoSelect(b, overrideUtf8)
+    if smartIndent:
+      # check if we should remove an indentation level:
+      var spaces = 0
+      var i = b.cursor-1
+      while i >= 0:
+        case b[i]
+        of ' ':
+          inc spaces
+          if spaces >= b.tabsize: break
+        of '\L':
+          if spaces == 0: spaces = 1
+          break
+        else:
+          spaces = 1
+          break
+        dec i
+      for _ in 1..spaces:
+        backspaceNoSelect(b, overrideUtf8)
+    else:
+      backspaceNoSelect(b, overrideUtf8)
   else:
     removeSelectedText(b)
   cursorMoved(b)
@@ -576,7 +595,7 @@ proc deleteKey*(b: Buffer) =
     if b.cursor >= b.len: return
     let (_, L) = lastRune(b, b.cursor+1)
     inc(b.cursor, L)
-    backspace(b)
+    backspace(b, false)
   else:
     removeSelectedText(b)
   cursorMoved(b)

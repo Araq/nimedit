@@ -12,6 +12,8 @@ Later versions:
  - control+w marks the current word, then string, then string with quotes,
    then AST subtree, then walks up the tree.
  - separate view
+   - introduce a set of lines "to be shown"
+   - introduce a "legend" feature
 
 Optional:
  - make replace scriptable

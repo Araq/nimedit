@@ -335,7 +335,7 @@ proc sugSelected(ed: Editor; s: Buffer) =
     let p = main.getWordPrefix
     for i in 0..<p.len:
       dec main.version
-      backspace(main, overrideUtf8=true)
+      backspace(main, false, overrideUtf8=true)
     # undo the upcoming version increase that 'insert' performs:
     dec main.version
     insert(main, s.getCurrentWord)
@@ -543,14 +543,14 @@ proc mainProc(ed: Editor) =
         of SDL_SCANCODE_BACKSPACE:
           if focus==ed.autocomplete or focus==ed.sug:
             # delegate to main, but keep the focus on the autocomplete!
-            main.backspace()
+            main.backspace(false)
             if focus==ed.autocomplete:
               populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
             else:
               gotoPrefix(ed.sug, main.getWordPrefix())
             trackSpot(ed.hotspots, main)
           else:
-            focus.backspace()
+            focus.backspace(true)
             if focus==main: trackSpot(ed.hotspots, main)
         of SDL_SCANCODE_DELETE:
           focus.deleteKey()

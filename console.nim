@@ -60,7 +60,7 @@ proc emptyCmd(c: Console) =
   let b = c.b
   while true:
     if b.len-1 <= b.readOnly: break
-    backspace(b)
+    backspace(b, false)
 
 proc upPressed*(c: Console) =
   let sug = c.hist.suggest(up=true)
@@ -210,7 +210,7 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
   if sug >=% c.files.len: return
   # these inserts&deletes do not count as changed event:
   let oldChanged = b.changed
-  for i in 0..<c.beforeSuggestionPos: backspace(b, overrideUtf8=true)
+  for i in 0..<c.beforeSuggestionPos: backspace(b, false, overrideUtf8=true)
   insert(b, c.files[sug])
   c.beforeSuggestionPos = c.files[sug].len
   delete(c.files, sug)

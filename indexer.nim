@@ -92,7 +92,7 @@ proc selected*(autocomplete, main: Buffer) =
   let p = main.getWordPrefix
   for i in 0..<p.len:
     dec main.version
-    backspace(main, overrideUtf8=true)
+    backspace(main, false, overrideUtf8=true)
   # undo the upcoming version increase that 'insert' performs:
   dec main.version
   insert(main, autocomplete.getCurrentLine)
