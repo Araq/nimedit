@@ -54,7 +54,7 @@ proc fontByName*(m: var FontManager; name: string; size: byte;
       location = r"C:\Windows\Fonts\"
       result = openFont(location & name & ".ttf", size.cint)
     elif defined(macosx):
-      location = r"/System/Library/Fonts/"
+      location = r"/Library/Fonts/"
       result = openFont(location & name & ".ttf", size.cint)
     elif defined(linux):
       location = r"/usr/share/fonts/truetype/msttcorefonts"

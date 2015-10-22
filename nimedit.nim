@@ -784,7 +784,7 @@ proc mainProc(ed: Editor) =
       scrollLines(main, scrollTo-main.firstLine)
 
     var mainBorder = ed.mainRect
-    mainBorder.x = spaceForLines(main, ed.theme) + ed.theme.uiXGap.cint + 2
+    mainBorder.x = spaceForLines(main, ed.theme).cint + ed.theme.uiXGap.cint + 2
     mainBorder.w = ed.mainRect.x + ed.mainRect.w - 1 - mainBorder.x
     ed.theme.drawBorder(mainBorder, focus==main)
 
