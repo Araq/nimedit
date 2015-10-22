@@ -340,7 +340,8 @@ proc loadFromFile*(b: Buffer; filename: string) =
     while j < s.len and s[j] == ' ':
       inc currentTabSize
       inc j
-    if b.tabSize < 0 or b.tabSize > currentTabSize: b.tabSize = currentTabSize
+    if b.tabSize < 0 or b.tabSize > currentTabSize:
+      b.tabSize = currentTabSize.int8
 
   clear(b)
   inc b.version
