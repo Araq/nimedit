@@ -15,7 +15,7 @@ when defined(windows):
   import dialogs
 
 const
-  Version = "0.9"
+  Version = "0.91"
   readyMsg = "Ready."
 
   controlKey = when defined(macosx): KMOD_GUI or KMOD_CTRL else: KMOD_CTRL

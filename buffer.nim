@@ -335,12 +335,12 @@ proc rawInsert*(b: Buffer; s: string) =
 
 proc loadFromFile*(b: Buffer; filename: string) =
   template detectTabSize() =
-    if b.tabSize < 0:
-      var j = i+1
-      while j < s.len and s[j] == ' ':
-        if b.tabSize < 0: b.tabSize = 1
-        else: inc b.tabSize
-        inc j
+    var currentTabSize = 0
+    var j = i+1
+    while j < s.len and s[j] == ' ':
+      inc currentTabSize
+      inc j
+    if b.tabSize < 0 or b.tabSize > currentTabSize: b.tabSize = currentTabSize
 
   clear(b)
   inc b.version
@@ -370,7 +370,7 @@ proc loadFromFile*(b: Buffer; filename: string) =
       b.front.add Cell(c: '\t')
     else:
       b.front.add Cell(c: s[i])
-  if b.tabSize < 0: b.tabSize = tabWidth
+  if b.tabSize <= 0: b.tabSize = tabWidth
   highlightEverything(b)
   b.timestamp = os.getLastModificationTime(b.filename)
   b.changed = false
