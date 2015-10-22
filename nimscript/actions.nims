@@ -16,6 +16,7 @@ proc commas*(selected: string): string =
     result.add x
 
 proc pressedF5*() =
+  save()
   for i in countdown(historyLen()-1, 0):
     let candidate = getHistory(i)
     if candidate.startsWith("nim") or candidate.startsWith("koch"):

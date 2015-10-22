@@ -9,6 +9,10 @@ Later versions:
  - show which 'when' sections are active
  - large file handling
 
+ - control+w marks the current word, then string, then string with quotes,
+   then AST subtree, then walks up the tree.
+
+
 Optional:
  - make replace scriptable
  - simple refactorings: rename

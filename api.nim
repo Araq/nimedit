@@ -102,6 +102,7 @@ proc setupApi(result: PEvalContext; ed: Editor) =
   expose historyLen:
     setResult(a, ed.con.hist.cmds.len)
   expose runConsoleCmd:
+    ed.console.gotoPos(ed.console.len)
     ed.console.insert(getString(a, 0))
     ed.con.enterPressed()
   expose currentFilename:
@@ -116,3 +117,7 @@ proc setupApi(result: PEvalContext; ed: Editor) =
       setResult(a, ed.searchPath[i])
   expose setStatus:
     ed.statusMsg = getString(a, 0)
+  expose save:
+    ed.main.save()
+  expose saveAs:
+    ed.main.saveAs(getString(a, 0))
