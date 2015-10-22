@@ -719,7 +719,13 @@ proc shiftTabPressed*(b: Buffer) =
 proc insertEnter*(b: Buffer; smartIndent=true) =
   # move to the *start* of this line
   var i = b.cursor
-  while i >= 1 and b[i-1] != '\L': dec i
+  var inComment = false
+  while i >= 1:
+    case b[i-1]
+    of '\L': break
+    of '#': if b.lang == langNim: inComment = true
+    else: discard
+    dec i
   var toInsert = "\L"
   if smartIndent:
     while true:
@@ -729,7 +735,9 @@ proc insertEnter*(b: Buffer; smartIndent=true) =
       else:
         break
       inc i
-    if b.cursor > 0 and b[b.cursor-1] in additionalIndentChars[b.lang]:
+    var last = b.cursor-1
+    while last > 0 and b[last] == ' ': dec last
+    if last >= 0 and b[last] in additionalIndentChars[b.lang] and not inComment:
       for i in 1..b.tabSize: toInsert.add ' '
   b.insert(toInsert)
 
