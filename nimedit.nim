@@ -730,8 +730,14 @@ proc mainProc(ed: Editor) =
               ed.askForQuitTab()
           elif w.keysym.sym == ord('m'):
             if main.lang == langNim:
-              populateMinimap(ed.minimap, main)
-              focus = ed.minimap
+              when true:
+                main.filterLines = not main.filterLines
+                if main.filterLines:
+                  filterMinimap(main)
+                  caretToActiveLine main
+              else:
+                populateMinimap(ed.minimap, main)
+                focus = ed.minimap
             else:
               ed.statusMsg = "Minimap only supported for Nim."
       else: discard

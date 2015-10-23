@@ -5,6 +5,15 @@ const
   CharBufSize = 80
   RoomForMargin = 8
 
+proc getLineFromOffset(b: Buffer; pos: int): Natural =
+  result = 0
+  var pos = pos
+  # do not count the newline at the very end at b[pos]:
+  if pos >= 0 and b[pos] == '\L': dec pos
+  while pos >= 0:
+    if b[pos] == '\L': inc result
+    dec pos
+
 proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
                  fg, bg: Color): TexturePtr =
   assert font != nil
@@ -66,7 +75,10 @@ proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: cint) =
   if b.clicks > 0:
     if b.mouseX > dim.x and dim.y+maxh > b.mouseY:
       b.cursor = i
-      b.currentLine = max(b.firstLine + b.span, 0)
+      if b.filterLines:
+        b.currentLine = getLineFromOffset(b, i)
+      else:
+        b.currentLine = max(b.firstLine + b.span, 0)
       if b.clicks > 1: mouseSelectWholeLine(b)
       b.clicks = 0
       cursorMoved(b)
@@ -116,7 +128,10 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
     let p = point(db.b.mouseX, db.b.mouseY)
     if d.contains(p):
       db.b.cursor = i + whichColumn(db, ra, rb)
-      db.b.currentLine = max(db.b.firstLine + db.b.span, 0)
+      if db.b.filterLines:
+        db.b.currentLine = getLineFromOffset(db.b, db.b.cursor)
+      else:
+        db.b.currentLine = max(db.b.firstLine + db.b.span, 0)
       if db.b.clicks > 1: mouseSelectCurrentToken(db.b)
       db.b.clicks = 0
       cursorMoved(db.b)
@@ -387,6 +402,14 @@ proc spaceForLines*(b: Buffer; t: InternalTheme): Natural =
   if t.showLines:
     result = (b.numberOfLines+1).log10 * textSize(t.editorFontPtr, " ")
 
+proc nextLineOffset(b: Buffer; line: var int; start: int): int =
+  result = start
+  if b.filterLines:
+    while line < b.numberOfLines and line notin b.activeLines:
+      while b[result] != '\L': inc result
+      inc result
+      inc line
+
 proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
            showLines=false) =
   let realOffset = getLineOffset(b, b.firstLine)
@@ -394,7 +417,15 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
     # XXX make this a real assertion when tested well
     echo "real offset ", realOffset, " wrong ", b.firstLineOffset
     assert false
-  var i = b.firstLineOffset
+  var renderLine = b.firstLine
+  var i = nextLineOffset(b, renderLine, b.firstLineOffset)
+  when false:
+    if b.filterLines:
+      b.firstLineOffset = i
+      b.firstLine = renderLine
+      if b.currentLine notin b.activeLines:
+        b.currentLine = b.firstLine
+        b.cursor = b.firstLineOffset
   let endY = dim.y + dim.h - 1
   let endX = dim.x + dim.w - 1
   var dim = dim
@@ -402,20 +433,29 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   dim.h = endY
   let spl = cint(spaceForLines(b, t) + RoomForMargin)
   if showLines:
-    t.drawNumber(b.firstLine+1, b.currentLine+1, spl, dim.y)
+    t.drawNumber(renderLine+1, b.currentLine+1, spl, dim.y)
     dim.x = spl
   b.span = 0
   i = t.drawTextLine(b, i, dim, blink)
   inc b.span
   let fontSize = t.editorFontSize.cint
+  let lineH = fontLineSkip(t.editorFontPtr)
   while dim.y+fontSize < endY and i <= len(b):
+    inc renderLine
+    let expectedLine = renderLine
+    i = nextLineOffset(b, renderLine, i)
+    if expectedLine != renderLine:
+      # show the gap:
+      hlineDotted(t.renderer, dim.x, endY, dim.y+lineH div 4,
+                    t.indentation)
+      dim.y += lineH div 2
+
     if showLines:
-      t.drawNumber(b.firstLine+b.span+1, b.currentLine+1, spl, dim.y)
+      t.drawNumber(renderLine+1, b.currentLine+1, spl, dim.y)
     i = t.drawTextLine(b, i, dim, blink)
     inc b.span
   # we need to tell the buffer how many lines *can* be shown to prevent
   # that scrolling is triggered way too early:
-  let lineH = fontLineSkip(t.editorFontPtr)
   while dim.y+fontSize < endY:
     inc dim.y, lineH
     inc b.span

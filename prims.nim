@@ -115,6 +115,13 @@ proc vlineDotted*(renderer: RendererPtr; x: int; y1: int; y2: int; c: Color) =
     drawPoint(renderer, x.cint, i.cint)
     inc i, 2
 
+proc hlineDotted*(renderer: RendererPtr; x1: int; x2: int; y: int; c: Color) =
+  setDrawColor(renderer, c)
+  var i = x1
+  while i <= x2:
+    drawPoint(renderer, i.cint, y.cint)
+    inc i, 2
+
 proc vline*(renderer: RendererPtr; x: int; y1: int; y2: int; c: Color) =
   setDrawColor(renderer, c)
   drawLine(renderer, x.cint, y1.cint, x.cint, y2.cint)

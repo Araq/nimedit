@@ -1,6 +1,6 @@
 # Implementation uses a gap buffer with explicit undo stack.
 
-import strutils, unicode
+import strutils, unicode, intsets
 import styles, highlighters, common, themes
 import sdl2, sdl2/ttf, prims
 import buffertype, unihelp, languages
@@ -70,6 +70,7 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.selected.a = -1
   result.selected.b = -1
   result.bracketToHighlight = -1
+  result.activeLines = initIntSet()
 
 proc clear*(result: Buffer) =
   result.front.setLen 0
@@ -91,6 +92,9 @@ proc clear*(result: Buffer) =
   result.undoIdx = 0
   result.activeMarker = 0
   result.cursorDim = (0, 0, 0)
+  result.activeLines = initIntSet()
+  result.filterLines = false
+  result.minimapVersion = 0
 
 proc fullText*(b: Buffer): string =
   result = newStringOfCap(b.front.len + b.back.len)
@@ -136,6 +140,18 @@ proc downFirstLineOffset(b: Buffer) =
   b.firstLineOffset = i+1
   assert b.firstLineOffset == 0 or b[b.firstLineOffset-1] == '\L'
 
+proc skipInactiveLinesUp(b: Buffer) =
+  if b.filterLines:
+    while b.firstLine > 0 and b.firstLine notin b.activeLines:
+      dec b.firstLine
+      upFirstLineOffset(b)
+
+proc skipInactiveLinesDown(b: Buffer) =
+  if b.filterLines:
+    while b.firstLine < b.numberOfLines-1 and b.firstLine notin b.activeLines:
+      inc b.firstLine
+      downFirstLineOffset(b)
+
 proc scrollLines*(b: Buffer; amount: int) =
   let oldFirstLine = b.firstLine
   b.firstLine = clamp(b.firstLine+amount, 0, max(0, b.numberOfLines-1))
@@ -144,32 +160,37 @@ proc scrollLines*(b: Buffer; amount: int) =
   if amount < 0:
     while amount < 0:
       upFirstLineOffset(b)
+      skipInactiveLinesUp(b)
       inc amount
   elif amount > 0:
     while amount > 0:
       downFirstLineOffset(b)
+      skipInactiveLinesDown(b)
       dec amount
-  inc b.firstLine, amount
 
 proc scroll(b: Buffer; amount: int) =
   assert amount == 1 or amount == -1
   # the cursor can be detached from the scroll position, so we need to perform
   # a general scrollLines:
   inc b.currentLine, amount
+  if b.filterLines:
+    let oldLine = b.currentLine
+    while b.currentLine < b.numberOfLines-1 and b.currentLine > 0 and
+        b.currentLine notin b.activeLines:
+      inc b.currentLine, amount
+    if b.currentLine notin b.activeLines:
+      b.currentLine = oldLine - amount
+      b.cursor = getLineOffset(b, b.currentLine)
+    elif oldLine != b.currentLine:
+      b.cursor = getLineOffset(b, b.currentLine)
+
   if b.currentLine < b.firstLine:
     # bring into view:
     scrollLines(b, b.currentLine - b.firstLine)
   elif b.currentLine > b.firstLine + b.span-2:
     scrollLines(b, b.currentLine - (b.firstLine + b.span-2))
-  when false:
-    inc b.currentLine, amount
-    if b.currentLine < b.firstLine:
-      assert b.firstLine == b.currentLine+1
-      dec b.firstLine
-      upFirstLineOffset(b)
-    elif b.currentLine > b.firstLine + b.span-2:
-      inc b.firstLine
-      downFirstLineOffset(b)
+
+proc caretToActiveLine*(b: Buffer) = scroll(b, -1)
 
 proc getLine*(b: Buffer): int = b.currentLine
 proc getColumn*(b: Buffer): int =
@@ -210,6 +231,7 @@ proc rawLeft*(b: Buffer) =
     let r = lastRune(b, b.cursor-1)
     if r[0] == Rune('\L'):
       scroll(b, -1)
+      if b.filterLines: return
     b.cursor -= r[1]
     b.desiredCol = getColumn(b)
 
@@ -232,6 +254,7 @@ proc rawRight(b: Buffer) =
   if b.cursor < b.len:
     if b[b.cursor] == '\L':
       scroll(b, 1)
+      if b.filterLines: return
     b.cursor += graphemeLen(b, b.cursor)
     b.desiredCol = getColumn(b)
 
@@ -266,6 +289,7 @@ proc up*(b: Buffer; jump: bool) =
       i += graphemeLen(b, i)
       dec col
     scroll(b, -1)
+    if b.filterLines: return
   b.cursor = max(0, i)
   cursorMoved(b)
 
@@ -276,6 +300,7 @@ proc down*(b: Buffer; jump: bool) =
   while b.cursor < L:
     if b[b.cursor] == '\L':
       scroll(b, 1)
+      if b.filterLines: return
       break
     b.cursor += 1
   b.cursor += 1
@@ -469,15 +494,6 @@ proc getSelectedText*(b: Buffer): string =
   result = newStringOfCap(b.selected.b - b.selected.a + 1)
   for i in b.selected.a .. b.selected.b:
     result.add b[i]
-
-proc getLineFromOffset(b: Buffer; pos: int): Natural =
-  result = 0
-  var pos = pos
-  # do not count the newline at the very end at b[pos]:
-  if pos >= 0 and b[pos] == '\L': dec pos
-  while pos >= 0:
-    if b[pos] == '\L': inc result
-    dec pos
 
 proc setCaret*(b: Buffer; pos: int) =
   b.cursor = pos

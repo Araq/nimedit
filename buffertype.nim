@@ -1,5 +1,5 @@
 
-import styles, languages, common
+import styles, languages, common, intsets
 from times import Time
 
 type
@@ -51,6 +51,9 @@ type
     indexer*, highlighter*: Indexer
     cursorDim*: tuple[x, y, h: int]
     timestamp*: Time
+    activeLines*: IntSet
+    filterLines*: bool
+    minimapVersion*: int
 
 proc getCell*(b: Buffer; i: Natural): Cell =
   if i < b.front.len:

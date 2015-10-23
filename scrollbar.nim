@@ -1,6 +1,6 @@
 ## Draws a vertical scrollbar for a buffer.
 
-import buffertype, themes
+import buffertype, themes, intsets
 import sdl2, sdl2/ttf, prims, tabbar
 
 const width = 15
@@ -27,7 +27,7 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
   # the algorithm.
 
   # Determine how large the content is, and how big our window is
-  let contentSize = b.numberOfLines.float * fontSize.float
+  let contentSize = float(b.numberOfLines) * fontSize.float
   let windowSize = bufferRect.h.float
   let trackSize = windowSize
 
