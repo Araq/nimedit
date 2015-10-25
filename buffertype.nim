@@ -1,5 +1,5 @@
 
-import styles, languages, common, intsets
+import styles, languages, common, intsets, compiler/ast
 from times import Time
 
 type
@@ -54,6 +54,7 @@ type
     activeLines*: IntSet
     filterLines*: bool
     minimapVersion*: int
+    symtab*: TStrTable
 
 proc getCell*(b: Buffer; i: Natural): Cell =
   if i < b.front.len:

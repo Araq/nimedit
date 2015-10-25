@@ -16,6 +16,7 @@ when defined(windows):
 
 const
   Version = "0.91"
+  SessionFileVersion = "1.0"
   readyMsg = "Ready."
 
   controlKey = when defined(macosx): KMOD_GUI or KMOD_CTRL else: KMOD_CTRL
@@ -166,9 +167,27 @@ proc findFile(ed: Editor; filename: string): string =
   # be smart and use the list of open tabs as the search path. Ultimately
   # this should also be scriptable.
   if os.isAbsolute filename: return filename
+  let cwd = os.getCurrentDir() / filename
+  if fileExists(cwd): return cwd
   for i in 0..ed.searchPath.high:
     let res = ed.searchPath[i] / filename
     if fileExists(res): return res
+
+proc findFileAbbrev(ed: Editor; filename: string): string =
+  # open the file in searchpath with minimal edit distance.
+  var dist = high(int)
+
+  ed.addSearchPath os.getCurrentDir()
+  for p in ed.searchPath:
+    for k, f in os.walkDir(p, relative=true):
+      if k in {pcLinkToFile, pcFile} and not f.ignoreFile:
+        var currDist = editDistance(f, filename)
+        # we love substrings:
+        if filename in f and '.' in f: currDist = 4
+        # -4 because the '.ext' should not count:
+        if currDist < dist and currDist-4 <= (f.len-4) div 2:
+          result = p / f
+          dist = currDist
 
 proc openTab(ed: Editor; filename: string;
              doTrack=false): bool {.discardable.} =
@@ -291,7 +310,9 @@ proc filelistFile(): string =
 proc saveOpenTabs(ed: Editor) =
   var f: File
   if open(f, filelistFile(), fmWrite):
+    f.writeline(SessionFileVersion)
     f.writeline(ed.project)
+    f.writeline(os.getCurrentDir())
     var it = ed.main.prev
     while it != nil:
       if it.filename.len > 0:
@@ -304,15 +325,23 @@ proc loadOpenTabs(ed: Editor) =
   var oldRoot = ed.main
   var f: File
   if open(f, filelistFile()):
-    ed.project = f.readline
-    for line in lines(f):
-      let x = line.split('\t')
-      if ed.openTab(x[0]):
-        gotoLine(ed.main, parseInt(x[1]), parseInt(x[2]))
-        ed.focus = ed.main
-        if oldRoot != nil:
-          ed.removeBuffer(oldRoot)
-          oldRoot = nil
+    let fileVersion = f.readline
+    if fileVersion == SessionFileVersion:
+      ed.project = f.readline
+      try:
+        os.setCurrentDir f.readline
+      except OSError:
+        discard
+      for line in lines(f):
+        let x = line.split('\t')
+        if ed.openTab(x[0]):
+          gotoLine(ed.main, parseInt(x[1]), parseInt(x[2]))
+          ed.focus = ed.main
+          if oldRoot != nil:
+            ed.removeBuffer(oldRoot)
+            oldRoot = nil
+    else:
+      ed.statusMsg = "cannot restore session; versions differ"
     f.close()
 
 proc sugSelected(ed: Editor; s: Buffer) =

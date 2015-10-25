@@ -1,6 +1,6 @@
 # Implementation uses a gap buffer with explicit undo stack.
 
-import strutils, unicode, intsets
+import strutils, unicode, intsets, compiler/ast
 import styles, highlighters, common, themes
 import sdl2, sdl2/ttf, prims
 import buffertype, unihelp, languages
@@ -71,6 +71,7 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.selected.b = -1
   result.bracketToHighlight = -1
   result.activeLines = initIntSet()
+  initStrTable(result.symtab)
 
 proc clear*(result: Buffer) =
   result.front.setLen 0
@@ -95,6 +96,7 @@ proc clear*(result: Buffer) =
   result.activeLines = initIntSet()
   result.filterLines = false
   result.minimapVersion = 0
+  initStrTable(result.symtab)
 
 proc fullText*(b: Buffer): string =
   result = newStringOfCap(b.front.len + b.back.len)
@@ -394,6 +396,8 @@ proc loadFromFile*(b: Buffer; filename: string) =
     of '\t':
       if i > 0 and s[i-1] == ' ': b.tabSize = 8'i8
       b.front.add Cell(c: '\t')
+    of '\0':
+      raise newException(IOError, "binary file: " & filename)
     else:
       b.front.add Cell(c: s[i])
   if b.tabSize <= 0: b.tabSize = tabWidth

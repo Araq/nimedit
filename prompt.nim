@@ -44,6 +44,16 @@ proc askForQuitTab(ed: Editor) =
   ed.statusMsg = saveChanges
   ed.focus = prompt
 
+proc smartOpen(ed: Editor; p: var string): bool {.discardable.} =
+  if p.len > 0:
+    if not ed.openTab(p, true):
+      # don't give up, do "what I mean":
+      p = findFileAbbrev(ed, p)
+      if p.len > 0:
+        result = ed.openTab(p, true)
+  else:
+    result = true
+
 proc runCmd(ed: Editor; cmd: string): bool =
   let prompt = ed.prompt
 
@@ -165,22 +175,25 @@ proc runCmd(ed: Editor; cmd: string): bool =
     else:
       unmark()
   of "goto", "g":
-    var line = ""
-    i = parseWord(cmd, line, i, true)
-    if line.len > 0:
-      var lineAsInt = -1
-      case line
-      of "end", "last", "ending", "e":
-        lineAsInt = high(int)
-      of "begin", "start", "first", "b":
-        lineAsInt = 1
-      else:
-        discard parseutils.parseInt(line, lineAsInt)
-      if lineAsInt >= 0:
-        var col = -1
-        i = parseWord(cmd, line, i, true)
-        discard parseutils.parseInt(line, col)
-        ed.main.gotoLine(lineAsInt, col)
+    var dest = ""
+    i = parseWord(cmd, dest, i, true)
+    if dest.len > 0:
+      var p = ""
+      i = parseWord(cmd, p, i)
+      if smartOpen(ed, p):
+        var lineAsInt = -1
+        discard parseutils.parseInt(dest, lineAsInt)
+        if lineAsInt >= 0:
+          var col = -1
+          i = parseWord(cmd, dest, i, true)
+          discard parseutils.parseInt(dest, col)
+          ed.main.gotoLine(lineAsInt, col)
+        else:
+          # search for declaration of this identifier:
+          ed.main.filterMinimap()
+          lineAsInt = gotoNextDeclaration(ed.main, dest)
+          if lineAsInt > 0:
+            ed.main.gotoLine(lineAsInt, -1)
         ed.focus = ed.main
     prompt.clear()
   of "save", "s":
@@ -210,7 +223,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
   of "open", "o":
     var p = ""
     i = parseWord(cmd, p, i)
-    if p.len > 0: ed.openTab(p, true)
+    smartOpen(ed, p)
     success()
   of "lang":
     var lang = ""

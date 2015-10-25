@@ -2,6 +2,17 @@
 
 import buffertype, buffer, os, osproc, streams, strutils, browsers
 
+const
+  ExtensionsToIgnore* = [
+    ".ppu", ".o", ".obj", ".dcu",
+    ".map", ".tds", ".err", ".bak", ".pyc", ".exe", ".rod", ".pdb", ".idb",
+    ".idx", ".ilk", ".dll", ".so"
+  ]
+
+proc ignoreFile*(f: string): bool =
+  let (_, _, ext) = f.splitFile
+  result = f[0] == '.' or ext in ExtensionsToIgnore
+
 type
   CmdHistory* = object
     cmds*: seq[string]
@@ -205,7 +216,7 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
     while sug < c.files.high:
       if c.files[sug][0] == '.': inc sug
       elif c.files[sug] == "nimcache": inc sug
-      elif c.files[sug].endsWith(".exe"): inc sug
+      elif c.files[sug].ignoreFile: inc sug
       else: break
   if sug >=% c.files.len: return
   # these inserts&deletes do not count as changed event:
