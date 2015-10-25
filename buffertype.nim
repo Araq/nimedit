@@ -55,6 +55,7 @@ type
     filterLines*: bool
     minimapVersion*: int
     symtab*: TStrTable
+    offsetToLineCache*: array[20, tuple[version, offset, line: int]]
 
 proc getCell*(b: Buffer; i: Natural): Cell =
   if i < b.front.len:

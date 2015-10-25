@@ -1,8 +1,9 @@
 TODO:
+ - fix stupid scrolling bug
  - on the fly search
  - regex search&replace
  - draw gradient for scrollbar
- - optimize line offset calculations
+ - tabsize vs displaytabsize
 
 Later versions:
  - debugger support!

@@ -5,14 +5,72 @@ const
   CharBufSize = 80
   RoomForMargin = 8
 
-proc getLineFromOffset(b: Buffer; pos: int): Natural =
+proc getLineFromOffset*(b: Buffer; pos: int): Natural =
+  # example:
+  #   0: offset:  45   line 3
+  #   1: offset:  66   line 4
+  #   2: offset:  99   line 8
+  # question: which line at offset 77?
+  # The best entry is 1 because 66 is the *biggest* offset that is still < pos!
   result = 0
-  var pos = pos
+  var p = pos
+  var e = 0
+
+  # check cache:
+  for ce in mitems(b.offsetToLineCache):
+    if ce.version == b.version:
+      if ce.offset == pos:
+        return ce.line
+      if ce.offset < pos and ce.offset > e:
+        e = ce.offset
+        result = ce.line
+
   # do not count the newline at the very end at b[pos]:
-  if pos >= 0 and b[pos] == '\L': dec pos
-  while pos >= 0:
-    if b[pos] == '\L': inc result
-    dec pos
+  if p >= 0 and b[p] == '\L': dec p
+  while p >= e:
+    if b[p] == '\L': inc result
+    dec p
+
+  # we need to store the start of the line:
+  p = pos
+  while p > 0 and b[p-1] != '\L': dec p
+
+  # find best cache entry to replace:
+  var idx = 0
+  for ce in mitems(b.offsetToLineCache):
+    if ce.version != b.version or idx == high(b.offsetToLineCache) or
+       ce.offset >= pos:
+      ce = (version: b.version, offset: p, line: result)
+      break
+    inc idx
+
+proc getLineOffset*(b: Buffer; lines: Natural): int =
+  var y = lines
+  if y == 0: return 0
+
+  # check cache:
+  for ce in mitems(b.offsetToLineCache):
+    if ce.version == b.version:
+      if ce.line == lines:
+        return ce.offset
+
+  while true:
+    if b[result] == '\L':
+      dec y
+      if y == 0:
+        inc result
+        break
+    inc result
+
+  # find best cache entry to replace:
+  var idx = 0
+  for ce in mitems(b.offsetToLineCache):
+    if ce.version != b.version or idx == high(b.offsetToLineCache) or
+       ce.offset >= result:
+      ce = (version: b.version, offset: result, line: lines)
+      break
+    inc idx
+
 
 proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
                  fg, bg: Color): TexturePtr =
@@ -174,7 +232,7 @@ proc indWidth(db: DrawBuffer): cint =
       else: inc i
   result = textSize(db.font, " ").cint * r
 
-proc smartWrap(db: DrawBuffer; origP: int; critical): int =
+proc smartWrap(db: DrawBuffer; origP: int; critical: bool): int =
   # search for a nice split position, but don't go back too much:
   var p = origP
   var broke = false
@@ -370,18 +428,6 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
     t.drawCursor(db.cursorDim, db.lineH)
     b.cursorDim = (db.cursorDim.x.int, db.cursorDim.y.int, db.lineH.int)
   result = db.i+1
-
-proc getLineOffset(b: Buffer; lines: Natural): int =
-  var lines = lines
-  if lines == 0: return 0
-  while true:
-    var cell = getCell(b, result)
-    if cell.c == '\L':
-      dec lines
-      if lines == 0:
-        inc result
-        break
-    inc result
 
 proc setCursorFromMouse*(b: Buffer; dim: Rect; mouse: Point; clicks: int) =
   b.mouseX = mouse.x
