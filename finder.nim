@@ -82,6 +82,13 @@ proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
       b.markers.add(Marker(a: i, b: last-1, replacement: toReplaceWith))
     inc i, searchTerm.len
 
+proc filterOccurances*(b: Buffer) =
+  b.filterLines = true
+  b.activeLines = initIntSet()
+  for m in b.markers:
+    b.activeLines.incl b.getLineFromOffset(m.a)
+    b.activeLines.incl b.getLineFromOffset(m.b)
+
 #proc findLineWithPrefix*(b: Buffer; prefix: string): int =
 #
 

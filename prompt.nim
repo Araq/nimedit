@@ -138,7 +138,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
       ed.focus = ed.main
       ed.state = requestedNothing
   of "quit", "q": result = true
-  of "find", "f":
+  of "find", "f", "filter":
     var searchPhrase = ""
     i = parseWord(cmd, searchPhrase, i)
     if searchPhrase.len > 0:
@@ -147,11 +147,17 @@ proc runCmd(ed: Editor; cmd: string): bool =
       ed.main.findNext(searchPhrase, parseSearchOptions searchOptions)
       if ed.main.gotoFirstMarker():
         ed.prompt.clear()
-        ed.prompt.insert("next")
+        if action == "filter":
+          filterOccurances(ed.main)
+          ed.focus = ed.main
+        else:
+          ed.prompt.insert("next")
       else:
         ed.statusMsg = "Match not found."
     else:
       unmark()
+      if action == "filter":
+        ed.main.filterLines = false
   of "next":
     ed.main.gotoNextMarker()
   of "prev":

@@ -6,7 +6,7 @@ const
   ExtensionsToIgnore* = [
     ".ppu", ".o", ".obj", ".dcu",
     ".map", ".tds", ".err", ".bak", ".pyc", ".exe", ".rod", ".pdb", ".idb",
-    ".idx", ".ilk", ".dll", ".so"
+    ".idx", ".ilk", ".dll", ".so", ".a"
   ]
 
 proc ignoreFile*(f: string): bool =

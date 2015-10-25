@@ -182,9 +182,7 @@ proc scroll(b: Buffer; amount: int) =
       inc b.currentLine, amount
     if b.currentLine notin b.activeLines:
       b.currentLine = oldLine - amount
-      b.cursor = getLineOffset(b, b.currentLine)
-    elif oldLine != b.currentLine:
-      b.cursor = getLineOffset(b, b.currentLine)
+    b.cursor = getLineOffset(b, b.currentLine)
 
   if b.currentLine < b.firstLine:
     # bring into view:
