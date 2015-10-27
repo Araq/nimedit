@@ -9,7 +9,7 @@ from parseutils import parseInt
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
 import common, languages, themes, nimscriptsupport, tabbar, scrollbar, indexer,
-  minimaps, nimsuggestclient
+  overviews, nimsuggestclient
 
 when defined(windows):
   import dialogs
@@ -372,17 +372,20 @@ proc sugSelected(ed: Editor; s: Buffer) =
 proc harddiskCheck(ed: Editor) =
   for it in ed.allBuffers:
     if it.filename.len > 0:
-      let newTimestamp = os.getLastModificationTime(it.filename)
-      if it.timestamp != newTimestamp:
-        it.timestamp = newTimestamp
-        ed.state = requestedReload
-        if it != ed.main:
-          trackSpot(ed.hotspots, ed.main)
-          ed.main = it
-        ed.main.changed = true
-        ed.focus = ed.prompt
-        ed.statusMsg = "File changed on disk. Reload?"
-        break
+      try:
+        let newTimestamp = os.getLastModificationTime(it.filename)
+        if it.timestamp != newTimestamp:
+          it.timestamp = newTimestamp
+          ed.state = requestedReload
+          if it != ed.main:
+            trackSpot(ed.hotspots, ed.main)
+            ed.main = it
+          ed.main.changed = true
+          ed.focus = ed.prompt
+          ed.statusMsg = "File changed on disk. Reload?"
+          break
+      except OSError:
+        discard
 
 const
   DefaultTimeOut = 500.cint
@@ -602,12 +605,6 @@ proc mainProc(ed: Editor) =
           elif focus==ed.sug:
             sugSelected(ed, ed.sug)
             focus = main
-          elif focus==ed.minimap:
-            let dest = minimaps.onEnter(ed.minimap)
-            if dest >= 0:
-              trackSpot(ed.hotspots, main)
-              main.gotoLine(dest, -1)
-            focus = main
         of SDL_SCANCODE_ESCAPE:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
             if focus == console or not ed.hasConsole: focus = main
@@ -759,14 +756,12 @@ proc mainProc(ed: Editor) =
               ed.askForQuitTab()
           elif w.keysym.sym == ord('m'):
             if main.lang == langNim:
-              when true:
-                main.filterLines = not main.filterLines
-                if main.filterLines:
-                  filterMinimap(main)
-                  caretToActiveLine main
+              main.filterLines = not main.filterLines
+              if main.filterLines:
+                filterMinimap(main)
+                caretToActiveLine main
               else:
-                populateMinimap(ed.minimap, main)
-                focus = ed.minimap
+                main.gotoPos(main.cursor)
             else:
               ed.statusMsg = "Minimap only supported for Nim."
       else: discard
@@ -824,8 +819,14 @@ proc mainProc(ed: Editor) =
     mainBorder.x = spaceForLines(main, ed.theme).cint + ed.theme.uiXGap.cint + 2
     mainBorder.w = ed.mainRect.x + ed.mainRect.w - 1 - mainBorder.x
     ed.theme.drawBorder(mainBorder, focus==main)
+    if false and main.posHint.w > 0:
+      main.posHint.x += ed.theme.uiXGap.cint
+      main.posHint.w -= ed.theme.uiXGap.cint * 2
+      main.posHint.y += ed.theme.uiYGap.cint
+      main.posHint.h -= ed.theme.uiYGap.cint * 2
+      ed.theme.drawBorder(main.posHint, focus==main)
 
-    if focus == ed.autocomplete or focus == ed.miniMap or focus == ed.sug:
+    if focus == ed.autocomplete or focus == ed.sug:
       var autoRect = mainBorder
       autoRect.x += 10
       autoRect.w -= 20

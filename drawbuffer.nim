@@ -5,7 +5,7 @@ const
   CharBufSize = 80
   RoomForMargin = 8
 
-proc getLineFromOffset*(b: Buffer; pos: int): Natural =
+proc getLineFromOffset(b: Buffer; pos: int): Natural =
   # example:
   #   0: offset:  45   line 3
   #   1: offset:  66   line 4
@@ -44,7 +44,7 @@ proc getLineFromOffset*(b: Buffer; pos: int): Natural =
       break
     inc idx
 
-proc getLineOffset*(b: Buffer; lines: Natural): int =
+proc getLineOffset(b: Buffer; lines: Natural): int =
   var y = lines
   if y == 0: return 0
 
@@ -151,6 +151,27 @@ type
     ra, rb, startedWith: int
     chars: array[CharBufSize, char]
     toCursor: array[CharBufSize, int]
+
+proc minimapCandidate(r: RendererPtr; db: DrawBuffer; minimapDim: var Rect) =
+  # we like a strike of 4 lines where a third of the allowed width
+  # was not used. This rect is then later used to draw a minimap.
+  let w = db.dim.w - db.oldX
+  #r.pixel(db.dim.x, db.dim.y, color(0x00, 0xff, 0xff, 0xff))
+  #r.pixel(db.oldX + w - (w div 3), db.dim.y, color(0xff, 0x00, 0x00, 0xff))
+  if db.dim.x <= db.oldX + w - (w div 3):
+    if minimapDim.w == 0:
+      minimapDim.w = w div 3
+      minimapDim.x = db.oldX + w - (w div 3)
+      minimapDim.y = db.dim.y
+      minimapDim.h = fontLineSkip(db.font)
+    elif minimapDim.y > 0:
+      minimapDim.h += fontLineSkip(db.font)
+  elif minimapDim.h < fontLineSkip(db.font)*4:
+    # latest candidate was not long enough :-(, reset:
+    minimapDim.w = 0
+  else:
+    # mark as finished:
+    minimapDim.y = -abs(minimapDim.y)
 
 proc blit(r: RendererPtr; tex: TexturePtr; dim: Rect) =
   var d = dim
@@ -384,6 +405,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
           elif db.i == b.cursor:
             db.cursorDim = db.dim
           mouseAfterNewLine(b, db.i, dim, db.lineH)
+          minimapCandidate(t.renderer, db, b.posHint)
           break outerLoop
 
         if cell.s != tokenClass or getBg(b, db.i, t) != styleBg:
@@ -458,6 +480,8 @@ proc nextLineOffset(b: Buffer; line: var int; start: int): int =
 
 proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
            showLines=false) =
+  b.posHint.w = 0
+  b.posHint.h = 0
   let realOffset = getLineOffset(b, b.firstLine)
   if b.firstLineOffset != realOffset:
     # XXX make this a real assertion when tested well
@@ -465,13 +489,6 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
     assert false
   var renderLine = b.firstLine
   var i = nextLineOffset(b, renderLine, b.firstLineOffset)
-  when false:
-    if b.filterLines:
-      b.firstLineOffset = i
-      b.firstLine = renderLine
-      if b.currentLine notin b.activeLines:
-        b.currentLine = b.firstLine
-        b.cursor = b.firstLineOffset
   let endY = dim.y + dim.h - 1
   let endX = dim.x + dim.w - 1
   var dim = dim
@@ -509,6 +526,11 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   # required when the screen is not completely filled with text lines):
   mouseAfterNewLine(b, min(i, b.len),
     (x: cint(b.mouseX-1), y: 100_000i32, w: 0'i32, h: 0'i32), lineH)
+  if b.posHint.h < lineH*4:
+    b.posHint.w = 0
+    b.posHint.h = 0
+  else:
+    b.posHint.y = abs(b.posHint.y)
 
 proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
   let realOffset = getLineOffset(b, b.firstLine)

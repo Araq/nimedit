@@ -36,3 +36,17 @@ proc fileExtToLanguage*(ext: string): SourceLanguage =
   of ".xml": langXml
   of ".html", ".htm": langHtml
   else: langNone
+
+proc interestingControlflow*(lang: SourceLanguage; word: string): bool =
+  case lang
+  of langNone, langConsole: false
+  of langNim: word in ["if", "while", "for", "case", "when", "elif", "proc",
+                       "template", "method", "macro", "converter", "func",
+                       "iterator"]
+  of langCpp, langCsharp:
+    word in ["class", "if", "switch", "for", "while", "struct"]
+  of langC:
+    word in ["if", "switch", "for", "while", "struct"]
+  of langJs, langJava:
+    word in ["class", "if", "switch", "for", "while"]
+  of langXml, langHtml: true

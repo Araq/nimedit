@@ -1,6 +1,7 @@
 
 import styles, languages, common, intsets, compiler/ast
 from times import Time
+from sdl2 import Rect
 
 type
   ActionKind* = enum
@@ -54,6 +55,7 @@ type
     activeLines*: IntSet
     filterLines*: bool
     minimapVersion*: int
+    posHint*: Rect
     symtab*: TStrTable
     offsetToLineCache*: array[20, tuple[version, offset, line: int]]
 

@@ -50,6 +50,7 @@ type
     prefix: string
     processRunning*: bool
     beforeSuggestionPos: int
+    aliases*: seq[(string, string)]
 
 proc insertReadonly*(c: Console; s: string) =
   insertReadonly(c.b, s)
@@ -59,7 +60,7 @@ proc insertPrompt*(c: Console) =
 
 proc newConsole*(b: Buffer): Console =
   result = Console(b: b, hist: CmdHistory(cmds: @[], suggested: -1), files: @[],
-                   prefix: "")
+                   prefix: "", aliases: @[])
 
 proc getCommand(c: Console): string =
   result = ""
@@ -396,11 +397,16 @@ proc extractFilePosition*(b: Buffer): (string, int, int) =
 proc enterPressed*(c: Console) =
   c.b.gotoPos(c.b.len)
   c.files.setLen 0
-  let cmd = getCommand(c)
+  var cmd = getCommand(c)
   addCmd(c.hist, cmd)
   var a = ""
   var i = parseWord(cmd, a, 0, true)
   c.insertReadOnly "\L"
+  for al in c.aliases:
+    if a == al[0]:
+      cmd = al[1] & cmd.substr(i)
+      i = parseWord(cmd, a, 0, true)
+      break
   case a
   of "":
     insertPrompt c
@@ -419,6 +425,7 @@ proc enterPressed*(c: Console) =
     var filename = ""
     i = parseWord(cmd, filename, i)
     if filename.len > 0: c.b.saveAs(filename)
+    insertPrompt c
   else:
     if i >= cmd.len-1 and (a.endsWith".html" or a.startsWith"http://" or
         a.startsWith"https://"):

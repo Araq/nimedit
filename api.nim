@@ -121,3 +121,5 @@ proc setupApi(result: PEvalContext; ed: Editor) =
     ed.main.save()
   expose saveAs:
     ed.main.saveAs(getString(a, 0))
+  expose defineAlias:
+    ed.con.aliases.add((getString(a, 0), getString(a, 1)))

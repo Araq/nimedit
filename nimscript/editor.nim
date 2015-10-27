@@ -45,6 +45,8 @@ proc setStatus*(msg: string) = builtin
 proc save*() = builtin
 proc saveAs*(filename: string) = builtin
 
+proc defineAlias*(key, value: string) = builtin
+
 proc getCurrentIdent*(del=false): string =
   ## Retrives the current identifier, the one left to the caret. If `del` is
   ## true, the identifier is removed.

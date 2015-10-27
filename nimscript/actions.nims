@@ -28,6 +28,8 @@ proc pressedF6*() =
   insert("<$1></$1>" % w)
   setCaret(getCaret() - w.len - "</>".len)
 
+defineAlias("tt", r"tests\testament\tester")
+
 when false:
   import ospaths
 
