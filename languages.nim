@@ -37,6 +37,10 @@ proc fileExtToLanguage*(ext: string): SourceLanguage =
   of ".html", ".htm": langHtml
   else: langNone
 
+type
+  InterestingControlflowEnum = enum
+    isUninteresting, isInteresting, isCase
+
 proc interestingControlflow*(lang: SourceLanguage; word: string): bool =
   case lang
   of langNone, langConsole: false

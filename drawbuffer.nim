@@ -446,8 +446,8 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
   dim = db.dim
   dim.y += fontLineSkip(t.editorFontPtr)
   dim.x = db.oldX
-  if db.cursorDim.h > 0 and blink:
-    t.drawCursor(db.cursorDim, db.lineH)
+  if db.cursorDim.h > 0:
+    if blink: t.drawCursor(db.cursorDim, db.lineH)
     b.cursorDim = (db.cursorDim.x.int, db.cursorDim.y.int, db.lineH.int)
   result = db.i+1
 
@@ -479,9 +479,10 @@ proc nextLineOffset(b: Buffer; line: var int; start: int): int =
       inc line
 
 proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
-           showLines=false) =
+           showLines=false): cint {.discardable.} =
   b.posHint.w = 0
   b.posHint.h = 0
+  b.cursorDim.h = 0
   let realOffset = getLineOffset(b, b.firstLine)
   if b.firstLineOffset != realOffset:
     # XXX make this a real assertion when tested well
@@ -517,6 +518,7 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
       t.drawNumber(renderLine+1, b.currentLine+1, spl, dim.y)
     i = t.drawTextLine(b, i, dim, blink)
     inc b.span
+  result = dim.y
   # we need to tell the buffer how many lines *can* be shown to prevent
   # that scrolling is triggered way too early:
   while dim.y+fontSize < endY:

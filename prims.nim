@@ -8,6 +8,8 @@ type
     thickness*: cint
     gradient*: Color
 
+proc brightness*(c: Color): int = 299*c.r.int + 587*c.g.int + 114*c.b.int
+
 proc pixel*(renderer: RendererPtr; x: int; y: int; p: Pixel) =
   #setDrawBlendMode(renderer,
   #      if c.a == 255: Blendmode_None else: Blendmode_Blend)

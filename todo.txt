@@ -1,5 +1,5 @@
 TODO:
- - show minimap
+ - cannot type '@' !
  - fix stupid scrolling bug
 
  - on the fly search

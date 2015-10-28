@@ -9,7 +9,7 @@ from parseutils import parseInt
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
 import common, languages, themes, nimscriptsupport, tabbar, scrollbar, indexer,
-  overviews, nimsuggestclient
+  overviews, nimsuggestclient, minimap
 
 when defined(windows):
   import dialogs
@@ -109,7 +109,6 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.focus = ed.main
 
   ed.con = newConsole(ed.console)
-  ed.con.insertPrompt()
   ed.promptCon = newConsole(ed.prompt)
 
   ed.uiFont = fontM.fontByName("Arial", 12)
@@ -393,10 +392,14 @@ const
 
 proc tick(ed: Editor) =
   inc ed.ticker
-  if ed.idle > 2:
+  if ed.idle > 1:
     # run the index every 500ms. It's incremental and fast.
     indexBuffers(ed.indexer, ed.main)
     highlightIncrementally(ed.main)
+
+    if ed.minimap.version != ed.main.currentLine and ed.theme.showMinimap:
+      ed.minimap.version = ed.main.currentLine
+      fillMinimap(ed.minimap, ed.main)
 
   # every 10 seconds check if the file's contents have changed on the hard disk
   # behind our back:
@@ -478,6 +481,7 @@ proc mainProc(ed: Editor) =
   loadOpenTabs(ed)
   if ed.project.len > 0:
     ed.window.setTitle(windowTitle & " - " & ed.project.extractFilename)
+  ed.con.insertPrompt()
   var windowHasFocus = true
   while true:
     # we need to wait for the next frame until the cursor has moved to the
@@ -819,12 +823,18 @@ proc mainProc(ed: Editor) =
     mainBorder.x = spaceForLines(main, ed.theme).cint + ed.theme.uiXGap.cint + 2
     mainBorder.w = ed.mainRect.x + ed.mainRect.w - 1 - mainBorder.x
     ed.theme.drawBorder(mainBorder, focus==main)
-    if false and main.posHint.w > 0:
+    if main.posHint.w > 0 and ed.minimap.len > 0 and ed.theme.showMinimap and
+        main.cursorDim.h > 0:
+      # cursorDim.h > 0 means that the cursor is in the view. The minimap is
+      # too confusing when the cursor is not visible.
       main.posHint.x += ed.theme.uiXGap.cint
-      main.posHint.w -= ed.theme.uiXGap.cint * 2
       main.posHint.y += ed.theme.uiYGap.cint
+      main.posHint.w -= ed.theme.uiXGap.cint
       main.posHint.h -= ed.theme.uiYGap.cint * 2
-      ed.theme.drawBorder(main.posHint, focus==main)
+
+      main.posHint.h = ed.theme.draw(ed.minimap, main.posHint, false) -
+                       main.posHint.y + 1 # - ed.theme.uiYGap.cint
+      ed.theme.drawBorder(main.posHint, false, arc=16)
 
     if focus == ed.autocomplete or focus == ed.sug:
       var autoRect = mainBorder

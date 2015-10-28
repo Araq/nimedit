@@ -23,3 +23,4 @@ type
     bracket*: Color
     showBracket*, showIndentation*: bool
     indentation*: Color
+    showMinimap*: bool

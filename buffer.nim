@@ -170,11 +170,7 @@ proc scrollLines*(b: Buffer; amount: int) =
       skipInactiveLinesDown(b)
       dec amount
 
-proc scroll(b: Buffer; amount: int) =
-  assert amount == 1 or amount == -1
-  # the cursor can be detached from the scroll position, so we need to perform
-  # a general scrollLines:
-  inc b.currentLine, amount
+proc scrollDontUpdateCurrentline(b: Buffer; amount: int) =
   if b.filterLines:
     let oldLine = b.currentLine
     while b.currentLine < b.numberOfLines-1 and b.currentLine > 0 and
@@ -190,7 +186,17 @@ proc scroll(b: Buffer; amount: int) =
   elif b.currentLine > b.firstLine + b.span-2:
     scrollLines(b, b.currentLine - (b.firstLine + b.span-2))
 
-proc caretToActiveLine*(b: Buffer) = scroll(b, -1)
+proc scroll(b: Buffer; amount: int) =
+  assert amount == 1 or amount == -1
+  # the cursor can be detached from the scroll position, so we need to perform
+  # a general scrollLines:
+  inc b.currentLine, amount
+  scrollDontUpdateCurrentline(b, amount)
+
+proc caretToActiveLine*(b: Buffer) =
+  if b.currentLine > 0:
+    dec b.currentLine
+  scroll(b, -1)
 
 proc getLine*(b: Buffer): int = b.currentLine
 proc getColumn*(b: Buffer): int =
@@ -500,6 +506,7 @@ proc getSelectedText*(b: Buffer): string =
 proc setCaret*(b: Buffer; pos: int) =
   b.cursor = pos
   b.currentLine = getLineFromOffset(b, b.cursor)
+
 
 proc removeSelectedText(b: Buffer; selectedA, selectedB: var int) =
   if selectedB < 0: return
