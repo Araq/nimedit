@@ -17,7 +17,10 @@ proc allDeclarations(n: PNode; minimap: Buffer; useActiveLines: bool) =
     if n.info.line >= 0:
       if useActiveLines:
         minimap.activeLines.incl n.info.line-1
-        let ident = considerQuotedIdent(n)
+        var nn = n
+        if nn.kind == nkPragmaExpr: nn = nn[0]
+        if nn.kind == nkPostfix: nn = nn[1]
+        let ident = considerQuotedIdent(nn)
         let s = newSym(skUnknown, ident, nil, n.info)
         minimap.symtab.strTableAdd(s)
       else:

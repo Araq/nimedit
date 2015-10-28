@@ -58,7 +58,7 @@ proc drawBorder*(t: InternalTheme; rect: Rect; c: Color; arc=8) =
   let xGap = t.uiXGap
   t.renderer.roundedRect(rect.x - xGap, rect.y - yGap,
                          rect.w + rect.x - 1 + xGap,
-                         rect.h + rect.y -1 + yGap, arc, p)
+                         rect.h + rect.y - 1 + yGap, arc, p)
 
 proc drawBorderBox*(t: InternalTheme; rect: Rect; active: bool; arc=8) =
   let yGap = t.uiYGap

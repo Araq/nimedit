@@ -1,5 +1,4 @@
 TODO:
- - fix jump cursor movement
  - on the fly search
  - regex search&replace
  - draw gradient for scrollbar

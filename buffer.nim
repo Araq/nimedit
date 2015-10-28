@@ -256,14 +256,14 @@ proc rawLeft*(b: Buffer) =
 proc left*(b: Buffer; jump: bool) =
   rawLeft(b)
   if jump and b.cursor > 0:
-    var i = b.cursor-1
-    if b[i] in Letters:
-      while i > 0 and b[i-1] in Letters: dec i
+    rawLeft(b)
+    if b[b.cursor] in Letters:
+      while b.cursor > 0 and b[b.cursor-1] in Letters: rawLeft(b)
     else:
-      while i > 0 and b.getCell(i-1).s == b.getCell(b.cursor-1).s and
-                      b.getCell(i-1).c != '\L':
-        dec i
-    b.cursor = i
+      let i = b.cursor
+      while b.cursor > 0 and b.getCell(i).s == b.getCell(b.cursor-1).s and
+                      b.getCell(b.cursor-1).c != '\L':
+        rawLeft(b)
     #while b.cursor > 0 and b[b.cursor] notin WhiteSpace: rawLeft(b)
     #while b.cursor > 1 and b[b.cursor-1] in WhiteSpace: rawLeft(b)
   cursorMoved(b)
@@ -281,14 +281,14 @@ proc right*(b: Buffer; jump: bool) =
   if jump:
     #while b.cursor < b.len and b[b.cursor] in WhiteSpace: rawRight(b)
     #while b.cursor < b.len and b[b.cursor] notin WhiteSpace: rawRight(b)
-    var i = b.cursor
-    if b[i] in Letters:
-      while i < b.len and b[i] in Letters: inc i
+    if b[b.cursor] in Letters:
+      while b.cursor < b.len and b[b.cursor] in Letters:
+        rawRight(b)
     else:
-      while i < b.len and b.getCell(i).s == b.getCell(b.cursor).s and
-                      b.getCell(i).c != '\L':
-        inc i
-    b.cursor = i
+      let i = b.cursor
+      while b.cursor < b.len and b.getCell(i).s == b.getCell(b.cursor).s and
+                      b.getCell(b.cursor).c != '\L':
+        rawRight(b)
   cursorMoved(b)
 
 proc up*(b: Buffer; jump: bool) =
