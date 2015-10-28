@@ -23,6 +23,9 @@ const
   windowTitle = "NimEdit"
 
 
+template crtlPressed(x): untyped =
+  (x and controlKey) != 0 and (x and KMOD_ALT()) == 0
+
 type
   EditorState = enum
     requestedNothing,
@@ -618,26 +621,26 @@ proc mainProc(ed: Editor) =
             else: focus = main
         of SDL_SCANCODE_RIGHT:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            focus.selectRight((w.keysym.modstate and controlKey) != 0)
+            focus.selectRight(crtlPressed(w.keysym.modstate))
           else:
             focus.deselect()
-            focus.right((w.keysym.modstate and controlKey) != 0)
+            focus.right(crtlPressed(w.keysym.modstate))
         of SDL_SCANCODE_LEFT:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            focus.selectLeft((w.keysym.modstate and controlKey) != 0)
+            focus.selectLeft(crtlPressed(w.keysym.modstate))
           else:
             focus.deselect()
-            focus.left((w.keysym.modstate and controlKey) != 0)
+            focus.left(crtlPressed(w.keysym.modstate))
         of SDL_SCANCODE_DOWN:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            focus.selectDown((w.keysym.modstate and controlKey) != 0)
+            focus.selectDown(crtlPressed(w.keysym.modstate))
           elif focus==prompt:
             ed.promptCon.downPressed()
           elif focus == console:
             ed.con.downPressed()
           else:
             focus.deselect()
-            focus.down((w.keysym.modstate and controlKey) != 0)
+            focus.down(crtlPressed(w.keysym.modstate))
         of SDL_SCANCODE_PAGE_DOWN:
           focus.scrollLines(focus.span)
           focus.cursor = focus.firstLineOffset
@@ -646,16 +649,16 @@ proc mainProc(ed: Editor) =
           focus.cursor = focus.firstLineOffset
         of SDL_SCANCODE_UP:
           if (w.keysym.modstate and KMOD_SHIFT) != 0:
-            focus.selectUp((w.keysym.modstate and controlKey) != 0)
+            focus.selectUp(crtlPressed(w.keysym.modstate))
           elif focus==prompt:
             ed.promptCon.upPressed()
           elif focus == console:
             ed.con.upPressed()
           else:
             focus.deselect()
-            focus.up((w.keysym.modstate and controlKey) != 0)
+            focus.up(crtlPressed(w.keysym.modstate))
         of SDL_SCANCODE_TAB:
-          if (w.keysym.modstate and controlKey) != 0:
+          if crtlPressed(w.keysym.modstate):
             main = main.next
             focus = main
           elif focus == main:
@@ -685,7 +688,7 @@ proc mainProc(ed: Editor) =
         of SDL_SCANCODE_F11: ed.handleEvent("pressedF11")
         of SDL_SCANCODE_F12: ed.handleEvent("pressedF12")
         else: discard
-        if (w.keysym.modstate and controlKey) != 0:
+        if crtlPressed(w.keysym.modstate):
           if w.keysym.sym == ord(' '):
             let prefix = main.getWordPrefix()
             if prefix[^1] == '.':
@@ -814,7 +817,7 @@ proc mainProc(ed: Editor) =
 
     ed.theme.draw(main, rawMainRect, (blink==0 and focus==main) or
                                       focus==ed.autocomplete,
-                  ed.theme.showLines)
+                  if ed.theme.showLines: {showLines} else: {})
     let scrollTo = drawScrollBar(main, ed.theme, e, ed.mainRect)
     if scrollTo >= 0:
       scrollLines(main, scrollTo-main.firstLine)
@@ -832,9 +835,10 @@ proc mainProc(ed: Editor) =
       main.posHint.w -= ed.theme.uiXGap.cint
       main.posHint.h -= ed.theme.uiYGap.cint * 2
 
-      main.posHint.h = ed.theme.draw(ed.minimap, main.posHint, false) -
-                       main.posHint.y + 1 # - ed.theme.uiYGap.cint
-      ed.theme.drawBorder(main.posHint, false, arc=16)
+      main.posHint.h = min(ed.theme.draw(ed.minimap, main.posHint,
+                                     false, {showGaps}) -
+                       main.posHint.y + 1, main.posHint.h)
+      ed.theme.drawBorder(main.posHint, ed.theme.lines, arc=16)
 
     if focus == ed.autocomplete or focus == ed.sug:
       var autoRect = mainBorder

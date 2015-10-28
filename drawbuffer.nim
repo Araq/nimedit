@@ -478,8 +478,13 @@ proc nextLineOffset(b: Buffer; line: var int; start: int): int =
       inc result
       inc line
 
+type
+  DrawOption* = enum
+    showLines,
+    showGaps
+
 proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
-           showLines=false): cint {.discardable.} =
+           options: set[DrawOption] = {}): cint {.discardable.} =
   b.posHint.w = 0
   b.posHint.h = 0
   b.cursorDim.h = 0
@@ -496,7 +501,7 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   dim.w = endX
   dim.h = endY
   let spl = cint(spaceForLines(b, t) + RoomForMargin)
-  if showLines:
+  if showLines in options:
     t.drawNumber(renderLine+1, b.currentLine+1, spl, dim.y)
     dim.x = spl
   b.span = 0
@@ -508,13 +513,12 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
     inc renderLine
     let expectedLine = renderLine
     i = nextLineOffset(b, renderLine, i)
-    if expectedLine != renderLine:
+    if expectedLine != renderLine or showGaps in options:
       # show the gap:
-      hlineDotted(t.renderer, dim.x, endY, dim.y+lineH div 4,
-                    t.indentation)
+      hlineDotted(t.renderer, dim.x, endX, dim.y+lineH div 4, t.indentation)
       dim.y += lineH div 2
 
-    if showLines:
+    if showLines in options:
       t.drawNumber(renderLine+1, b.currentLine+1, spl, dim.y)
     i = t.drawTextLine(b, i, dim, blink)
     inc b.span
