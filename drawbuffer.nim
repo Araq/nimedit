@@ -151,7 +151,7 @@ type
     dim, cursorDim: Rect
     i, charsLen: int
     font: FontPtr
-    oldX, maxY, lineH: cint
+    oldX, maxY, lineH, spaceWidth: cint
     ra, rb, startedWith: int
     chars: array[CharBufSize, char]
     toCursor: array[CharBufSize, int]
@@ -278,7 +278,8 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
   var w, h: cint
   queryTexture(text, nil, nil, addr(w), addr(h))
 
-  if db.dim.x + w <= db.dim.w:
+  #r.pixel(db.dim.w, db.dim.y, color(0x00, 0xff, 0xff, 0xff))
+  if db.dim.x + w + db.spaceWidth <= db.dim.w:
     # fast common case: the token still fits:
     r.drawSubtoken(db, text, 0, db.charsLen-1)
     db.dim.x += w
@@ -303,9 +304,8 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
         db.chars[probe] = '\0'
         let w2 = db.font.textSize(start)
         db.chars[probe] = ch
-        if db.dim.x + w2 > db.dim.w:
-          # leave space for the three dots:
-          dec probe, 2
+        if db.dim.x + db.spaceWidth + w2 > db.dim.w:
+          dec probe
           probe = smartWrap(db, probe, iters > db.b.span)
           dotsrequired = true
           break
@@ -394,6 +394,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
   db.i = i
   db.startedWith = i
   db.lineH = fontLineSkip(db.font)
+  db.spaceWidth = textSize(db.font, " ")
 
   block outerLoop:
     while db.dim.y+db.lineH <= db.maxY:
@@ -437,7 +438,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
   if t.showIndentation and b.lang notin {langNone, langConsole}:
     var
       i = i
-      w = textSize(db.font, " ")
+      w = db.spaceWidth
       r = 0
     while b[i] in {'\t', ' '}:
       if r mod b.tabSize == 0 and r > 1:
