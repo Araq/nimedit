@@ -297,17 +297,21 @@ proc up*(b: Buffer; jump: bool) =
 
   # move to the *start* of this line
   while i >= 1 and b[i-1] != '\L': dec i
-  if i >= 1 and b[i-1] == '\L':
+  while i >= 1:
+    assert b[i-1] == '\L'
     # move up 1 line:
     dec i
     # move to the *start* of this line
     while i >= 1 and b[i-1] != '\L': dec i
-    # move to the desired column:
-    while i >= 0 and col > 0 and b[i] != '\L':
-      i += graphemeLen(b, i)
-      dec col
+    let notEmpty = b[i] > ' '
+    if not jump or notEmpty:
+      # move to the desired column:
+      while i >= 0 and col > 0 and b[i] != '\L':
+        i += graphemeLen(b, i)
+        dec col
     scroll(b, -1)
     if b.filterLines: return
+    if not jump or notEmpty: break
   b.cursor = max(0, i)
   cursorMoved(b)
 
@@ -319,7 +323,8 @@ proc down*(b: Buffer; jump: bool) =
     if b[b.cursor] == '\L':
       scroll(b, 1)
       if b.filterLines: return
-      break
+      if not jump or b[b.cursor+1] > ' ':
+        break
     b.cursor += 1
   b.cursor += 1
 
