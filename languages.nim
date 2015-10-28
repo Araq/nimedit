@@ -38,19 +38,26 @@ proc fileExtToLanguage*(ext: string): SourceLanguage =
   else: langNone
 
 type
-  InterestingControlflowEnum = enum
-    isUninteresting, isInteresting, isCase
+  InterestingControlflowEnum* = enum
+    isUninteresting, isIf, isCase, isDecl
 
-proc interestingControlflow*(lang: SourceLanguage; word: string): bool =
+proc interestingControlflow*(lang: SourceLanguage;
+                             word: string): InterestingControlflowEnum =
   case lang
-  of langNone, langConsole: false
-  of langNim: word in ["if", "while", "for", "case", "when", "elif", "proc",
-                       "template", "method", "macro", "converter", "func",
-                       "iterator"]
-  of langCpp, langCsharp:
-    word in ["class", "if", "switch", "for", "while", "struct"]
-  of langC:
-    word in ["if", "switch", "for", "while", "struct"]
-  of langJs, langJava:
-    word in ["class", "if", "switch", "for", "while"]
-  of langXml, langHtml: true
+  of langNone, langConsole: isUninteresting
+  of langNim:
+    case word
+    of "case": isCase
+    of "if", "while", "for", "when": isIf
+    of "proc", "template", "method", "macro", "converter", "func", "iterator":
+      isDecl
+    else:
+      isUninteresting
+  of langCpp, langCsharp, langC, langJs, langJava:
+    case word
+    of "class", "struct": isDecl
+    of "if", "for", "while": isIf
+    of "switch": isCase
+    else:
+      isUninteresting
+  of langXml, langHtml: isIf
