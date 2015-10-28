@@ -226,10 +226,6 @@ proc openTab(ed: Editor; filename: string;
       aa = aa.splitPath()[0]
       bb = bb.splitPath()[0]
 
-  for it in ed.allBuffers:
-    if it.heading == displayname:
-      disamb(it.filename, fullpath, it.heading, displayName)
-
   ed.addSearchPath(fullpath.splitFile.dir)
   let x = newBuffer(displayname, addr ed.mgr)
   try:
@@ -237,6 +233,9 @@ proc openTab(ed: Editor; filename: string;
     if doTrack: trackSpot(ed.hotspots, ed.main)
     insertBuffer(ed.main, x)
     ed.focus = ed.main
+    for it in ed.allBuffers:
+      if it.heading == displayname:
+        disamb(it.filename, fullpath, it.heading, displayName)
     result = true
   except IOError:
     ed.statusMsg = "cannot open: " & filename

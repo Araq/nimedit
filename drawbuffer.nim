@@ -86,7 +86,6 @@ proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
   freeSurface(surf)
 
 proc drawNumberBegin*(t: InternalTheme; number, current: int; w, y: cint) =
-  #let w = w - RoomForMargin
   proc sprintf(buf, frmt: cstring) {.header: "<stdio.h>",
     importc: "sprintf", varargs, noSideEffect.}
   var buf {.noinit.}: array[25, char]

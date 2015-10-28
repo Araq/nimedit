@@ -180,11 +180,23 @@ proc scrollDontUpdateCurrentline(b: Buffer; amount: int) =
       b.currentLine = oldLine - amount
     b.cursor = getLineOffset(b, b.currentLine)
 
-  if b.currentLine < b.firstLine:
-    # bring into view:
-    scrollLines(b, b.currentLine - b.firstLine)
-  elif b.currentLine > b.firstLine + b.span-2:
-    scrollLines(b, b.currentLine - (b.firstLine + b.span-2))
+    if b.currentLine < b.firstLine:
+      # bring into view:
+      scrollLines(b, b.currentLine - b.firstLine)
+    else:
+      var diff = 0
+      var i = b.firstLine
+      while i < b.currentLine:
+        if i in b.activeLines: inc diff
+        inc i
+      if diff > b.span-2:
+        scrollLines(b, diff - b.span+2)
+  else:
+    if b.currentLine < b.firstLine:
+      # bring into view:
+      scrollLines(b, b.currentLine - b.firstLine)
+    elif b.currentLine > b.firstLine + b.span-2:
+      scrollLines(b, b.currentLine - (b.firstLine + b.span-2))
 
 proc scroll(b: Buffer; amount: int) =
   assert amount == 1 or amount == -1
