@@ -307,7 +307,7 @@ proc displayNL(s: string): string =
 
 proc filelistFile(): string =
   const dot = when defined(windows): "" else: "."
-  os.getConfigDir() / dot & "aporia_pro_filelist.txt"
+  os.getConfigDir() / dot & "nimedit_filelist.txt"
 
 proc saveOpenTabs(ed: Editor) =
   var f: File

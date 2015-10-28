@@ -3,7 +3,7 @@ const
   #ContinueLineMarker = "\xE2\xA4\xB8\x00"
   Ellipsis = "\xE2\x80\xA6\x00"
   CharBufSize = 80
-  RoomForMargin = 8
+  RoomForMargin = 8'i32
 
 proc getLineFromOffset(b: Buffer; pos: int): Natural =
   # example:
@@ -85,8 +85,8 @@ proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
     echo("CreateTexture failed")
   freeSurface(surf)
 
-proc drawNumber*(t: InternalTheme; number, current: int; w, y: cint) =
-  let w = w - RoomForMargin
+proc drawNumberBegin*(t: InternalTheme; number, current: int; w, y: cint) =
+  #let w = w - RoomForMargin
   proc sprintf(buf, frmt: cstring) {.header: "<stdio.h>",
     importc: "sprintf", varargs, noSideEffect.}
   var buf {.noinit.}: array[25, char]
@@ -100,7 +100,12 @@ proc drawNumber*(t: InternalTheme; number, current: int; w, y: cint) =
   queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
   t.renderer.copy(tex, nil, addr d)
   destroy tex
-  if number == current or number == current+1:
+  if number == current:
+    t.renderer.setDrawColor(t.fg)
+    t.renderer.drawLine(1, y-1, 1+w, y-1)
+
+proc drawNumberEnd*(t: InternalTheme; number, current: int; w, y: cint) =
+  if number == current:
     t.renderer.setDrawColor(t.fg)
     t.renderer.drawLine(1, y-1, 1+w, y-1)
 
@@ -500,12 +505,18 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   var dim = dim
   dim.w = endX
   dim.h = endY
-  let spl = cint(spaceForLines(b, t) + RoomForMargin)
-  if showLines in options:
-    t.drawNumber(renderLine+1, b.currentLine+1, spl, dim.y)
-    dim.x = spl
+  let spl = cint(spaceForLines(b, t))
+
+  template drawCurrent() =
+    if showLines in options:
+      t.drawNumberBegin(renderLine+1, b.currentLine+1, spl, dim.y)
+    i = t.drawTextLine(b, i, dim, blink)
+    if showLines in options:
+      t.drawNumberEnd(renderLine+1, b.currentLine+1, spl, dim.y)
+
+  if showLines in options: dim.x = spl + RoomForMargin
   b.span = 0
-  i = t.drawTextLine(b, i, dim, blink)
+  drawCurrent()
   inc b.span
   let fontSize = t.editorFontSize.cint
   let lineH = fontLineSkip(t.editorFontPtr)
@@ -518,9 +529,7 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
       hlineDotted(t.renderer, dim.x, endX, dim.y+lineH div 4, t.indentation)
       dim.y += lineH div 2
 
-    if showLines in options:
-      t.drawNumber(renderLine+1, b.currentLine+1, spl, dim.y)
-    i = t.drawTextLine(b, i, dim, blink)
+    drawCurrent()
     inc b.span
   result = dim.y
   # we need to tell the buffer how many lines *can* be shown to prevent
