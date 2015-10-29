@@ -734,14 +734,7 @@ proc mainProc(ed: Editor) =
             if ed.state == requestedReplace: ed.state = requestedNothing
             highlightEverything(focus)
           elif w.keysym.sym == ord('o'):
-            when defined(windows):
-              let previousLocation =
-                if main.filename.len > 0: main.filename.splitFile.dir
-                else: ""
-              let toOpen = chooseFilesToOpen(nil, previousLocation)
-              for p in toOpen:
-                ed.openTab(p)
-              focus = main
+            ed.openCmd()
           elif w.keysym.sym == ord('s'):
             main.save()
             if cmpPaths(main.filename, ed.cfgColors) == 0:
