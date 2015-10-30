@@ -1,4 +1,5 @@
 TODO:
+ - 'nim check' integration
  - on the fly search
  - regex search&replace
  - draw gradient for scrollbar
