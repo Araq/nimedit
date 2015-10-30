@@ -34,20 +34,21 @@ proc runScriptCmd(ed: Editor) =
   prompt.insert "e "
 
 proc openCmd(ed: Editor) =
-  if ed.prompt.fullText == "o " and defined(windows):
-    let previousLocation =
-      if ed.main.filename.len > 0: ed.main.filename.splitFile.dir
-      else: ""
-    let toOpen = chooseFilesToOpen(nil, previousLocation)
-    for p in toOpen:
-      ed.openTab(p)
-    ed.focus = ed.main
-  else:
-    let prompt = ed.prompt
-    ed.focus = prompt
+  when defined(windows):
+    if ed.prompt.fullText == "o ":
+      let previousLocation =
+        if ed.main.filename.len > 0: ed.main.filename.splitFile.dir
+        else: ""
+      let toOpen = chooseFilesToOpen(nil, previousLocation)
+      for p in toOpen:
+        ed.openTab(p)
+      ed.focus = ed.main
+      return
+  let prompt = ed.prompt
+  ed.focus = prompt
 
-    prompt.clear()
-    prompt.insert "o "
+  prompt.clear()
+  prompt.insert "o "
 
 const
   saveChanges = "Closing tab: Save changes? [yes|no|abort]"
