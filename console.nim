@@ -227,7 +227,7 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
   delete(c.files, sug)
   b.changed = oldChanged
 
-proc tabPressed*(c: Console) =
+proc tabPressed*(c: Console; basePath: string) =
   let b = c.b
 
   if b.changed:
@@ -254,7 +254,7 @@ proc tabPressed*(c: Console) =
   if c.files.len == 0:
     # prefix == "..\..\foo"
     let dots = splitPath(c.prefix)[0]
-    for k, f in os.walkDir(os.getCurrentDir() / dots, relative=true):
+    for k, f in os.walkDir(basePath / dots, relative=true):
       c.files.add dots / f
   suggestPath(c, b, c.prefix)
 

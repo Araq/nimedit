@@ -311,7 +311,8 @@ proc translateToken(db: var DrawBuffer) =
 
 proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
   # Draws a single token, potentially splitting it up over multiple lines.
-  #translateToken(db)
+  if t.showLigatures:
+    translateToken(db)
   assert db.font != nil
   if db.dim.y+db.lineH > db.maxY: return
   let r = t.renderer

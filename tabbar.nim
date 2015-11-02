@@ -52,7 +52,7 @@ proc drawBorder*(t: InternalTheme; rect: Rect; active: bool; arc=8) =
                active, arc)
 
 proc drawBorder*(t: InternalTheme; rect: Rect; c: Color; arc=8) =
-  let p = Pixel(col: c, thickness: 2,
+  let p = Pixel(col: c, thickness: 0,
                 gradient: c) #color(0xff, 0xff, 0xff, 0))
   let yGap = t.uiYGap
   let xGap = t.uiXGap

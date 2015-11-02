@@ -667,9 +667,11 @@ proc mainProc(ed: Editor) =
             else:
               main.tabPressed()
           elif focus == console:
-            ed.con.tabPressed()
+            ed.con.tabPressed(os.getCurrentDir())
           elif focus == prompt:
-            ed.promptCon.tabPressed()
+            let basePath = if main.filename.len > 0: main.filename.splitFile.dir
+                           else: os.getCurrentDir()
+            ed.promptCon.tabPressed(basePath)
         of SDL_SCANCODE_F1:
           if focus == console or not ed.hasConsole: focus = main
           else: focus = console
@@ -763,7 +765,7 @@ proc mainProc(ed: Editor) =
               else:
                 main.gotoPos(main.cursor)
             else:
-              ed.statusMsg = "Minimap only supported for Nim."
+              ed.statusMsg = "Ctrl+M only supported for Nim."
       else: discard
       # keydown means show the cursor:
       blink = 0
@@ -831,7 +833,7 @@ proc mainProc(ed: Editor) =
       main.posHint.h = min(ed.theme.draw(ed.minimap, main.posHint,
                                      false, {showGaps}) -
                        main.posHint.y + 1, main.posHint.h)
-      ed.theme.drawBorder(main.posHint, ed.theme.lines, arc=16)
+      ed.theme.drawBorder(main.posHint, ed.theme.lines)
 
     if focus == ed.autocomplete or focus == ed.sug:
       var autoRect = mainBorder

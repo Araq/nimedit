@@ -39,6 +39,7 @@ theme.tabWidth = 2
 
 theme.showBracket = true
 theme.showMinimap = true
+theme.showLigatures = true
 theme.bracket = Deeppink
 
 # If the width of the window exceeds this value, a console is activated.

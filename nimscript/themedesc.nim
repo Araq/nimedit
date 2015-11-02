@@ -26,6 +26,7 @@ type
     showIndentation*: bool
     indentation*: Color
     showMinimap*: bool
+    showLigatures*: bool
 
 var
   theme* {.exportNims.}: Theme
