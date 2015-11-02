@@ -193,11 +193,12 @@ proc findFileAbbrev(ed: Editor; filename: string): string =
 
 proc openTab(ed: Editor; filename: string;
              doTrack=false): bool {.discardable.} =
-  let fullpath = findFile(ed, filename)
+  var fullpath = findFile(ed, filename)
   if fullpath.len == 0:
     ed.statusMsg = "cannot open: " & filename
     return false
 
+  fullpath = expandFilename(fullpath)
   ed.statusMsg = readyMsg
   # be intelligent:
   for it in ed.allBuffers:
@@ -433,8 +434,8 @@ proc suggest(ed: Editor; cmd: string) =
   elif not startup(ed.project, ed.nimsuggestDebug):
     ed.statusMsg = "Nimsuggest failed for: " & ed.project
   else:
-    requestSuggestion(ed.main, cmd)
     ed.sug.clear()
+    requestSuggestion(ed.main, cmd)
     ed.focus = ed.sug
 
 include api

@@ -4,6 +4,7 @@ import osproc, streams, os, net, strutils, buffertype, buffer
 const
   endToken = "\e"
   pauseToken = "\e\e"
+  clearToken = "\e\e\e"
   port = 6000.Port
 
 type
@@ -37,7 +38,7 @@ proc `$`(item: SuggestItem): string =
     result = join([item.name, item.nimType, item.moduleName], "\t")
   of "con":
     result = join([item.nimType, item.moduleName], "\t")
-  of "def", "use":
+  of "def", "use", "mod":
     let (dir, file) = splitPath(item.file)
     result = file & "(" & item.line & ", " & item.col & ") " &
              item.cmd & " #" & dir
@@ -54,20 +55,28 @@ results.open()
 proc processTask(task: string) =
   var socket = newSocket()
   var item: SuggestItem
-  try:
-    socket.connect("localhost", port)
-    socket.send(task & "\c\l")
-    var line = ""
-    while true:
-      line.setLen 0
-      socket.readLine(line)
-      if line.len == 0: break
-      if parseNimSuggestLine(line, item):
-        results.send($item)
-    socket.close()
-  except OSError, IOError:
-    results.send getCurrentExceptionMsg()
-  results.send(endToken)
+  var errors = 0
+  for i in 0..9:
+    try:
+      socket.connect("localhost", port)
+      socket.send(task & "\c\l")
+      var line = ""
+      while true:
+        line.setLen 0
+        socket.readLine(line)
+        if line.len == 0: break
+        if errors > 0:
+          results.send clearToken
+          errors = 0
+        if parseNimSuggestLine(line, item):
+          results.send($item)
+      socket.close()
+    except OSError, IOError:
+      results.send getCurrentExceptionMsg()
+      inc errors
+      os.sleep(1000)
+    results.send(endToken)
+    if errors == 0: break
 
 proc suggestThread() {.thread.} =
   while true:
@@ -94,6 +103,7 @@ proc startup*(project: string; debug: bool): bool =
       let nimPath = findExe("nim").splitFile.dir.parentDir
       var args = if debug: @["--debug"] else: @[]
       args.add("--port:" & $port)
+      args.add("--v2")
       args.add(project)
 
       nimsuggest = startProcess(findExe("nimsuggest"), nimPath, args,
@@ -108,15 +118,16 @@ var processing*: bool
 
 # sug|con|def|use|dus
 proc requestSuggestion*(b: Buffer; cmd: string) =
+  let col = b.getByteColumn
   var sugCmd: string
   if b.changed:
     let file = getTempDir() / b.filename.extractFilename
     b.saveAsTemp(file)
-    sugCmd = "$# \"$#\";\"$#\":$#:$4\c\l" % [
-      cmd, b.filename, file, $(b.currentLine+1), $(b.getColumn+1)]
+    sugCmd = "$# \"$#\";\"$#\":$#:$#\c\l" % [
+      cmd, b.filename, file, $(b.currentLine+1), $(col+1)]
   else:
     sugCmd = "$# \"$#\":$#:$#\c\l" % [
-      cmd, b.filename, $(b.currentLine+1), $(b.getColumn+1)]
+      cmd, b.filename, $(b.currentLine+1), $(col+1)]
   commands.send sugCmd
   processing = true
 
@@ -127,6 +138,9 @@ proc update*(b: Buffer) =
       let resp = results.recv()
       if resp == endToken:
         processing = false
+        break
+      elif resp == clearToken:
+        b.clear()
       else:
         b.insertReadOnly resp
         b.insertReadOnly "\L"

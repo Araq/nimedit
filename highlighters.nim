@@ -228,9 +228,20 @@ proc nimNextToken(g: var GeneralTokenizer) =
             break
           else:
             inc(pos)
-    of '(', ')', '[', ']', '{', '}', '`', ':', ',', ';':
+    of '(', '[', '{':
       inc(pos)
       g.kind = TokenClass.Punctuation
+      if g.buf[pos] == '.' and g.buf[pos+1] != '.': inc pos
+    of ')', ']', '}', '`', ':', ',', ';':
+      inc(pos)
+      g.kind = TokenClass.Punctuation
+    of '.':
+      if g.buf[pos+1] in {')', ']', '}'}:
+        inc(pos, 2)
+        g.kind = TokenClass.Punctuation
+      else:
+        g.kind = TokenClass.Operator
+        inc pos
     else:
       if g.buf[pos] in OpChars:
         g.kind = TokenClass.Operator

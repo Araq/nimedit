@@ -219,6 +219,18 @@ proc getColumn*(b: Buffer): int =
     i += graphemeLen(b, i)
     inc result
 
+proc getByteColumn*(b: Buffer): int =
+  var i = b.cursor
+  while i > 0 and b[i-1] != '\L':
+    dec i
+  while i < b.cursor and b[i] != '\L':
+    inc i
+    inc result
+  #if b[i] in buffer.Letters:
+  #while i > 0 and b[i-1] in buffer.Letters:
+  #  dec i
+  #  dec result
+
 proc getCurrentLine*(b: Buffer): string =
   var i = b.cursor #b.len
   while i > 0 and b[i-1] != '\L': dec i

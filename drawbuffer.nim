@@ -269,8 +269,49 @@ proc smartWrap(db: DrawBuffer; origP: int; critical: bool): int =
   # risks endless loops for pathological cases (full buffer consists of Letters)
   return if critical: origP else: -1
 
+proc translateToken(db: var DrawBuffer) =
+  if db.chars[0] == '{' and db.chars[1] == '.' and db.chars[2] == '\0':
+    # left curly bracket middle piece
+    db.chars[0] = '\xE2'
+    db.chars[1] = '\x8E'
+    db.chars[2] = '\xA8'
+    db.chars[3] = '\0'
+    db.toCursor[2] = db.toCursor[1]
+    db.toCursor[3] = db.toCursor[1]
+    db.charsLen = 3
+  elif db.chars[0] == '.' and db.chars[1] == '}' and db.chars[2] == '\0':
+    # right curly bracket middle piece
+    db.chars[0] = '\xE2'
+    db.chars[1] = '\x8E'
+    db.chars[2] = '\xAC'
+    db.chars[3] = '\0'
+    db.toCursor[2] = db.toCursor[1]
+    db.toCursor[3] = db.toCursor[1]
+    db.charsLen = 3
+  elif db.chars[0] == '[' and db.chars[1] == '.' and db.chars[2] == '\0':
+    # LEFT WHITE SQUARE BRACKET
+    # left square bracket with quill
+    db.chars[0] = '\xE2'  #'\xE3'
+    db.chars[1] = '\x81' #'\x80'
+    db.chars[2] = '\x85' #'\x9A'
+    db.chars[3] = '\0'
+    db.toCursor[2] = db.toCursor[1]
+    db.toCursor[3] = db.toCursor[1]
+    db.charsLen = 3
+  elif db.chars[0] == '.' and db.chars[1] == ']' and db.chars[2] == '\0':
+    # MATHEMATICAL RIGHT WHITE SQUARE BRACKET
+    # right square bracket with quill
+    db.chars[0] = '\xE2'
+    db.chars[1] = '\x81' #'\x9F'
+    db.chars[2] = '\x86' #'\xA7'
+    db.chars[3] = '\0'
+    db.toCursor[2] = db.toCursor[1]
+    db.toCursor[3] = db.toCursor[1]
+    db.charsLen = 3
+
 proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
   # Draws a single token, potentially splitting it up over multiple lines.
+  #translateToken(db)
   assert db.font != nil
   if db.dim.y+db.lineH > db.maxY: return
   let r = t.renderer
