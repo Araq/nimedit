@@ -71,11 +71,11 @@ proc processTask(task: string) =
         if parseNimSuggestLine(line, item):
           results.send($item)
       socket.close()
+      results.send(endToken)
     except OSError, IOError:
       results.send getCurrentExceptionMsg()
       inc errors
       os.sleep(1000)
-    results.send(endToken)
     if errors == 0: break
 
 proc suggestThread() {.thread.} =

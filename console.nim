@@ -215,8 +215,7 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
   if sug < 0:
     sug = 0
     while sug < c.files.high:
-      if c.files[sug][0] == '.': inc sug
-      elif c.files[sug] == "nimcache": inc sug
+      if c.files[sug] == "nimcache": inc sug
       elif c.files[sug].ignoreFile: inc sug
       else: break
   if sug >=% c.files.len: return

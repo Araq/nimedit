@@ -434,8 +434,8 @@ proc suggest(ed: Editor; cmd: string) =
   elif not startup(ed.project, ed.nimsuggestDebug):
     ed.statusMsg = "Nimsuggest failed for: " & ed.project
   else:
-    ed.sug.clear()
     requestSuggestion(ed.main, cmd)
+    ed.sug.clear()
     ed.focus = ed.sug
 
 include api

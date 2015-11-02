@@ -32,7 +32,7 @@ type
     firstLine*, currentLine*, desiredCol*, numberOfLines*: Natural
     span*: int
     firstLineOffset*: Natural
-    bracketToHighlight*: int
+    bracketToHighlightA*, bracketToHighlightB*: int
     mouseX*, mouseY*, clicks*, readOnly*: int
     version*: int  # document version; used to group undo actions
     front*, back*: seq[Cell]

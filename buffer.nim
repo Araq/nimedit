@@ -19,7 +19,8 @@ proc cursorMoved(b: Buffer) =
       if b.getCell(i).s == tc:
         if b[i] == ri:
           if counter <= 0:
-            b.bracketToHighlight = i
+            b.bracketToHighlightA = if i > 0 and b[i-1] == '.': i-1 else: i
+            b.bracketToHighlightB = i
             break
           dec counter
         elif b[i] == le:
@@ -34,7 +35,8 @@ proc cursorMoved(b: Buffer) =
       if b.getCell(i).s == tc:
         if b[i] == le:
           if counter <= 0:
-            b.bracketToHighlight = i
+            b.bracketToHighlightA = i
+            b.bracketToHighlightB = if b[i+1] == '.': i+1 else: i
             break
           dec counter
         elif b[i] == ri:
@@ -42,7 +44,8 @@ proc cursorMoved(b: Buffer) =
       dec i
 
   const brackets = {'(', '{', '[', ']', '}', ')'}
-  b.bracketToHighlight = -1
+  b.bracketToHighlightA = -1
+  b.bracketToHighlightB = -1
   # fast check that is likely false:
   if b[b.cursor] in brackets:
     case b[b.cursor]
@@ -69,7 +72,8 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.markers = @[]
   result.selected.a = -1
   result.selected.b = -1
-  result.bracketToHighlight = -1
+  result.bracketToHighlightA = -1
+  result.bracketToHighlightB = -1
   result.activeLines = initIntSet()
   initStrTable(result.symtab)
 
@@ -85,7 +89,8 @@ proc clear*(result: Buffer) =
   result.cursor = 0
   result.selected.a = -1
   result.selected.b = -1
-  result.bracketToHighlight = -1
+  result.bracketToHighlightA = -1
+  result.bracketToHighlightB = -1
   result.span = 0
   result.firstLineOffset = 0
   result.readOnly = -1

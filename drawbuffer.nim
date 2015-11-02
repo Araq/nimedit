@@ -417,7 +417,8 @@ proc getBg(b: Buffer; i: int; t: InternalTheme): Color =
   for m in items(b.markers):
     if m.a <= i and i <= m.b:
       return b.mgr.b[mcHighlighted]
-  if t.showBracket and i == b.bracketToHighlight: return t.bracket
+  if t.showBracket and i <= b.bracketToHighlightB and b.bracketToHighlightA <= i:
+    return t.bracket
   return t.bg
 
 proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
