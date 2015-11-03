@@ -14,9 +14,9 @@ import common, languages, themes, nimscriptsupport, tabbar, scrollbar, indexer,
 when defined(windows):
   import dialogs
 
+include version
+
 const
-  Version = "0.92"
-  SessionFileVersion = "1.0"
   readyMsg = "Ready."
 
   controlKey = when defined(macosx): KMOD_GUI or KMOD_CTRL else: KMOD_CTRL
@@ -432,7 +432,7 @@ proc suggest(ed: Editor; cmd: string) =
     ed.focus = ed.prompt
     prompt.clear()
     prompt.insert "project " & findProject(ed)
-  elif not startup(ed.project, ed.nimsuggestDebug):
+  elif not startup(ed.theme.nimsuggestPath, ed.project, ed.nimsuggestDebug):
     ed.statusMsg = "Nimsuggest failed for: " & ed.project
   else:
     requestSuggestion(ed.main, cmd)

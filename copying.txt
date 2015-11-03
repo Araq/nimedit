@@ -1,0 +1,32 @@
+Freeware End User License Agreement
+
+IMPORTANT: Read this license carefully before completing the installation
+process and using the product. By installing and using the product, you are
+confirming your acceptance of the product and agreeing to become bound by
+the terms of this agreement. If you do not agree to be bound by these terms,
+do not install the product.
+
+
+Free License: The license for this version of NimEdit requires no payment
+by the user to Andreas Rumpf or any other party. However, later versions of
+this software may require the user to purchase the software.
+
+Technical support: Because this license is granted to the user for no cost, the
+user is not entitled to free technical support.
+
+License: The user is allowed to use all of the programs, data, and documentation
+included with this Product.
+
+* You may install and use any or all Product Elements included in the Product,
+copy the Product, provided that such copies contain all the original Product's
+contents and proprietary notices.
+* You may not sell the Product or charge a licensing fee for the Product.
+* You may not place the Product or any Product Element on the Internet or any
+other public access network.
+* You may not extract portions of the Product.
+* You may not include the Product or any Product Element in any other
+  collection or other product.
+* You may not remove any proprietary notices on the Product.
+
+Copyright © 2015 Andreas Rumpf
+All rights reserved

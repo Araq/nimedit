@@ -95,8 +95,11 @@ proc shutdown*() {.noconv.} =
     nimsuggest.close()
     nimsuggest = nil
 
-proc startup*(project: string; debug: bool): bool =
+proc startup*(nimsuggestPath, project: string; debug: bool): bool =
   if nimsuggest.isNil or project != prevProject or not nimsuggest.running:
+    let sug = if nimsuggestPath == "$path": findExe("nimsuggest")
+              elif nimsuggestPath.len > 0: nimsuggestPath
+              else: getAppDir() / addFileExt("nimsuggest", ExeExt)
     prevProject = project
     try:
       shutdown()
@@ -106,7 +109,7 @@ proc startup*(project: string; debug: bool): bool =
       args.add("--v2")
       args.add(project)
 
-      nimsuggest = startProcess(findExe("nimsuggest"), nimPath, args,
+      nimsuggest = startProcess(sug, nimPath, args,
                        options = {poStdErrToStdOut, poUsePath, poDemon})
       # give it some time to startup:
       #commands.send(pauseToken)

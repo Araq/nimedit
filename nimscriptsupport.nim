@@ -173,6 +173,7 @@ proc loadTheme*(colorsScript: string; result: var InternalTheme;
   trivialField indentation
   trivialField showMinimap
   trivialField showLigatures
+  trivialField nimsuggestPath
 
   let fontName = if result.editorFont.len > 0: result.editorFont
                  else: "DejaVuSansMono"

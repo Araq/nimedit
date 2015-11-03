@@ -27,6 +27,7 @@ type
     indentation*: Color
     showMinimap*: bool
     showLigatures*: bool
+    nimsuggestPath*: string
 
 var
   theme* {.exportNims.}: Theme

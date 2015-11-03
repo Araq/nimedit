@@ -1,6 +1,10 @@
 ## See the file 'themedesc.nim' to see what is theme-able (everything).
 import themedesc
 
+# "" means to take the nimsuggest that the installer provided. You can also
+# use "$path" to make NimEdit use a nimsuggest.exe that is in your path.
+theme.nimsuggestPath = r""
+
 const
   White = 0xffffff
   Orange = 0xFFA500

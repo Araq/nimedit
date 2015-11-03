@@ -343,7 +343,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
     of "shutdown", "stop", "quit", "halt", "exit":
       nimsuggestclient.shutdown()
     of "restart", "start":
-      if not startup(ed.project, ed.nimsuggestDebug):
+      if not startup(ed.theme.nimsuggestPath, ed.project, ed.nimsuggestDebug):
         ed.statusMsg = "Nimsuggest failed for: " & ed.project
     of "debug":
       var onoff = ""
