@@ -8,8 +8,8 @@ import strutils, critbits, os, times, browsers
 from parseutils import parseInt
 import sdl2, sdl2/ttf, prims
 import buffertype, buffer, styles, unicode, highlighters, console
-import common, languages, themes, nimscriptsupport, tabbar, scrollbar, indexer,
-  overviews, nimsuggestclient, minimap
+import nimscript/common, languages, themes, nimscriptsupport, tabbar,
+  scrollbar, indexer, overviews, nimsuggestclient, minimap
 
 when defined(windows):
   import dialogs

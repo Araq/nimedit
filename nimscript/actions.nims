@@ -1,6 +1,4 @@
 
-
-
 import strutils, editor
 
 proc doQuote*(selected: string): string =

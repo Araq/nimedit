@@ -1,5 +1,5 @@
 
-import styles, languages, common, intsets, compiler/ast
+import styles, languages, nimscript/common, intsets, compiler/ast
 from times import Time
 from sdl2 import Rect
 

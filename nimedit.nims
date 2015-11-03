@@ -22,5 +22,5 @@ task installer, "Build the installer":
 
 task docs, "Build the documentation":
   exec "nim doc2 nimscript/editor.nim"
-  mvFile "nimscript/editor.html", "api.html"
+  exec "nim doc2 nimscript/common.nim"
   setCommand "rst2html", "docs.rst"

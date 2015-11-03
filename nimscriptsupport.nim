@@ -9,7 +9,7 @@ import
 from compiler/scriptconfig import setupVM
 
 import os, strutils
-import themes, styles, common
+import themes, styles, nimscript/common
 
 proc raiseVariableError(ident, typ: string) {.noinline.} =
   raise newException(ValueError,

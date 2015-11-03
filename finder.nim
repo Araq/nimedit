@@ -91,9 +91,6 @@ proc filterOccurances*(b: Buffer) =
     b.activeLines.incl b.getLineFromOffset(m.a)
     b.activeLines.incl b.getLineFromOffset(m.b)
 
-#proc findLineWithPrefix*(b: Buffer; prefix: string): int =
-#
-
 proc doReplace*(b: Buffer): bool =
   if b.activeMarker < b.markers.len:
     # we have to copy it here and delete it immediately so that the updates

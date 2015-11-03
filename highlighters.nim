@@ -12,7 +12,7 @@
 ## The interface supports one language nested in another.
 
 import
-  strutils, buffertype, styles, languages, common
+  strutils, buffertype, styles, languages, nimscript/common
 
 from sdl2 import Color
 

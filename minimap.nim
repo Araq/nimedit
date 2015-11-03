@@ -1,5 +1,5 @@
 
-import buffertype, buffer, languages, common, highlighters
+import buffertype, buffer, languages, nimscript/common, highlighters
 import strutils except Letters
 
 proc fillMinimap*(m, b: Buffer) =

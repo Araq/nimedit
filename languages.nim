@@ -1,5 +1,5 @@
 
-import common
+import nimscript/common
 
 const
   sourceLanguageToStr*: array[SourceLanguage, string] = ["none",

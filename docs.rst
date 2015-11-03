@@ -17,6 +17,7 @@ well as a "console":
 
 .. image:: ui_desc.png
 
+You can right click on a tab to close it.
 
 
 Shortcuts
@@ -46,7 +47,8 @@ CTRL+N         Open a new buffer.
 CTRL+Q         Close the current buffer.
 CTRL+M         Open a minimap. The minimap contains
                a list of all declarations in the current Nim file.
-CTRL+Space     Open auto-complete.
+CTRL+Space     Open auto-complete. If the caret is behind a dot, nimsuggest
+               integration is
 ESC            Switch between editor and prompt.
 F1             Switch between editor and console.
 F2             Nimsuggest integration: Goto definitions/usages.
@@ -89,9 +91,27 @@ Every command is case insensitive.
   Replace all occurances of a phrase in the current buffer. You will be asked about
   every replacement.
 
+
+``search_options`` is a string of single letters with no whitespace in between.
+
+==============      ===========================================================
+search_options      meaning
+==============      ===========================================================
+``w``               Respect word boundaries. Note: Searches for single letters
+                    trigger this automatically. Use ``s`` to override this
+                    behaviour.
+``s``               Do not respect word boundaries.
+``p``               Precise search, do not ignore case sensitivity.
+``f``               Only search for the term in the active tab. Otherwise every
+                    tab is searched.
+``r``               Coming soon: Regular expression based search.
+==============      ===========================================================
+
+
+
 ``lang``
-  Set the programming language of the current buffer. Note that currently only a limited
-  choice of programming languages is supported.
+  Set the programming language of the current buffer. Note that currently only a
+  limited choice of programming languages is supported.
 
 ``LF``, ``CRLF``, ``CR``
   Set the line endings of the file to LF or CRLF or CR. When the buffer is saved
@@ -123,3 +143,18 @@ Every command is case insensitive.
 
 ``sug debug off``
   Disable nimsuggest debug mode.
+
+
+NimScript integration
+=====================
+
+Type ``scripts`` into the prompt. Take a look at the implementation of what
+happens if ``F6`` is pressed:
+
+.. code-block:: Nim
+  proc pressedF6*() =
+    let w = getCurrentIdent(true)
+    insert("<$1></$1>" % w)
+    setCaret(getCaret() - w.len - "</>".len)
+
+The API that NimEdit exposes is documented here: `editor.html`_

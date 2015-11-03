@@ -1,4 +1,4 @@
-# Common definitions for both the core of Editnova
+# Common definitions for both the core of NimEdit
 # as well as its NimScript support
 
 type

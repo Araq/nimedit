@@ -1,6 +1,6 @@
 ## The API that is available for Nimscript.
 
-import "../common"
+import common
 
 template builtin = discard
 

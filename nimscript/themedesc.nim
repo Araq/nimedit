@@ -1,5 +1,5 @@
 
-include "../common"
+include common
 
 type
   Color* = int
