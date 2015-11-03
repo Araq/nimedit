@@ -15,7 +15,7 @@ when defined(windows):
   import dialogs
 
 const
-  Version = "0.91"
+  Version = "0.92"
   SessionFileVersion = "1.0"
   readyMsg = "Ready."
 
