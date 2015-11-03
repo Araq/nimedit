@@ -763,26 +763,6 @@ proc gotoPos*(b: Buffer; pos: int) =
     b.firstLineOffset = getLineOffset(b, b.firstLine)
     assert b.firstLineOffset == 0 or b[b.firstLineOffset-1] == '\L'
 
-proc gotoFirstMarker*(b: Buffer): bool =
-  b.activeMarker = 0
-  if b.activeMarker < b.markers.len:
-    gotoPos(b, b.markers[b.activeMarker].b+1)
-    result = true
-
-proc gotoNextMarker*(b: Buffer) =
-  inc b.activeMarker
-  if b.activeMarker >= b.markers.len:
-    b.activeMarker = 0
-  if b.activeMarker < b.markers.len:
-    gotoPos(b, b.markers[b.activeMarker].b+1)
-
-proc gotoPrevMarker*(b: Buffer) =
-  dec b.activeMarker
-  if b.activeMarker < 0:
-    b.activeMarker = b.markers.high
-  if b.activeMarker < b.markers.len:
-    gotoPos(b, b.markers[b.activeMarker].b+1)
-
 proc tabPressed*(b: Buffer) =
   #if b.markers.len == 0:
   indent(b)

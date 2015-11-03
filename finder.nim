@@ -5,7 +5,8 @@ type
     #searchRe,
     ignoreCase,
     ignoreStyle,
-    wordBoundary
+    wordBoundary,
+    onlyCurrentFile
   SearchOptions* = set[SearchOption]
 
 proc parseSearchOptions*(s: string): SearchOptions =
@@ -20,6 +21,7 @@ proc parseSearchOptions*(s: string): SearchOptions =
     of 'p', 'P', 'c', 'C':
       result.excl ignoreCase
       result.excl ignoreStyle
+    of 'f', 'F': result.incl onlyCurrentFile
     else: discard
 
 type

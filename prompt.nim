@@ -60,6 +60,53 @@ proc askForQuitTab(ed: Editor) =
   ed.statusMsg = saveChanges
   ed.focus = prompt
 
+proc findAll(ed: Editor; searchPhrase: string; searchOptions: SearchOptions) =
+  for it in allBuffers(ed):
+    it.findNext(searchPhrase, searchOptions)
+    it.activeMarker = 0
+    if onlyCurrentFile in searchOptions: break
+
+proc gotoFirstMarker(ed: Editor; stayInFile: bool): bool =
+  for b in allBuffers(ed):
+    if b.activeMarker < b.markers.len:
+      gotoPos(b, b.markers[b.activeMarker].b+1)
+      result = true
+      break
+    elif stayInFile:
+      break
+
+proc gotoNextMarker(ed: Editor; stayInFile: bool) =
+  var b = ed.main
+  inc b.activeMarker
+  if b.activeMarker >= b.markers.len:
+    b.activeMarker = 0
+    if not stayInFile:
+      let start = b
+      while true:
+        b = b.next
+        if b == start: break
+        if b.activeMarker < b.markers.len:
+          ed.main = b
+          break
+  if b.activeMarker < b.markers.len:
+    gotoPos(b, b.markers[b.activeMarker].b+1)
+
+proc gotoPrevMarker(ed: Editor; stayInFile: bool) =
+  var b = ed.main
+  dec b.activeMarker
+  if b.activeMarker < 0:
+    b.activeMarker = b.markers.high
+    if not stayInFile:
+      let start = b
+      while true:
+        b = b.prev
+        if b == start: break
+        if b.activeMarker < b.markers.len:
+          ed.main = b
+          break
+  if b.activeMarker < b.markers.len:
+    gotoPos(b, b.markers[b.activeMarker].b+1)
+
 proc smartOpen(ed: Editor; p: var string): bool {.discardable.} =
   if p.len > 0:
     if not ed.openTab(p, true):
@@ -114,7 +161,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
                  else: requestedNothing
     of requestedReplace:
       if ed.main.doReplace():
-        ed.main.gotoNextMarker()
+        ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
       else:
         ed.statusMsg = readyMsg
         ed.state = requestedNothing
@@ -134,7 +181,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
       ed.state = if ed.state==requestedShutdown: requestedShutdownNext
                  else: requestedNothing
     of requestedReplace:
-      ed.main.gotoNextMarker()
+      ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
     of requestedReload:
       ed.state = requestedNothing
       ed.statusMsg = readyMsg
@@ -148,7 +195,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
     if ed.state == requestedReplace:
       ed.main.activeMarker = 0
       while ed.main.doReplace():
-        ed.main.gotoNextMarker()
+        ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
       ed.statusMsg = readyMsg
       ed.prompt.clear()
       ed.focus = ed.main
@@ -160,8 +207,9 @@ proc runCmd(ed: Editor; cmd: string): bool =
     if searchPhrase.len > 0:
       var searchOptions = ""
       i = parseWord(cmd, searchOptions, i)
-      ed.main.findNext(searchPhrase, parseSearchOptions searchOptions)
-      if ed.main.gotoFirstMarker():
+      ed.searchOptions = parseSearchOptions searchOptions
+      ed.findAll(searchPhrase, ed.searchOptions)
+      if ed.gotoFirstMarker(onlyCurrentFile in ed.searchOptions):
         ed.prompt.clear()
         if action == "filter":
           filterOccurances(ed.main)
@@ -175,9 +223,9 @@ proc runCmd(ed: Editor; cmd: string): bool =
       if action == "filter":
         ed.main.filterLines = false
   of "next":
-    ed.main.gotoNextMarker()
+    ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
   of "prev":
-    ed.main.gotoPrevMarker()
+    ed.gotoPrevMarker(onlyCurrentFile in ed.searchOptions)
   of "replace", "r":
     var searchPhrase = ""
     i = parseWord(cmd, searchPhrase, i)
@@ -186,9 +234,11 @@ proc runCmd(ed: Editor; cmd: string): bool =
       i = parseWord(cmd, toReplaceWith, i)
       var searchOptions = ""
       i = parseWord(cmd, searchOptions, i)
-      ed.main.findNext(searchPhrase, parseSearchOptions searchOptions,
+      ed.searchOptions = parseSearchOptions searchOptions
+      ed.findAll(searchPhrase, ed.searchOptions)
+      ed.main.findNext(searchPhrase, ed.searchOptions,
                        toReplaceWith)
-      if ed.main.gotoFirstMarker():
+      if ed.gotoFirstMarker(onlyCurrentFile in ed.searchOptions):
         ed.prompt.clear()
         ed.state = requestedReplace
         ed.statusMsg = askForReplace

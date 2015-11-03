@@ -65,6 +65,7 @@ type
                             # the list of open buffers so that it's dead
                             # simple to reopen a recently closed file.
     nimsuggestDebug: bool
+    searchOptions: SearchOptions
 
 proc trackSpot(s: var Spots; b: Buffer) =
   if b.filename.len == 0: return

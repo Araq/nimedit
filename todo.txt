@@ -1,6 +1,5 @@
 TODO:
  - 'nim check' integration
- - make search and replace work for all active buffers
 
  - on the fly search
  - regex search&replace
