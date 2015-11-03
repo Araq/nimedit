@@ -157,4 +157,4 @@ happens if ``F6`` is pressed:
     insert("<$1></$1>" % w)
     setCaret(getCaret() - w.len - "</>".len)
 
-The API that NimEdit exposes is documented here: `editor.html`_
+The API that NimEdit exposes is documented here: `<editor.html>`_
