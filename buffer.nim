@@ -633,7 +633,6 @@ proc backspace*(b: Buffer; smartIndent: bool; overrideUtf8=false) =
         case b[i]
         of ' ':
           inc spaces
-          if spaces >= b.tabsize: break
         of '\L':
           if spaces == 0: spaces = 1
           break
@@ -641,7 +640,7 @@ proc backspace*(b: Buffer; smartIndent: bool; overrideUtf8=false) =
           spaces = 1
           break
         dec i
-      for _ in 1..spaces:
+      for _ in 1..min(b.tabsize, spaces):
         backspaceNoSelect(b, overrideUtf8)
     else:
       backspaceNoSelect(b, overrideUtf8)
