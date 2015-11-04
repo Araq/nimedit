@@ -18,7 +18,9 @@ include version
 
 task installer, "Build the installer":
   mkDir "build"
-  exec "niminst".toExe & " --var:version=" & Version & " inno installer.ini"
+  let cmd = when defined(windows): "inno" else: "xz"
+  exec "niminst".toExe & " --var:version=" & Version & " " &
+      cmd & " installer.ini"
   setCommand "nop"
 
 task docs, "Build the documentation":
