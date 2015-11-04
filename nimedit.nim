@@ -115,7 +115,7 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.con = newConsole(ed.console)
   ed.promptCon = newConsole(ed.prompt)
 
-  ed.uiFont = fontM.fontByName("Arial", 12)
+  #ed.uiFont = fontM.fontByName("Arial", 12)
   ed.theme.active[true] = parseColor"#FFA500"
   ed.theme.active[false] = parseColor"#C0C0C0"
   ed.theme.bg = parseColor"#292929"
@@ -391,7 +391,7 @@ proc harddiskCheck(ed: Editor) =
         discard
 
 const
-  DefaultTimeOut = 500.cint
+  DefaultTimeOut = when defined(linux): 100.cint else: 500.cint
   TimeoutsPerSecond = 1000 div DefaultTimeOut
 
 proc tick(ed: Editor) =
@@ -453,6 +453,14 @@ proc handleEvent(ed: Editor; procname: string) =
     if not ed.hasConsole:
       ed.statusMsg = "Errors! Open console to see them."
 
+proc myWaitEventTimeout(e: var Event; timeout: cint): auto =
+  when defined(linux):
+    #os.sleep 10 #(timeout)
+    #result = pollEvent(e)
+    result = waitEvent(e)
+  else:
+    result = waitEventTimeout(e, timeout)
+
 proc mainProc(ed: Editor) =
   addQuitProc nimsuggestclient.shutdown
 
@@ -470,9 +478,11 @@ proc mainProc(ed: Editor) =
                                               ed.theme.editorFontSize)
 
   loadTheme()
+  # Doesn't work on Linux. Yay.
+  const maximized = when defined(linux): 0'u32 else: SDL_WINDOW_MAXIMIZED
 
   ed.window = createWindow(windowTitle, 10, 30, ed.screenW, ed.screenH,
-                            SDL_WINDOW_RESIZABLE or SDL_WINDOW_MAXIMIZED)
+                            SDL_WINDOW_RESIZABLE or maximized)
   ed.window.getSize(ed.screenW, ed.screenH)
   ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
   ed.theme.renderer = ed.renderer
@@ -514,7 +524,7 @@ proc mainProc(ed: Editor) =
                   else:
                     DefaultTimeOut
     let eventRes = if windowHasFocus or ed.con.processRunning:
-                     waitEventTimeout(e, timeout)
+                     myWaitEventTimeout(e, timeout)
                    else:
                      waitEvent(e)
     if eventRes == SdlSuccess:
@@ -538,6 +548,10 @@ proc mainProc(ed: Editor) =
           windowHasFocus = true
       of MouseButtonDown:
         let w = e.button
+        # this mitigates problems with older SDL 2 versions (prior to 2.0.3
+        # there was no 'clicks' field. Yeah introduce major features in
+        # a bugfix release, why not...
+        if w.clicks == 0: w.clicks = 1
         let p = point(w.x, w.y)
         if ed.mainRect.contains(p):
           if focus == main and rawMainRect.contains(p):
