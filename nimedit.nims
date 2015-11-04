@@ -8,7 +8,8 @@ switch("path", "$lib/../")
 
 --define: booting
 --define:useStdoutAsStdmsg
---app:gui
+when defined(windows):
+  --app:gui
 
 #--noNimblePath
 
