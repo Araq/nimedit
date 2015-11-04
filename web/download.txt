@@ -19,7 +19,7 @@ Linux
 
 This should run on Ubuntu x86-64:
 
-`NimEdit-0.94.exe <download/nimedit-0.94.tar.xz>`_
+`NimEdit-0.94.tar.xz <download/nimedit-0.94.tar.xz>`_
 
 Requirements: Install ``SDL2`` and ``SDL2_ttf`` packages via your package
 manager.
