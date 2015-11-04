@@ -274,22 +274,17 @@ proc runCmd(ed: Editor; cmd: string): bool =
     i = parseWord(cmd, p, i)
     if p.len > 0:
       ed.statusMsg = readyMsg
-      try:
-        p = expandFilename(p)
-      except OSError:
-        ed.statusMsg = getCurrentExceptionMsg()
-      if ed.statusMsg == readyMsg:
-        var answer = ""
-        i = parseWord(cmd, answer, i, true)
-        if cmpPaths(ed.main.filename, p) == 0 or
-            not os.fileExists(p) or answer[0] == 'y':
-          ed.main.saveAs(p)
-          success()
-        elif answer[0] == 'n':
-          success()
-        else:
-          ed.statusMsg = "File already exists. Overwrite? [yes|no]"
-          ed.prompt.insert(" no")
+      var answer = ""
+      i = parseWord(cmd, answer, i, true)
+      if cmpPaths(ed.main.filename, p) == 0 or
+          not os.fileExists(p) or answer[0] == 'y':
+        ed.main.saveAs(p)
+        success()
+      elif answer[0] == 'n':
+        success()
+      else:
+        ed.statusMsg = "File already exists. Overwrite? [yes|no]"
+        ed.prompt.insert(" no")
     else:
       ed.main.save()
       success()
