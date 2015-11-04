@@ -28,5 +28,5 @@ other public access network.
   collection or other product.
 * You may not remove any proprietary notices on the Product.
 
-Copyright © 2015 Andreas Rumpf
+Copyright (c) 2015 Andreas Rumpf
 All rights reserved
