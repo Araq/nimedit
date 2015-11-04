@@ -14,11 +14,11 @@ Configuration is a text file
   <img src="screenshots/config.png" alt="screenshot config" height="80%" width="auto"/>
 
 
-Nimsuggest integration
-======================
+Autocompletion
+==============
 
 .. raw:: html
-  <img src="screenshots/suggest1.png" alt="screenshot nimsuggest" height="auto" width="80%"/>
+  <img src="screenshots/autocompletion.png" alt="screenshot autocompletion" height="auto" width="80%"/>
 
 
 No horizontal scrolling

@@ -6,10 +6,26 @@ You can download the latest version of the NimEdit here.
 **Note:** NimEdit requires a working installation of Nim on your computer.
 In particular ``nim`` needs to be in your ``$PATH``.
 
+**This is beta quality software!**
 
 Windows
 -------
 
-Unfortunately for now we only provide builds for Windows.
-`NimEdit-0.92.exe <download/NimEdit_0.92.exe>`_
+This requires Windows Vista or later:
+`NimEdit-0.94.exe <download/NimEdit_0.94.exe>`_
 
+Linux
+-----
+
+This should run on Ubuntu x86-64:
+
+`NimEdit-0.94.exe <download/nimedit-0.94.tar.xz>`_
+
+Requirements: Install ``SDL2`` and ``SDL2_ttf`` packages via your package
+manager.
+
+
+Mac OS X
+--------
+
+There is no Mac OS X build at this time, sorry.
