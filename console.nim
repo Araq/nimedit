@@ -309,7 +309,8 @@ proc execThreadProc() {.thread.} =
             let (bin, args) = cmdToArgs(task)
             try:
               p = startProcess(bin, os.getCurrentDir(), args,
-                        options = {poStdErrToStdOut, poUsePath, poInteractive})
+                        options = {poStdErrToStdOut, poUsePath, poInteractive,
+                                   poDemon})
               o = p.outputStream
               started = true
             except:
