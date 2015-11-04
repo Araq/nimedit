@@ -1,0 +1,67 @@
+#? stdtmpl | standard
+#proc generateHTMLPage(c: var TConfigData, currentTab, content, rss: string): string =
+#  result = ""
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>$c.projectTitle</title>
+    <link rel="stylesheet" type="text/css" href="assets/style.css" />
+    <link rel="shortcut icon" href="assets/images/favicon.ico">
+  #if len(rss) > 0:
+    <link href="$rss" title="Recent changes" type="application/atom+xml" rel="alternate">
+  #end if
+  </head>
+  <body>
+    <div id="logo"><a title="back to home" href="index.html">$c.projectTitle</a></div>
+    <div id="menu">
+      #for i in 0.. c.tabs.len-1:
+      # let t = c.tabs[i].val
+      # if true:
+      #   var name = c.tabs[i].key
+      #   if currentTab == t:
+      #     name = "<u>" & name & "</u>"
+      #   end if
+            <a class="menuitem"
+      #   if t.contains('.'):
+            href="${t}" title = "$c.projectName - $name">$name</a>
+      #   else:
+            href="${t}.html" title = "$c.projectName - $name">$name</a>
+      #   end if
+      # end if
+      #end for
+
+      #if false and len(c.ticker) > 0:
+        <h2 class="news">Latest News</h2>
+        $c.ticker
+      #end if
+    </div>
+
+#  if false and len(c.links) > 0:
+          <div id="trail">
+#         for i in 0..c.links.len-1:
+          <a href="${c.links[i].val}" id="${c.links[i].id}">${c.links[i].key}</a>
+#         end for
+          </div>
+#  end if
+
+		<div id="content">
+				$content
+		</div>
+
+#  if currentTab == "index":
+  <script src="assets/index.js"></script>
+# end if
+#  if c.gaId != nil:
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    ga('create', '${c.gaId}', 'nim-lang.org');
+    ga('send', 'pageview');
+  </script>
+#  end if
+</body>
+</html>

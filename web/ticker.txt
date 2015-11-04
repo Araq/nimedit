@@ -1,0 +1,4 @@
+<a class="news" href="news.html#Z2015-11-04-version-0-92-released">
+  <h4>November 4, 2015</h4>
+  <p>NimEdit version 0.92 (beta) has been released!</p>
+</a>

@@ -1,0 +1,15 @@
+Download NimEdit
+================
+
+You can download the latest version of the NimEdit here.
+
+**Note:** NimEdit requires a working installation of Nim on your computer.
+In particular ``nim`` needs to be in your ``$PATH``.
+
+
+Windows
+-------
+
+Unfortunately for now we only provide builds for Windows.
+`NimEdit-0.92.exe <download/NimEdit_0.92.exe>`_
+

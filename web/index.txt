@@ -1,0 +1,26 @@
+====
+Home
+====
+
+NimEdit is the upcoming slim IDE / editor for Nim. Written from scratch
+in Nim, it can be scripted with NimScript. Scripting is seen as the solution
+to avoid feature creep.
+
+Its design is minimalistic and yet it is one of the most powerful
+editors out there. Once you tried it for a while, you cannot go
+back to other tools.
+
+
+Features
+========
+
+* Nimsuggest integration.
+* Scriptable with `NimScript <docs/editor.html>`_.
+* Attached console; NimEdit works with every build tool out of the box!
+* Keyboard centric design.
+* Smart word wrap, horizontal scrolling is a thing of the past.
+* A **minimap** showing you where you are in a long function.
+
+
+.. raw:: html
+  <a href="screenshots.html"><img src="screenshots/shot1.png" alt="screenshot" height="auto" width="80%"/></a>

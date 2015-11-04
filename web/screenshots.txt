@@ -1,0 +1,28 @@
+
+
+Main view
+=========
+
+.. raw:: html
+  <img src="screenshots/shot1.png" alt="screenshot main" height="auto" width="80%"/>
+
+
+Configuration is a text file
+============================
+
+.. raw:: html
+  <img src="screenshots/config.png" alt="screenshot config" height="80%" width="auto"/>
+
+
+Nimsuggest integration
+======================
+
+.. raw:: html
+  <img src="screenshots/suggest1.png" alt="screenshot nimsuggest" height="auto" width="80%"/>
+
+
+No horizontal scrolling
+=======================
+
+.. raw:: html
+  <img src="screenshots/wordwrap.png" alt="screenshot wordwrap" height="auto" width="80%"/>
