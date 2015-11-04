@@ -20,7 +20,7 @@ const
   readyMsg = "Ready."
 
   controlKey = when defined(macosx): KMOD_GUI or KMOD_CTRL else: KMOD_CTRL
-  windowTitle = "NimEdit"
+  windowTitle = "NimEdit v" & Version
 
 
 template crtlPressed(x): untyped =
@@ -866,8 +866,7 @@ proc mainProc(ed: Editor) =
     let position = ed.theme.renderText("Ln: " & $(getLine(main)+1) &
                                        " Col: " & $(getColumn(main)+1) &
                                        " \\t: " & $main.tabSize &
-                                       " " & main.lineending.displayNL &
-                                       " v" & Version,
+                                       " " & main.lineending.displayNL,
                                        ed.uiFont, ed.theme.fg)
     renderer.draw(statusBar, 15, bottom)
     renderer.draw(position,
