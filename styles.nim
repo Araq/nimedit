@@ -28,8 +28,13 @@ type
     a*: array[TokenClass, Style]
     b*: array[MarkerClass, Color]
 
-const
-  FontStyleToSuffix: array[FontStyle, string] = ["", "bd", "i", "bi"]
+when defined(linux):
+  const
+    FontStyleToSuffix: array[FontStyle, string] = [
+      "", "-Bold", "-Oblique", "-BoldOblique"]
+else:
+  const
+    FontStyleToSuffix: array[FontStyle, string] = ["", "bd", "i", "bi"]
 
 proc fatal*(msg: string) {.noReturn.} =
   sdl2.quit()
@@ -57,7 +62,7 @@ proc fontByName*(m: var FontManager; name: string; size: byte;
       location = r"/Library/Fonts/"
       result = openFont(location & name & ".ttf", size.cint)
     elif defined(linux):
-      location = r"/usr/share/fonts/truetype/msttcorefonts"
+      location = r"/usr/share/fonts/truetype/"
       result = openFont(location & name & ".ttf", size.cint)
     else:
       discard "XXX implement for other OSes"

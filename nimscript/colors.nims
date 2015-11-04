@@ -16,9 +16,11 @@ const
   Green = 0x44FF44
   Deeppink = 0xFF1493
 
-theme.editorFont = "DejaVuSansMono"
+theme.editorFont = when defined(linux): "dejavu/DejaVuSansMono" 
+                   else: "DejaVuSansMono"
 theme.editorFontSize = 15
-theme.uiFont = "Arial"
+
+theme.uiFont = when defined(linux): "freefont/FreeSans" else: "Arial"
 theme.uiFontSize = 12
 theme.uiXGap = 5
 theme.uiYGap = 5
