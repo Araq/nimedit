@@ -48,7 +48,7 @@ CTRL+Q         Close the current buffer.
 CTRL+M         Open a minimap. The minimap contains
                a list of all declarations in the current Nim file.
 CTRL+Space     Open auto-complete. If the caret is behind a dot, nimsuggest
-               integration is
+               is queried.
 ESC            Switch between editor and prompt.
 F1             Switch between editor and console.
 F2             Nimsuggest integration: Goto definitions/usages.

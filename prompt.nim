@@ -117,16 +117,17 @@ proc smartOpen(ed: Editor; p: var string): bool {.discardable.} =
   else:
     result = true
 
+proc unmark(ed: Editor) =
+  ed.focus = ed.main
+  ed.state = requestedNothing
+  ed.statusMsg = readyMsg
+  for x in allBuffers(ed):
+    x.markers.setLen 0
+
 proc runCmd(ed: Editor; cmd: string): bool =
   let prompt = ed.prompt
 
   ed.promptCon.hist.addCmd(cmd)
-
-  template unmark() =
-    ed.focus = ed.main
-    ed.state = requestedNothing
-    ed.statusMsg = readyMsg
-    ed.main.markers.setLen 0
 
   template success() =
     prompt.clear()
@@ -219,7 +220,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
       else:
         ed.statusMsg = "Match not found."
     else:
-      unmark()
+      unmark(ed)
       if action == "filter":
         ed.main.filterLines = false
   of "next":
@@ -245,7 +246,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
       else:
         ed.statusMsg = "Match not found."
     else:
-      unmark()
+      unmark(ed)
   of "goto", "g":
     var dest = ""
     i = parseWord(cmd, dest, i, true)

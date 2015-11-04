@@ -237,7 +237,7 @@ proc openTab(ed: Editor; filename: string;
     ed.focus = ed.main
     for it in ed.allBuffers:
       if it.heading == displayname:
-        disamb(it.filename, fullpath, it.heading, displayName)
+        disamb(it.filename, fullpath, it.heading, x.heading)
     result = true
   except IOError:
     ed.statusMsg = "cannot open: " & filename
@@ -401,9 +401,13 @@ proc tick(ed: Editor) =
     indexBuffers(ed.indexer, ed.main)
     highlightIncrementally(ed.main)
 
-    if ed.minimap.version != ed.main.currentLine and ed.theme.showMinimap:
-      ed.minimap.version = ed.main.currentLine
-      fillMinimap(ed.minimap, ed.main)
+    if ed.theme.showMinimap:
+      if ed.minimap.version != ed.main.currentLine:
+        ed.minimap.version = ed.main.currentLine
+        fillMinimap(ed.minimap, ed.main)
+      if ed.minimap.heading != ed.main.heading:
+        ed.minimap.heading = ed.main.heading
+        fillMinimap(ed.minimap, ed.main)
 
   # every 10 seconds check if the file's contents have changed on the hard disk
   # behind our back:
@@ -823,7 +827,7 @@ proc mainProc(ed: Editor) =
     mainBorder.w = ed.mainRect.x + ed.mainRect.w - 1 - mainBorder.x
     ed.theme.drawBorder(mainBorder, focus==main)
     if main.posHint.w > 0 and ed.minimap.len > 0 and ed.theme.showMinimap and
-        main.cursorDim.h > 0:
+        main.cursorDim.h > 0 and ed.minimap.heading == ed.main.heading:
       # cursorDim.h > 0 means that the cursor is in the view. The minimap is
       # too confusing when the cursor is not visible.
       main.posHint.x += ed.theme.uiXGap.cint
