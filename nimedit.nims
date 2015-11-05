@@ -21,6 +21,9 @@ task installer, "Build the installer":
   let cmd = when defined(windows): "inno" else: "xz"
   exec "niminst".toExe & " --var:version=" & Version & " " &
       cmd & " installer.ini"
+  when defined(macosx):
+    mvFile("build/nimedit-" & Version & ".tar.xz",
+           "build/nimedit-" & Version & "-mac.tar.xz")
   setCommand "nop"
 
 task docs, "Build the documentation":
