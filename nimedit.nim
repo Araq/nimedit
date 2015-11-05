@@ -105,6 +105,7 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
 
   ed.autocomplete = newBuffer("autocomplete", addr ed.mgr)
   ed.minimap = newBuffer("minimap", addr ed.mgr)
+  ed.minimap.isSmall = true
   ed.sug = newBuffer("sug", addr ed.mgr)
   ed.sug.lang = langNim
 

@@ -3,9 +3,9 @@ import buffertype, buffer, languages, nimscript/common, highlighters
 import strutils except Letters
 
 proc fillMinimap*(m, b: Buffer) =
-  if b.lang in {langNone, langConsole}: return
   m.lang = b.lang
   m.clear()
+  if b.lang in {langNone, langConsole}: return
   var i = b.cursor
   while i > 0 and b[i-1] != '\L': dec i
   var indent = 0

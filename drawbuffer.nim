@@ -245,7 +245,7 @@ proc indWidth(db: DrawBuffer): cint =
     if b[i] == '\t': inc r, b.tabsize
     else: inc r
     inc i
-  if r > 0:
+  if r > 0 or db.b.isSmall:
     inc r, b.tabSize
   elif db.b.lang notin {langNone, langConsole}:
     while true:

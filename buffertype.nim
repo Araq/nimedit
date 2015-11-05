@@ -40,6 +40,8 @@ type
     actions*: seq[Action]
     undoIdx*: int
     changed*: bool
+    filterLines*: bool
+    isSmall*: bool
     tabSize*: int8  # we detect the tabsize on loading a document
     selected*: tuple[a, b: int]
     markers*: seq[Marker]
@@ -53,7 +55,6 @@ type
     cursorDim*: tuple[x, y, h: int]
     timestamp*: Time
     activeLines*: IntSet
-    filterLines*: bool
     minimapVersion*: int
     posHint*: Rect
     symtab*: TStrTable
