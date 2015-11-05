@@ -92,7 +92,17 @@ proc setupNimscript*(colorsScript: string): PEvalContext =
   passes.gIncludeFile = includeModule
   passes.gImportModule = importModule
 
-  options.libpath = os.findExe("nim").splitPath()[0] /../ "lib"
+  let nimlibCfg = os.getAppDir() / "nimlib.cfg"
+  var nimlib = ""
+  if fileExists(nimlibCfg):
+    nimlib = readFile(nimlibCfg).strip
+    if not fileExists(nimlib / "system.nim"): nimlib.setlen 0
+  if nimlib.len == 0:
+    nimlib = os.findExe("nim")
+    if nimlib.len == 0: quit "cannot find Nim's stdlib location"
+    nimlib = nimlib.splitPath()[0] /../ "lib"
+
+  options.libpath = nimlib
   appendStr(searchPaths, options.libpath)
   appendStr(searchPaths, options.libpath / "pure")
 
