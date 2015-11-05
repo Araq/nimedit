@@ -170,7 +170,9 @@ proc addSearchPath(ed: Editor; path: string) =
 proc findFile(ed: Editor; filename: string): string =
   # be smart and use the list of open tabs as the search path. Ultimately
   # this should also be scriptable.
-  if os.isAbsolute filename: return filename
+  if os.isAbsolute filename:
+    if fileExists(filename): return filename
+    return
   let cwd = os.getCurrentDir() / filename
   if fileExists(cwd): return cwd
   for i in 0..ed.searchPath.high:
@@ -857,6 +859,9 @@ proc mainProc(ed: Editor) =
     ed.window.setTitle(windowTitle & " - " & ed.project.extractFilename)
   ed.con.insertPrompt()
   ed.windowHasFocus = true
+  # we only redraw if an event has been processed or after a timeout
+  # for the cursor blinking in order to save CPU cycles massively:
+  var doRedraw = true
   var oldTicks = getTicks()
   while true:
     # we need to wait for the next frame until the cursor has moved to the
@@ -878,11 +883,13 @@ proc mainProc(ed: Editor) =
       main = b
       ed.askForQuitTab()
 
-    update(ed.con)
-    nimsuggestclient.update(ed.sug)
-    clear(renderer)
+    if e.kind != UserEvent5 or doRedraw:
+      doRedraw = false
+      update(ed.con)
+      nimsuggestclient.update(ed.sug)
+      clear(renderer)
 
-    draw(e, ed)
+      draw(e, ed)
     # if we have an external process running in the background, we have a
     # much shorter timeout. Nevertheless this should not affect our blinking
     # speed:
@@ -900,11 +907,13 @@ proc mainProc(ed: Editor) =
       if timeout == 500:
         ed.blink = 1-ed.blink
         tick(ed)
+        doRedraw = true
       else:
         inc ed.blink
         if ed.blink >= 5:
           ed.blink = 0
           tick(ed)
+          doRedraw = true
 
   freeFonts ed.fontM
   destroy ed
