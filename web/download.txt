@@ -28,4 +28,10 @@ manager.
 Mac OS X
 --------
 
-There is no Mac OS X build at this time, sorry.
+Requirements:
+
+* ``brew install sdl2``
+* ``brew install sdl2_ttf``
+
+`NimEdit-0.94-mac.tar.xz <download/nimedit-0.94-mac.tar.xz>`_
+
