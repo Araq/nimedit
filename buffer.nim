@@ -820,7 +820,7 @@ proc gotoLine*(b: Buffer; line, col: int) =
   b.cursor = getLineOffset(b, line)
   b.currentLine = line
   # if span has not been computed yet, take a guess:
-  let span = if b.span > 0: b.span else: 30
+  let span = if b.span > 0 or b.isSmall: b.span else: 30
   b.firstLine = max(0, line - (span div 2))
   b.firstLineOffset = getLineOffset(b, b.firstLine)
   assert b.firstLineOffset == 0 or b[b.firstLineOffset-1] == '\L'
