@@ -88,21 +88,30 @@ proc extractStyles(result: var StyleManager; fm: var FontManager;
   else:
     raiseVariableError("tokens", "array[TokenClass, (Color, FontStyle)]")
 
+proc detectNimLib(): string =
+  let nimlibCfg = os.getAppDir() / "nimlib.cfg"
+  result = ""
+  if fileExists(nimlibCfg):
+    result = readFile(nimlibCfg).strip
+    if not fileExists(result / "system.nim"): result.setlen 0
+  if result.len == 0:
+    let nimexe = os.findExe("nim")
+    if nimexe.len == 0: quit "cannot find Nim's stdlib location"
+    result = nimexe.splitPath()[0] /../ "lib"
+    if not fileExists(result / "system.nim"):
+      when defined(unix):
+        try:
+          result = nimexe.expandSymlink.splitPath()[0] /../ "lib"
+        except OSError:
+          quit "cannot find Nim's stdlib location"
+      if not fileExists(result / "system.nim"):
+        quit "cannot find Nim's stdlib location"
+
 proc setupNimscript*(colorsScript: string): PEvalContext =
   passes.gIncludeFile = includeModule
   passes.gImportModule = importModule
 
-  let nimlibCfg = os.getAppDir() / "nimlib.cfg"
-  var nimlib = ""
-  if fileExists(nimlibCfg):
-    nimlib = readFile(nimlibCfg).strip
-    if not fileExists(nimlib / "system.nim"): nimlib.setlen 0
-  if nimlib.len == 0:
-    nimlib = os.findExe("nim")
-    if nimlib.len == 0: quit "cannot find Nim's stdlib location"
-    nimlib = nimlib.splitPath()[0] /../ "lib"
-
-  options.libpath = nimlib
+  options.libpath = detectNimLib()
   appendStr(searchPaths, options.libpath)
   appendStr(searchPaths, options.libpath / "pure")
 
