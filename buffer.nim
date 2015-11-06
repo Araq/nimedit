@@ -276,6 +276,10 @@ proc left*(b: Buffer; jump: bool) =
     rawLeft(b)
     if b[b.cursor] in Letters:
       while b.cursor > 0 and b[b.cursor-1] in Letters: rawLeft(b)
+    elif b.lang == langNone:
+      while b.cursor > 0 and b[b.cursor-1] notin Letters and
+          b[b.cursor-1] != '\L':
+       rawLeft(b)
     else:
       let i = b.cursor
       while b.cursor > 0 and b.getCell(i).s == b.getCell(b.cursor-1).s and
@@ -301,6 +305,10 @@ proc right*(b: Buffer; jump: bool) =
     if b[b.cursor] in Letters:
       while b.cursor < b.len and b[b.cursor] in Letters:
         rawRight(b)
+    elif b.lang == langNone:
+      while b.cursor < b.len and b[b.cursor] notin Letters and
+          b[b.cursor] != '\L':
+       rawRight(b)
     else:
       let i = b.cursor
       while b.cursor < b.len and b.getCell(i).s == b.getCell(b.cursor).s and
@@ -647,6 +655,13 @@ proc backspace*(b: Buffer; smartIndent: bool; overrideUtf8=false) =
   else:
     removeSelectedText(b)
   cursorMoved(b)
+
+proc backspacePrompt*(b: Buffer) =
+  b.backspace(true)
+  for i in 0 .. b.cursor-1:
+    if b[i] == ' ': return
+  while b.cursor > 0:
+    b.backspace(true)
 
 proc deleteKey*(b: Buffer) =
   if b.selected.b < 0:
