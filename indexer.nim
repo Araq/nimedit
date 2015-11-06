@@ -3,7 +3,12 @@
 import critbits, buffertype, buffer
 import strutils except Letters
 
-proc indexBuffer(database: var CritBitTree[int]; b: Buffer) =
+type
+  Index* = object
+    tree*: CritBitTree[int]
+    version*: int
+
+proc indexBuffer(index: var Index; b: Buffer) =
   # do not do too much work so that everything remains responsive. We don't
   # want to use threading here as the locking would be too complex.
   var linesToIndex = 200
@@ -33,7 +38,9 @@ proc indexBuffer(database: var CritBitTree[int]; b: Buffer) =
       if i == b.cursor: metCursor = true
       # do not index words of length 1:
       if word.len > 1 and not metCursor:
-        database[word] = 0
+        if word notin index.tree:
+          index.tree[word] = 0
+          inc index.version
     elif c in {'0'..'9'}:
       # prevent indexing numbers like 0xffff:
       inc i
@@ -54,7 +61,7 @@ proc bufferWithWorkToDo(start: Buffer): Buffer =
     it = it.next
     if it == start: break
 
-proc indexBuffers*(database: var CritBitTree[int]; start: Buffer) =
+proc indexBuffers*(database: var Index; start: Buffer) =
   # search for a single buffer that can be indexed and index it. Since we
   # store the version, eventually everything will be indexed. Works
   # incrementally.
@@ -62,29 +69,24 @@ proc indexBuffers*(database: var CritBitTree[int]; start: Buffer) =
   if it != nil:
     indexBuffer(database, it)
 
-proc populateBuffer*(database: var CritBitTree[int]; b: Buffer;
+proc populateBuffer*(index: var Index; b: Buffer;
                      prefix: string) =
   # only repopulate if the database knows new words:
-  if database.len != b.numberOfLines:
+  if b.version != index.version:
     b.clear()
-    for key, value in database.mpairs():
+    for key, value in index.tree.mpairs():
       value = b.numberOfLines
       b.insert(key)
       b.insertEnter()
     b.readOnly = b.len-1
+    b.version = index.version
 
   # we of course want to use the database for *fast* term searching:
   var interesting = -1
-  var p = prefix
-  while p.len > 0:
-    #echo "prefix ", p
-    for hit in database.valuesWithPrefix(p):
+  if prefix.len > 0:
+    for hit in index.tree.valuesWithPrefix(prefix, longestMatch=true):
       interesting = hit
       break
-    if interesting >= 0:
-      break
-    # try a prefix that is not as long:
-    p.setLen(p.len-1)
   b.gotoLine(interesting+1, -1)
 
 proc selected*(autocomplete, main: Buffer) =

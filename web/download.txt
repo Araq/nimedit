@@ -35,3 +35,11 @@ Requirements:
 
 `NimEdit-0.94-mac.tar.xz <download/nimedit-0.94-mac.tar.xz>`_
 
+
+NimEdit doesn't even start! Now what?
+-------------------------------------
+
+If you start NimEdit from some UI it can happen that ``nim`` is not in your
+$PATH. Create a file named ``nimlib.cfg`` next to the ``nimedit`` binary
+which contains a single line that specifies the full path to your nim library
+(the path that has a ``system.nim`` file).

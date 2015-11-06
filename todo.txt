@@ -1,6 +1,10 @@
 TODO:
+ - ligatures do not work properly
+ - configurable key bindings
  - 'nim check' integration
+ - add the option for semantic highlighting
  - the command history needs to be persistent (also for redirected programs!)
+ - what is kept in the command history should be scriptable
 
  - on the fly search
  - regex search&replace

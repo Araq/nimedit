@@ -124,7 +124,7 @@ proc unmark(ed: Editor) =
   for x in allBuffers(ed):
     x.markers.setLen 0
 
-proc runCmd(ed: Editor; cmd: string): bool =
+proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
   let prompt = ed.prompt
 
   ed.promptCon.hist.addCmd(cmd)
@@ -136,6 +136,7 @@ proc runCmd(ed: Editor; cmd: string): bool =
   var action = ""
   var i = parseWord(cmd, action, 0, true)
   case action
+  of "": ed.focus = ed.main
   of "exec", "e":
     var procName = ""
     i = parseWord(cmd, procName, i)
@@ -217,6 +218,8 @@ proc runCmd(ed: Editor; cmd: string): bool =
           ed.focus = ed.main
         else:
           ed.prompt.insert("next")
+          ed.prompt.selected.a = 0
+          ed.prompt.selected.b = len"next" - 1
       else:
         ed.statusMsg = "Match not found."
     else:
@@ -224,9 +227,15 @@ proc runCmd(ed: Editor; cmd: string): bool =
       if action == "filter":
         ed.main.filterLines = false
   of "next":
-    ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
-  of "prev":
-    ed.gotoPrevMarker(onlyCurrentFile in ed.searchOptions)
+    if not shiftPressed:
+      ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
+    else:
+      ed.gotoPrevMarker(onlyCurrentFile in ed.searchOptions)
+  of "prev", "v":
+    if not shiftPressed:
+      ed.gotoPrevMarker(onlyCurrentFile in ed.searchOptions)
+    else:
+      ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
   of "replace", "r":
     var searchPhrase = ""
     i = parseWord(cmd, searchPhrase, i)

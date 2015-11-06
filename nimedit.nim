@@ -26,6 +26,9 @@ const
 template crtlPressed(x): untyped =
   (x and controlKey) != 0 and (x and KMOD_ALT()) == 0
 
+template shiftPressed(x): untyped =
+  (x.keysym.modstate and KMOD_SHIFT()) != 0
+
 type
   EditorState = enum
     requestedNothing,
@@ -59,7 +62,7 @@ type
     state: EditorState
     bar: TabBar
     ticker: int
-    indexer: CritbitTree[int]
+    indexer: Index
     hotspots: Spots
     searchPath: seq[string] # we use an explicit search path rather than
                             # the list of open buffers so that it's dead
@@ -174,7 +177,9 @@ proc findFile(ed: Editor; filename: string): string =
   if os.isAbsolute filename:
     if fileExists(filename): return filename
     return
-  let cwd = os.getCurrentDir() / filename
+  let basePath = if ed.main.filename.len > 0: ed.main.filename.splitFile.dir
+                 else: os.getCurrentDir()
+  let cwd = basePath / filename
   if fileExists(cwd): return cwd
   for i in 0..ed.searchPath.high:
     let res = ed.searchPath[i] / filename
@@ -468,6 +473,11 @@ proc ctrlKeyPressed*(): bool =
   result = keys[SDL_SCANCODE_LCTRL.int] == 1 or
            keys[SDL_SCANCODE_RCTRL.int] == 1
 
+proc shiftKeyPressed*(): bool =
+  let keys = getKeyboardState()
+  result = keys[SDL_SCANCODE_LSHIFT.int] == 1 or
+           keys[SDL_SCANCODE_RSHIFT.int] == 1
+
 template prompt: expr = ed.prompt
 template focus: expr = ed.focus
 template main: expr = ed.main
@@ -569,6 +579,8 @@ proc processEvents(e: var Event; ed: Editor): bool =
           else:
             gotoPrefix(ed.sug, main.getWordPrefix())
           trackSpot(ed.hotspots, main)
+        elif focus == ed.prompt:
+          focus.backspacePrompt()
         else:
           focus.backspace(true)
           if focus==main: trackSpot(ed.hotspots, main)
@@ -580,7 +592,7 @@ proc processEvents(e: var Event; ed: Editor): bool =
           main.insertEnter()
           trackSpot(ed.hotspots, main)
         elif focus==prompt:
-          if ed.runCmd(prompt.fullText):
+          if ed.runCmd(prompt.fullText, shiftKeyPressed()):
             saveOpenTabs(ed)
             result = true
             break
@@ -593,26 +605,26 @@ proc processEvents(e: var Event; ed: Editor): bool =
           sugSelected(ed, ed.sug)
           focus = main
       of SDL_SCANCODE_ESCAPE:
-        if (w.keysym.modstate and KMOD_SHIFT) != 0:
+        if shiftPressed(w):
           if focus == console or not ed.hasConsole: focus = main
           else: focus = console
         else:
           if focus==main: focus = prompt
           else: focus = main
       of SDL_SCANCODE_RIGHT:
-        if (w.keysym.modstate and KMOD_SHIFT) != 0:
+        if shiftPressed(w):
           focus.selectRight(crtlPressed(w.keysym.modstate))
         else:
           focus.deselect()
           focus.right(crtlPressed(w.keysym.modstate))
       of SDL_SCANCODE_LEFT:
-        if (w.keysym.modstate and KMOD_SHIFT) != 0:
+        if shiftPressed(w):
           focus.selectLeft(crtlPressed(w.keysym.modstate))
         else:
           focus.deselect()
           focus.left(crtlPressed(w.keysym.modstate))
       of SDL_SCANCODE_DOWN:
-        if (w.keysym.modstate and KMOD_SHIFT) != 0:
+        if shiftPressed(w):
           focus.selectDown(crtlPressed(w.keysym.modstate))
         elif focus==prompt:
           ed.promptCon.downPressed()
@@ -628,7 +640,7 @@ proc processEvents(e: var Event; ed: Editor): bool =
         focus.scrollLines(-focus.span)
         focus.cursor = focus.firstLineOffset
       of SDL_SCANCODE_UP:
-        if (w.keysym.modstate and KMOD_SHIFT) != 0:
+        if shiftPressed(w):
           focus.selectUp(crtlPressed(w.keysym.modstate))
         elif focus==prompt:
           ed.promptCon.upPressed()
@@ -642,7 +654,7 @@ proc processEvents(e: var Event; ed: Editor): bool =
           main = main.next
           focus = main
         elif focus == main:
-          if (w.keysym.modstate and KMOD_SHIFT) != 0:
+          if shiftPressed(w):
             main.shiftTabPressed()
           else:
             main.tabPressed()
@@ -683,7 +695,7 @@ proc processEvents(e: var Event; ed: Editor): bool =
         elif w.keysym.sym == ord('z'):
           # CTRL+Z: undo
           # CTRL+shift+Z: redo
-          if (w.keysym.modstate and KMOD_SHIFT) != 0:
+          if shiftPressed(w):
             focus.redo
           else:
             focus.undo
