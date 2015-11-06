@@ -227,6 +227,12 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
   delete(c.files, sug)
   b.changed = oldChanged
 
+proc addFile(c: Console; path: string) =
+  if find(path, {' ', '\t'}) >= 0:
+    c.files.add path.escape
+  else:
+    c.files.add path
+
 proc tabPressed*(c: Console; basePath: string) =
   let b = c.b
 
@@ -237,7 +243,7 @@ proc tabPressed*(c: Console; basePath: string) =
     var i = 0
     while true:
       i = parseWord(cmd, prefixB, i)
-      # if b.len == 0 means at end:
+      # if prefixB.len == 0 means at end:
       if prefixB.len == 0:
         # parseWord always skips initial whitespace, so we look at the passed
         # character:
@@ -253,9 +259,18 @@ proc tabPressed*(c: Console; basePath: string) =
 
   if c.files.len == 0:
     # prefix == "..\..\foo"
-    let dots = splitPath(c.prefix)[0]
-    for k, f in os.walkDir(basePath / dots, relative=true):
-      c.files.add dots / f
+    let (path, prefix) = c.prefix.splitPath
+    if path[0] == '~':
+      let expandedPath = getHomeDir() / path.substr(1)
+      for k, f in os.walkDir(expandedPath, relative=false):
+        c.addFile f
+    elif c.prefix.isAbsolute:
+      for k, f in os.walkDir(path, relative=false):
+        c.addFile f
+    else:
+      for k, f in os.walkDir(basePath / path, relative=true):
+        c.addFile path / f
+    c.prefix = prefix
   suggestPath(c, b, c.prefix)
 
 proc cmdToArgs(cmd: string): tuple[exe: string, args: seq[string]] =
