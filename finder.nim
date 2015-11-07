@@ -58,9 +58,10 @@ proc find(s: Buffer; sub: string, start: Natural; options: SearchOptions): int =
 
 proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
                toReplaceWith: string = nil) =
-  let options = options + (if searchTerm.runeLen == 1: {wordBoundary} else: {})
-  assert searchTerm.len > 0
   const Letters = {'a'..'z', '_', 'A'..'Z', '\128'..'\255', '0'..'9'}
+  let options = options + (if searchTerm.runeLen == 1 and
+                              searchTerm[0] in Letters: {wordBoundary} else: {})
+  assert searchTerm.len > 0
   template inWordBoundary(): untyped =
     (i == 0 or b[i-1] notin Letters) and
       (last >= b.len or b[last] notin Letters)
