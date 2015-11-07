@@ -132,15 +132,19 @@ proc mouseSelectCurrentToken(b: Buffer) =
   b.selected = (first, last)
   cursorMoved(b)
 
+proc setCurrentLine(b: Buffer) =
+  if b.filterLines:
+    b.currentLine = getLineFromOffset(b, b.cursor)
+  else:
+    b.currentLine = max(b.firstLine + b.span, 0)
+  b.currentLine = clamp(b.currentLine, 0, b.numberOfLines)
+
 proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: cint) =
   # requested cursor update?
   if b.clicks > 0:
     if b.mouseX > dim.x and dim.y+maxh > b.mouseY:
       b.cursor = i
-      if b.filterLines:
-        b.currentLine = getLineFromOffset(b, i)
-      else:
-        b.currentLine = max(b.firstLine + b.span, 0)
+      setCurrentLine(b)
       if b.clicks > 1: mouseSelectWholeLine(b)
       b.clicks = 0
       cursorMoved(b)
@@ -211,10 +215,7 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
     let p = point(db.b.mouseX, db.b.mouseY)
     if d.contains(p):
       db.b.cursor = i + whichColumn(db, ra, rb)
-      if db.b.filterLines:
-        db.b.currentLine = getLineFromOffset(db.b, db.b.cursor)
-      else:
-        db.b.currentLine = max(db.b.firstLine + db.b.span, 0)
+      setCurrentLine(db.b)
       if db.b.clicks > 1: mouseSelectCurrentToken(db.b)
       db.b.clicks = 0
       cursorMoved(db.b)
