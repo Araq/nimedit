@@ -1,6 +1,8 @@
 
 import strutils, editor
 
+include keybindings
+
 proc doQuote*(selected: string): string =
   result = ""
   for x in split(selected):

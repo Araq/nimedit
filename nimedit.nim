@@ -4,11 +4,13 @@ when defined(gcc) and defined(windows):
   when defined(x86):
     {.link: "icons/crown.o".}
 
-import strutils, critbits, os, times, browsers
+import strutils, critbits, os, times, browsers, tables
 from parseutils import parseInt
 import sdl2, sdl2/ttf, prims
-import buffertype, buffer, styles, unicode, highlighters, console
-import nimscript/common, languages, themes, nimscriptsupport, tabbar,
+import buffertype except Action
+import buffer, styles, unicode, highlighters, console
+import nimscript/common, nimscript/keydefs, languages, themes,
+  nimscriptsupport, tabbar,
   scrollbar, indexer, overviews, nimsuggestclient, minimap
 
 when defined(windows):
@@ -30,6 +32,11 @@ template shiftPressed(x): untyped =
   (x.keysym.modstate and KMOD_SHIFT()) != 0
 
 type
+  Command = object
+    action: Action
+    arg: string
+  KeyMapping = Table[set[Key], Command]
+
   EditorState = enum
     requestedNothing,
     requestedShutdown, requestedShutdownNext,
@@ -53,6 +60,7 @@ type
     renderer: RendererPtr
     window: WindowPtr
     theme: InternalTheme
+    keymapping: KeyMapping
     screenW, screenH: cint
     buffersCounter, idle, blink: int
     con, promptCon: Console
@@ -132,6 +140,7 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.cfgActions = os.getAppDir() / "nimscript" / "actions.nims"
   ed.searchPath = @[]
   ed.nimsuggestDebug = true
+  ed.keymapping = initTable[set[Key], Command]()
 
 proc destroy(ed: Editor) =
   destroyRenderer ed.renderer
@@ -492,6 +501,251 @@ proc loadTheme(ed: Editor) =
   ed.theme.editorFontPtr = ed.fontM.fontByName(ed.theme.editorFont,
                                                ed.theme.editorFontSize)
 
+proc eventToKeySet(e: var Event): set[Key] =
+  result = {}
+  if e.kind != KeyDown: return
+  let w = e.key
+  case w.keysym.scancode
+  of SDL_SCANCODE_A..SDL_SCANCODE_0:
+    result.incl(Key(ord(w.keysym.scancode) - SDL_SCANCODE_A.ord))
+  of SDL_SCANCODE_F1..SDL_SCANCODE_F12:
+    result.incl(Key(ord(Key.F1) + ord(w.keysym.scancode) - SDL_SCANCODE_F1.ord))
+  of SDL_SCANCODE_RETURN:
+    result.incl(Key.Enter)
+  of SDL_SCANCODE_SPACE:
+    result.incl(Key.Space)
+  of SDL_SCANCODE_ESCAPE:
+    result.incl(Key.Esc)
+  of SDL_SCANCODE_DELETE:
+    result.incl(Key.Del)
+  of SDL_SCANCODE_BACKSPACE:
+    result.incl Key.Backspace
+  of SDL_SCANCODE_INSERT:
+    result.incl Key.Ins
+  of SDL_SCANCODE_PAGEUP:
+    result.incl Key.PageUp
+  of SDL_SCANCODE_PAGEDOWN:
+    result.incl Key.PageDown
+  of SDL_SCANCODE_CAPSLOCK:
+    result.incl Key.Capslock
+  of SDL_SCANCODE_TAB:
+    result.incl Key.Tab
+  of SDL_SCANCODE_COMMA:
+    result.incl Key.Comma
+  of SDL_SCANCODE_PERIOD:
+    result.incl Key.Period
+  of SDL_SCANCODE_LEFT:
+    result.incl Key.Left
+  of SDL_SCANCODE_RIGHT:
+    result.incl Key.Right
+  of SDL_SCANCODE_UP:
+    result.incl Key.Up
+  of SDL_SCANCODE_DOWN:
+    result.incl Key.Down
+  else: discard
+  when defined(macosx):
+    if (w.keysym.modstate and KMOD_GUI()) != 0:
+      result.incl Key.Apple
+  if (w.keysym.modstate and KMOD_CTRL()) != 0:
+    result.incl Key.Ctrl
+  if (w.keysym.modstate and KMOD_SHIFT()) != 0:
+    result.incl Key.Shift
+  if (w.keysym.modstate and KMOD_ALT()) != 0:
+    result.incl Key.Alt
+
+proc runAction(ed: Editor; action: Action; arg: string): bool =
+  template console: expr = ed.console
+
+  case action
+  of Action.None: discard
+  of Action.Left, Action.LeftJump:
+    focus.deselect()
+    focus.left(action == Action.LeftJump)
+  of Action.Right, Action.RightJump:
+    focus.deselect()
+    focus.right(action == Action.RightJump)
+  of Action.Up, Action.UpJump:
+    if focus==prompt:
+      ed.promptCon.upPressed()
+    elif focus == console:
+      ed.con.upPressed()
+    else:
+      focus.deselect()
+      focus.up(action == Action.UpJump)
+  of Action.Down, Action.DownJump:
+    if focus==prompt:
+      ed.promptCon.downPressed()
+    elif focus == console:
+      ed.con.downPressed()
+    else:
+      focus.deselect()
+      focus.down(action == Action.DownJump)
+  of Action.LeftSelect, Action.LeftJumpSelect:
+    focus.selectLeft(action == Action.LeftJumpSelect)
+  of Action.RightSelect, Action.RightJumpSelect:
+    focus.selectRight(action == Action.RightJumpSelect)
+  of Action.UpSelect, Action.UpJumpSelect:
+    focus.selectUp(action == Action.UpJumpSelect)
+  of Action.DownSelect, Action.DownJumpSelect:
+    focus.selectDown(action == Action.DownJumpSelect)
+
+  of Action.PageUp:
+    focus.scrollLines(-focus.span)
+    focus.cursor = focus.firstLineOffset
+  of Action.PageDown:
+    focus.scrollLines(focus.span)
+    focus.cursor = focus.firstLineOffset
+
+  of Action.Insert: discard
+  of Action.Backspace:
+    if focus==ed.autocomplete or focus==ed.sug:
+      # delegate to main, but keep the focus on the autocomplete!
+      main.backspace(false)
+      if focus==ed.autocomplete:
+        populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+      else:
+        gotoPrefix(ed.sug, main.getWordPrefix())
+      trackSpot(ed.hotspots, main)
+    elif focus == ed.prompt:
+      focus.backspacePrompt()
+    else:
+      focus.backspace(true)
+      if focus==main: trackSpot(ed.hotspots, main)
+  of Action.Del:
+    focus.deleteKey()
+    if focus==main: trackSpot(ed.hotspots, main)
+  of Action.Enter:
+    if focus==main:
+      main.insertEnter()
+      trackSpot(ed.hotspots, main)
+    elif focus==prompt:
+      if ed.runCmd(prompt.fullText, shiftKeyPressed()):
+        saveOpenTabs(ed)
+        result = true
+    elif focus==console:
+      enterPressed(ed.con)
+    elif focus==ed.autocomplete:
+      indexer.selected(ed.autocomplete, main)
+      focus = main
+    elif focus==ed.sug:
+      sugSelected(ed, ed.sug)
+      focus = main
+
+  of Action.Dedent:
+    if focus == main:
+      main.shiftTabPressed()
+  of Action.Indent:
+    if focus == main:
+      main.tabPressed()
+    elif focus == console:
+      ed.con.tabPressed(os.getCurrentDir())
+    elif focus == prompt:
+      let basePath = if main.filename.len > 0: main.filename.splitFile.dir
+                     else: os.getCurrentDir()
+      ed.promptCon.tabPressed(basePath)
+
+  of Action.SwitchEditorPrompt:
+    if focus==main: focus = prompt
+    else: focus = main
+  of Action.SwitchEditorConsole:
+    if focus == console or not ed.hasConsole: focus = main
+    else: focus = console
+
+  of Action.Copy:
+    let text = focus.getSelectedText
+    if text.len > 0:
+      discard sdl2.setClipboardText(text)
+  of Action.Cut:
+    let text = focus.getSelectedText
+    if text.len > 0:
+      focus.removeSelectedText()
+      discard sdl2.setClipboardText(text)
+  of Action.Paste:
+    let text = sdl2.getClipboardText()
+    focus.insert($text)
+    freeClipboardText(text)
+
+  of Action.AutoComplete:
+    let prefix = main.getWordPrefix()
+    if prefix[^1] == '.':
+      ed.suggest("sug")
+    elif prefix[^1] == '(':
+      ed.suggest("con")
+    else:
+      focus = ed.autocomplete
+      populateBuffer(ed.indexer, ed.autocomplete, prefix)
+
+  of Action.Undo:
+    if focus==prompt: prompt.undo
+    else: main.undo
+  of Action.Redo:
+    if focus==prompt: prompt.redo
+    else: main.redo
+
+  of Action.SelectAll: focus.selectAll()
+  of Action.SendBreak: ed.con.sendBreak()
+  of Action.Run: discard
+  of Action.Exec: ed.runScriptCmd()
+  of Action.Goto: ed.gotoCmd()
+  of Action.Find: ed.findCmd()
+  of Action.Replace: ed.replaceCmd()
+  of Action.UpdateView:
+    main.markers.setLen 0
+    if ed.state == requestedReplace: ed.state = requestedNothing
+    highlightEverything(focus)
+
+  of Action.OpenTab: ed.openCmd()
+  of Action.SaveTab:
+    main.save()
+    if cmpPaths(main.filename, ed.cfgColors) == 0:
+      loadTheme(ed)
+      layout(ed)
+    elif cmpPaths(main.filename, ed.cfgActions) == 0:
+      reloadActions(ed.cfgActions)
+    ed.statusMsg = readyMsg
+
+  of Action.NewTab:
+    let x = newBuffer(unkownName(), addr ed.mgr)
+    insertBuffer(main, x)
+    focus = main
+  of Action.CloseTab:
+    if not main.changed:
+      ed.removeBuffer(main)
+    else:
+      ed.state = requestedCloseTab
+      ed.askForQuitTab()
+
+  of Action.GotoDefinition:
+    ed.suggest("dus")
+
+  of Action.QuitApplication: sdl2.quit()
+  of Action.Declarations:
+    if main.lang == langNim:
+      main.filterLines = not main.filterLines
+      if main.filterLines:
+        filterMinimap(main)
+        caretToActiveLine main
+      else:
+        main.gotoPos(main.cursor)
+    else:
+      ed.statusMsg = "Ctrl+M only supported for Nim."
+  of Action.NextBuffer:
+    main = main.next
+    focus = main
+  of Action.PrevBuffer:
+    main = main.prev
+    focus = main
+  of Action.NextEditLocation:
+    trackSpot(ed.hotspots, main)
+    ed.gotoNextSpot(ed.hotspots, main)
+    focus = main
+  of Action.PrevEditLocation:
+    #ed.gotoPrevSpot(ed.hotspots, main)
+    #focus = main
+    discard "to implement"
+  of Action.NimScript:
+    ed.handleEvent(arg)
+
 proc processEvents(e: var Event; ed: Editor): bool =
   template console: expr = ed.console
 
@@ -570,196 +824,11 @@ proc processEvents(e: var Event; ed: Editor): bool =
           focus.insertSingleKey($w.text)
           if focus==main: trackSpot(ed.hotspots, main)
     of KeyDown:
-      let w = e.key
-      case w.keysym.scancode
-      of SDL_SCANCODE_BACKSPACE:
-        if focus==ed.autocomplete or focus==ed.sug:
-          # delegate to main, but keep the focus on the autocomplete!
-          main.backspace(false)
-          if focus==ed.autocomplete:
-            populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
-          else:
-            gotoPrefix(ed.sug, main.getWordPrefix())
-          trackSpot(ed.hotspots, main)
-        elif focus == ed.prompt:
-          focus.backspacePrompt()
-        else:
-          focus.backspace(true)
-          if focus==main: trackSpot(ed.hotspots, main)
-      of SDL_SCANCODE_DELETE:
-        focus.deleteKey()
-        if focus==main: trackSpot(ed.hotspots, main)
-      of SDL_SCANCODE_RETURN:
-        if focus==main:
-          main.insertEnter()
-          trackSpot(ed.hotspots, main)
-        elif focus==prompt:
-          if ed.runCmd(prompt.fullText, shiftKeyPressed()):
-            saveOpenTabs(ed)
-            result = true
-            break
-        elif focus==console:
-          enterPressed(ed.con)
-        elif focus==ed.autocomplete:
-          indexer.selected(ed.autocomplete, main)
-          focus = main
-        elif focus==ed.sug:
-          sugSelected(ed, ed.sug)
-          focus = main
-      of SDL_SCANCODE_ESCAPE:
-        if shiftPressed(w):
-          if focus == console or not ed.hasConsole: focus = main
-          else: focus = console
-        else:
-          if focus==main: focus = prompt
-          else: focus = main
-      of SDL_SCANCODE_RIGHT:
-        if shiftPressed(w):
-          focus.selectRight(crtlPressed(w.keysym.modstate))
-        else:
-          focus.deselect()
-          focus.right(crtlPressed(w.keysym.modstate))
-      of SDL_SCANCODE_LEFT:
-        if shiftPressed(w):
-          focus.selectLeft(crtlPressed(w.keysym.modstate))
-        else:
-          focus.deselect()
-          focus.left(crtlPressed(w.keysym.modstate))
-      of SDL_SCANCODE_DOWN:
-        if shiftPressed(w):
-          focus.selectDown(crtlPressed(w.keysym.modstate))
-        elif focus==prompt:
-          ed.promptCon.downPressed()
-        elif focus == console:
-          ed.con.downPressed()
-        else:
-          focus.deselect()
-          focus.down(crtlPressed(w.keysym.modstate))
-      of SDL_SCANCODE_PAGE_DOWN:
-        focus.scrollLines(focus.span)
-        focus.cursor = focus.firstLineOffset
-      of SDL_SCANCODE_PAGE_UP:
-        focus.scrollLines(-focus.span)
-        focus.cursor = focus.firstLineOffset
-      of SDL_SCANCODE_UP:
-        if shiftPressed(w):
-          focus.selectUp(crtlPressed(w.keysym.modstate))
-        elif focus==prompt:
-          ed.promptCon.upPressed()
-        elif focus == console:
-          ed.con.upPressed()
-        else:
-          focus.deselect()
-          focus.up(crtlPressed(w.keysym.modstate))
-      of SDL_SCANCODE_TAB:
-        if crtlPressed(w.keysym.modstate):
-          main = main.next
-          focus = main
-        elif focus == main:
-          if shiftPressed(w):
-            main.shiftTabPressed()
-          else:
-            main.tabPressed()
-        elif focus == console:
-          ed.con.tabPressed(os.getCurrentDir())
-        elif focus == prompt:
-          let basePath = if main.filename.len > 0: main.filename.splitFile.dir
-                         else: os.getCurrentDir()
-          ed.promptCon.tabPressed(basePath)
-      of SDL_SCANCODE_F1:
-        if focus == console or not ed.hasConsole: focus = main
-        else: focus = console
-      of SDL_SCANCODE_F2:
-        ed.suggest("dus")
-      of SDL_SCANCODE_F3:
-        trackSpot(ed.hotspots, main)
-        ed.gotoNextSpot(ed.hotspots, main)
-        focus = main
-      of SDL_SCANCODE_F5: ed.handleEvent("pressedF5")
-      of SDL_SCANCODE_F6: ed.handleEvent("pressedF6")
-      of SDL_SCANCODE_F7: ed.handleEvent("pressedF7")
-      of SDL_SCANCODE_F8: ed.handleEvent("pressedF8")
-      of SDL_SCANCODE_F9: ed.handleEvent("pressedF9")
-      of SDL_SCANCODE_F10: ed.handleEvent("pressedF10")
-      of SDL_SCANCODE_F11: ed.handleEvent("pressedF11")
-      of SDL_SCANCODE_F12: ed.handleEvent("pressedF12")
-      else: discard
-      if crtlPressed(w.keysym.modstate):
-        if w.keysym.sym == ord(' '):
-          let prefix = main.getWordPrefix()
-          if prefix[^1] == '.':
-            ed.suggest("sug")
-          elif prefix[^1] == '(':
-            ed.suggest("con")
-          else:
-            focus = ed.autocomplete
-            populateBuffer(ed.indexer, ed.autocomplete, prefix)
-        elif w.keysym.sym == ord('z'):
-          # CTRL+Z: undo
-          # CTRL+shift+Z: redo
-          if shiftPressed(w):
-            focus.redo
-          else:
-            focus.undo
-        elif w.keysym.sym == ord('a'):
-          focus.selectAll()
-        elif w.keysym.sym == ord('b'):
-          ed.con.sendBreak()
-        elif w.keysym.sym == ord('e'):
-          ed.runScriptCmd()
-        elif w.keysym.sym == ord('f'):
-          ed.findCmd()
-        elif w.keysym.sym == ord('g'):
-          ed.gotoCmd()
-        elif w.keysym.sym == ord('h'):
-          ed.replaceCmd()
-        elif w.keysym.sym == ord('x'):
-          let text = focus.getSelectedText
-          if text.len > 0:
-            focus.removeSelectedText()
-            discard sdl2.setClipboardText(text)
-        elif w.keysym.sym == ord('c'):
-          let text = focus.getSelectedText
-          if text.len > 0:
-            discard sdl2.setClipboardText(text)
-        elif w.keysym.sym == ord('v'):
-          let text = sdl2.getClipboardText()
-          focus.insert($text)
-          freeClipboardText(text)
-        elif w.keysym.sym == ord('u'):
-          main.markers.setLen 0
-          if ed.state == requestedReplace: ed.state = requestedNothing
-          highlightEverything(focus)
-        elif w.keysym.sym == ord('o'):
-          ed.openCmd()
-        elif w.keysym.sym == ord('s'):
-          main.save()
-          if cmpPaths(main.filename, ed.cfgColors) == 0:
-            loadTheme(ed)
-            layout(ed)
-          elif cmpPaths(main.filename, ed.cfgActions) == 0:
-            reloadActions(ed.cfgActions)
-          ed.statusMsg = readyMsg
-        elif w.keysym.sym == ord('n'):
-          let x = newBuffer(unkownName(), addr ed.mgr)
-          insertBuffer(main, x)
-          focus = main
-        elif w.keysym.sym == ord('q'):
-          if not main.changed:
-            ed.removeBuffer(main)
-          else:
-            ed.state = requestedCloseTab
-            ed.askForQuitTab()
-        elif w.keysym.sym == ord('m'):
-          if main.lang == langNim:
-            main.filterLines = not main.filterLines
-            if main.filterLines:
-              filterMinimap(main)
-              caretToActiveLine main
-            else:
-              main.gotoPos(main.cursor)
-          else:
-            ed.statusMsg = "Ctrl+M only supported for Nim."
+      let ks = eventToKeySet(e)
+      let cmd = ed.keymapping.getOrDefault(ks)
+      if ed.runAction(cmd.action, cmd.arg):
+        result = true
+        break
     else: discard
     # keydown means show the cursor:
     ed.blink = 0

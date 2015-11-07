@@ -123,3 +123,20 @@ proc setupApi(result: PEvalContext; ed: Editor) =
     ed.main.saveAs(getString(a, 0))
   expose defineAlias:
     ed.con.aliases.add((getString(a, 0), getString(a, 1)))
+
+
+  result.registerCallback "nimedit.keydefs.bindKey",
+    proc (a: VmArgs) =
+      let keyset = getNode(a, 0)
+      doAssert keyset.kind == nkCurly
+      var bitset: set[Key] = {}
+      for n in keyset:
+        if n.kind in {nkCharLit..nkUInt64Lit} and n.intVal >= 0 and
+           n.intVal <= int(high(Key)):
+          bitset.incl n.intVal.Key
+        else:
+          doAssert false
+      let action = getInt(a, 1)
+      doAssert action >= 0 and action <= int(high(Action))
+      ed.keymapping[bitset] = Command(action: Action(action),
+                                      arg: getString(a, 2))
