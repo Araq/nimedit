@@ -550,7 +550,7 @@ proc setCaret*(b: Buffer; pos: int) =
   b.currentLine = getLineFromOffset(b, b.cursor)
 
 
-proc removeSelectedText(b: Buffer; selectedA, selectedB: var int) =
+proc removeSelectedText*(b: Buffer; selectedA, selectedB: var int) =
   if selectedB < 0: return
   b.setCaret(selectedB+1)
   let oldCursor = b.cursor
@@ -712,8 +712,6 @@ proc insert*(b: Buffer; s: string) =
   inc b.version
   removeSelectedText(b)
   insertNoSelect(b, s, true)
-
-include finder
 
 proc dedentSingleLine(b: Buffer; i: int) =
   if b[i] == '\t':
@@ -906,3 +904,10 @@ proc redo*(b: Buffer) =
       applyRedo(b, b.actions[b.undoIdx])
   else:
     dec b.undoIdx
+
+proc filterOccurances*(b: Buffer) =
+  b.filterLines = true
+  b.activeLines = initIntSet()
+  for m in b.markers:
+    b.activeLines.incl b.getLineFromOffset(m.a)
+    b.activeLines.incl b.getLineFromOffset(m.b)

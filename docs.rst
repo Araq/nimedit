@@ -104,7 +104,7 @@ search_options      meaning
 ``p``               Precise search, do not ignore case sensitivity.
 ``f``               Only search for the term in the active tab. Otherwise every
                     tab is searched.
-``r``               Coming soon: Regular expression based search.
+``r``               Regular expression based search.
 ==============      ===========================================================
 
 

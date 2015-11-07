@@ -4,13 +4,13 @@ when defined(gcc) and defined(windows):
   when defined(x86):
     {.link: "icons/crown.o".}
 
-import strutils, critbits, os, times, browsers, tables, hashes
+import strutils, critbits, os, times, browsers, tables, hashes, intsets
 from parseutils import parseInt
 import sdl2, sdl2/ttf, prims
 import buffertype except Action
 import buffer, styles, unicode, highlighters, console
 import nimscript/common, nimscript/keydefs, languages, themes,
-  nimscriptsupport, tabbar,
+  nimscriptsupport, tabbar, finder,
   scrollbar, indexer, overviews, nimsuggestclient, minimap
 
 when defined(windows):
@@ -741,7 +741,7 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
     let text = ed.focus.getSelectedText()
     ed.focus = prompt
     prompt.clear()
-    prompt.insert arg & text.singleQuoted & " "
+    prompt.insert arg & text.singleQuoted
   of Action.Nimsuggest:
     ed.suggest(arg)
   of Action.NimScript:

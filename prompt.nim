@@ -34,9 +34,10 @@ proc askForQuitTab(ed: Editor) =
   ed.statusMsg = saveChanges
   ed.focus = prompt
 
-proc findAll(ed: Editor; searchPhrase: string; searchOptions: SearchOptions) =
+proc findAll(ed: Editor; searchPhrase: string; searchOptions: SearchOptions;
+             toReplaceWith: string = nil) =
   for it in allBuffers(ed):
-    it.findNext(searchPhrase, searchOptions)
+    it.findNext(searchPhrase, searchOptions, toReplaceWith)
     it.activeMarker = 0
     if onlyCurrentFile in searchOptions: break
 
@@ -177,13 +178,14 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
       ed.focus = ed.main
       ed.state = requestedNothing
   of "quit", "q": result = true
-  of "find", "f", "filter":
+  of "find", "findall", "f", "filter":
     var searchPhrase = ""
     i = parseWord(cmd, searchPhrase, i)
     if searchPhrase.len > 0:
       var searchOptions = ""
       i = parseWord(cmd, searchOptions, i)
       ed.searchOptions = parseSearchOptions searchOptions
+      if action != "findall": ed.searchOptions.incl onlyCurrentFile
       ed.findAll(searchPhrase, ed.searchOptions)
       if ed.gotoFirstMarker(onlyCurrentFile in ed.searchOptions):
         ed.prompt.clear()
@@ -210,7 +212,7 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
       ed.gotoPrevMarker(onlyCurrentFile in ed.searchOptions)
     else:
       ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
-  of "replace", "r":
+  of "replace", "r", "replaceall":
     var searchPhrase = ""
     i = parseWord(cmd, searchPhrase, i)
     if searchPhrase.len > 0:
@@ -219,9 +221,8 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
       var searchOptions = ""
       i = parseWord(cmd, searchOptions, i)
       ed.searchOptions = parseSearchOptions searchOptions
-      ed.findAll(searchPhrase, ed.searchOptions)
-      ed.main.findNext(searchPhrase, ed.searchOptions,
-                       toReplaceWith)
+      if action != "replaceall": ed.searchOptions.incl onlyCurrentFile
+      ed.findAll(searchPhrase, ed.searchOptions, toReplaceWith)
       if ed.gotoFirstMarker(onlyCurrentFile in ed.searchOptions):
         ed.prompt.clear()
         ed.state = requestedReplace

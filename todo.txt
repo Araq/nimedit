@@ -3,11 +3,8 @@ TODO:
  - console doesn't filter .exe files properly
  - 'nim check' integration
  - add the option for semantic highlighting
- - the command history needs to be persistent (also for redirected programs!)
- - what is kept in the command history should be scriptable
 
  - on the fly search
- - regex search&replace
  - draw gradient for scrollbar
  - tabsize vs displaytabsize
 
@@ -24,7 +21,9 @@ Later versions:
    - introduce a "legend" feature
 
 Optional:
- - make replace scriptable
+ - the command history needs to be persistent (also for redirected programs!)
+ - what is kept in the command history should be scriptable
+
  - simple refactorings: rename
  - highlighting of substring occurences
 Optimizations:

@@ -12,14 +12,14 @@ Windows
 -------
 
 This requires Windows Vista or later:
-`NimEdit-0.94.exe <download/NimEdit_0.94.exe>`_
+`NimEdit-0.96.exe <download/NimEdit_0.96.exe>`_
 
 Linux
 -----
 
 This should run on Ubuntu x86-64:
 
-`NimEdit-0.94.tar.xz <download/nimedit-0.94.tar.xz>`_
+`NimEdit-0.96.tar.xz <download/nimedit-0.96.tar.xz>`_
 
 Requirements: Install ``SDL2`` and ``SDL2_ttf`` packages via your package
 manager.
@@ -33,7 +33,7 @@ Requirements:
 * ``brew install sdl2``
 * ``brew install sdl2_ttf``
 
-`NimEdit-0.94-mac.tar.xz <download/nimedit-0.94-mac.tar.xz>`_
+`NimEdit-0.96-mac.tar.xz <download/nimedit-0.96-mac.tar.xz>`_
 
 
 NimEdit doesn't even start! Now what?

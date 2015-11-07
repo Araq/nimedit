@@ -1,8 +1,10 @@
 
+import buffertype, buffer, re, strutils
+from unicode import runeLen
 
 type
   SearchOption* = enum
-    #searchRe,
+    searchRe,
     ignoreCase,
     ignoreStyle,
     wordBoundary,
@@ -13,7 +15,6 @@ proc parseSearchOptions*(s: string): SearchOptions =
   result = {ignoreStyle}
   for i in 0..high(s):
     case s[i]
-    #of 'r', 'R': result.incl searchRe
     of 'i', 'I': result.incl ignoreCase
     of 'y', 'Y': result.incl ignoreStyle
     of 'w', 'W', 'b', 'B': result.incl wordBoundary
@@ -22,6 +23,7 @@ proc parseSearchOptions*(s: string): SearchOptions =
       result.excl ignoreCase
       result.excl ignoreStyle
     of 'f', 'F': result.incl onlyCurrentFile
+    of 'r', 'R': result.incl searchRe
     else: discard
 
 type
@@ -54,8 +56,6 @@ proc find(s: Buffer; sub: string, start: Natural; options: SearchOptions): int =
   preprocessSub(sub, a, options)
   result = findAux(s, sub, start, a, options)
 
-#from unicode import runeLen
-
 proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
                toReplaceWith: string = nil) =
   const Letters = {'a'..'z', '_', 'A'..'Z', '\128'..'\255', '0'..'9'}
@@ -64,33 +64,42 @@ proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
   assert searchTerm.len > 0
   template inWordBoundary(): untyped =
     (i == 0 or b[i-1] notin Letters) and
-      (last >= b.len or b[last] notin Letters)
+      (last+1 >= b.len or b[last+1] notin Letters)
   b.markers.setLen 0
-  # from cursor to the end:
-  var i = b.cursor.int
-  while true:
-    i = find(b, searchTerm, i, options)
-    if i < 0: break
-    var last = i+searchTerm.len
-    if wordBoundary notin options or inWordBoundary():
-      b.markers.add(Marker(a: i, b: last-1, replacement: toReplaceWith))
-    inc i, searchTerm.len
-  # from the beginning up to the cursor:
-  i = 0
-  while true:
-    i = find(b, searchTerm, i, options)
-    if i >= b.cursor or i < 0: break
-    var last = i+searchTerm.len
-    if wordBoundary notin options or inWordBoundary():
-      b.markers.add(Marker(a: i, b: last-1, replacement: toReplaceWith))
-    inc i, searchTerm.len
-
-proc filterOccurances*(b: Buffer) =
-  b.filterLines = true
-  b.activeLines = initIntSet()
-  for m in b.markers:
-    b.activeLines.incl b.getLineFromOffset(m.a)
-    b.activeLines.incl b.getLineFromOffset(m.b)
+  if searchRe in options:
+    let buf = b.fullText
+    var flags = {reMultiline}
+    if ignoreCase in options: flags.incl reIgnoreCase
+    var rex: Regex
+    try:
+      rex = re(searchTerm)
+    except RegexError:
+      return
+    var i = 0
+    var matches: array[MaxSubpatterns, string]
+    while true:
+      let (first, last) = findBounds(buf, rex, matches, i)
+      if first < 0: break
+      if wordBoundary notin options or inWordBoundary():
+        b.markers.add(Marker(a: first, b: last,
+                             replacement: toReplaceWith % matches))
+      i = last+1
+  else:
+    var i = 0
+    while true:
+      i = find(b, searchTerm, i, options)
+      if i < 0: break
+      var last = i+searchTerm.len-1
+      if wordBoundary notin options or inWordBoundary():
+        b.markers.add(Marker(a: i, b: last, replacement: toReplaceWith))
+      i = last+1
+  # first match is the one *after* the cursor:
+  var i = 1
+  while i < b.markers.len:
+    if b.markers[i].a >= b.cursor:
+      b.activeMarker = i-1
+      break
+    inc i
 
 proc doReplace*(b: Buffer): bool =
   if b.activeMarker < b.markers.len:
