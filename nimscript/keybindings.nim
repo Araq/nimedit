@@ -17,7 +17,7 @@ bindKey({Ctrl,Down}, Action.DownJump)
 
 bindKey({Shift,Left}, Action.LeftSelect)
 bindKey({Shift,Right}, Action.RightSelect)
-bindkey({Shift,Up}, Action.UpSelect)
+bindKey({Shift,Up}, Action.UpSelect)
 bindKey({Shift,Down}, Action.DownSelect)
 
 bindKey({Shift,Ctrl,Left}, Action.LeftJumpSelect)
