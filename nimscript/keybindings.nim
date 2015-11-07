@@ -13,7 +13,7 @@ bindKey({PageDown}, Action.PageDown)
 bindKey({Ctrl,Left}, Action.LeftJump)
 bindKey({Ctrl,Right}, Action.RightJump)
 bindKey({Ctrl,Up}, Action.UpJump)
-bindkey({Ctrl,Down}, Action.DownJump)
+bindKey({Ctrl,Down}, Action.DownJump)
 
 bindKey({Shift,Left}, Action.LeftSelect)
 bindKey({Shift,Right}, Action.RightSelect)
