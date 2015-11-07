@@ -42,7 +42,6 @@ type
     NextBuffer,
     PrevBuffer,
     NextEditLocation,
-    PrevEditLocation,
     InsertPrompt,
     InsertPromptSelectedText,
     NimSuggest,

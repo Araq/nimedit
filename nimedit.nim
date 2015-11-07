@@ -20,16 +20,7 @@ include version
 
 const
   readyMsg = "Ready."
-
-  controlKey = when defined(macosx): KMOD_GUI or KMOD_CTRL else: KMOD_CTRL
   windowTitle = "NimEdit v" & Version
-
-
-template crtlPressed(x): untyped =
-  (x and controlKey) != 0 and (x and KMOD_ALT()) == 0
-
-template shiftPressed(x): untyped =
-  (x.keysym.modstate and KMOD_SHIFT()) != 0
 
 type
   Command = object
@@ -735,10 +726,6 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
     trackSpot(ed.hotspots, main)
     ed.gotoNextSpot(ed.hotspots, main)
     focus = main
-  of Action.PrevEditLocation:
-    #ed.gotoPrevSpot(ed.hotspots, main)
-    #focus = main
-    discard "to implement"
 
   of Action.InsertPrompt:
     ed.focus = prompt
