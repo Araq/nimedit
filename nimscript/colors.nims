@@ -16,7 +16,7 @@ const
   Green = 0x44FF44
   Deeppink = 0xFF1493
 
-theme.editorFont = when defined(linux): "dejavu/DejaVuSansMono" 
+theme.editorFont = when defined(linux): "dejavu/DejaVuSansMono"
                    else: "DejaVuSansMono"
 theme.editorFontSize = 15
 
@@ -45,7 +45,6 @@ theme.tabWidth = 2
 
 theme.showBracket = true
 theme.showMinimap = true
-theme.showLigatures = true
 theme.bracket = Deeppink
 
 # If the width of the window exceeds this value, a console is activated.

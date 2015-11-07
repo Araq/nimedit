@@ -262,6 +262,10 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
       if cmpPaths(ed.main.filename, p) == 0 or
           not os.fileExists(p) or answer[0] == 'y':
         ed.main.saveAs(p)
+        try:
+          ed.main.filename = expandFilename(p)
+        except OSError:
+          discard
         success()
       elif answer[0] == 'n':
         success()

@@ -4,7 +4,7 @@ when defined(gcc) and defined(windows):
   when defined(x86):
     {.link: "icons/crown.o".}
 
-import strutils, critbits, os, times, browsers, tables
+import strutils, critbits, os, times, browsers, tables, hashes
 from parseutils import parseInt
 import sdl2, sdl2/ttf, prims
 import buffertype except Action
@@ -494,11 +494,17 @@ proc loadTheme(ed: Editor) =
 
 proc eventToKeySet(e: var Event): set[Key] =
   result = {}
-  if e.kind != KeyDown: return
+  if e.kind == KeyDown: discard
+  elif e.kind == KeyUp: result.incl(Key.KeyReleased)
+  else: return
   let w = e.key
+  case char(w.keysym.sym and 0xff)
+  of 'a'..'z':
+    result.incl(Key(ord(w.keysym.sym) - 'a'.ord + Key.A.ord))
+  of '0'..'9':
+    result.incl(Key(ord(w.keysym.sym) - '0'.ord + Key.N0.ord))
+  else: discard
   case w.keysym.scancode
-  of SDL_SCANCODE_A..SDL_SCANCODE_0:
-    result.incl(Key(ord(w.keysym.scancode) - SDL_SCANCODE_A.ord))
   of SDL_SCANCODE_F1..SDL_SCANCODE_F12:
     result.incl(Key(ord(Key.F1) + ord(w.keysym.scancode) - SDL_SCANCODE_F1.ord))
   of SDL_SCANCODE_RETURN:
@@ -818,7 +824,7 @@ proc processEvents(e: var Event; ed: Editor): bool =
         else:
           focus.insertSingleKey($w.text)
           if focus==main: trackSpot(ed.hotspots, main)
-    of KeyDown:
+    of KeyDown, KeyUp:
       let ks = eventToKeySet(e)
       let cmd = ed.keymapping.getOrDefault(ks)
       if ed.runAction(cmd.action, cmd.arg):

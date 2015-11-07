@@ -1,7 +1,5 @@
 TODO:
- - 'save as' doesn't expand the filename
  - replace '+' does not work!!!
- - ligatures do not work properly
  - console doesn't filter .exe files properly
  - 'nim check' integration
  - add the option for semantic highlighting
@@ -31,6 +29,7 @@ Optional:
  - highlighting of substring occurences
 Optimizations:
  - cache font renderings
+ - finish support for ligatures
 
 
 

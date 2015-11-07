@@ -31,7 +31,7 @@ bindKey({Del}, Action.Del)
 
 bindKey({Control,C}, Action.Copy)
 bindKey({Control,X}, Action.Cut)
-bindKey({Control,V}, Action.Paste)
+bindKey({Control,V,KeyReleased}, Action.Paste)
 
 bindKey({Control,Space}, Action.AutoComplete)
 bindKey({Control,Z}, Action.Undo)
