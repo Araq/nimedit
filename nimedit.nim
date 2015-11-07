@@ -596,7 +596,9 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
     focus.scrollLines(focus.span)
     focus.cursor = focus.firstLineOffset
 
-  of Action.Insert: discard
+  of Action.Insert:
+    if arg.len > 0:
+      focus.insertSingleKey(arg)
   of Action.Backspace:
     if focus==ed.autocomplete or focus==ed.sug:
       # delegate to main, but keep the focus on the autocomplete!
@@ -684,11 +686,7 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
 
   of Action.SelectAll: focus.selectAll()
   of Action.SendBreak: ed.con.sendBreak()
-  of Action.Run: discard
-  of Action.Exec: ed.runScriptCmd()
-  of Action.Goto: ed.gotoCmd()
-  of Action.Find: ed.findCmd()
-  of Action.Replace: ed.replaceCmd()
+
   of Action.UpdateView:
     main.markers.setLen 0
     if ed.state == requestedReplace: ed.state = requestedNothing
@@ -715,8 +713,6 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
       ed.state = requestedCloseTab
       ed.askForQuitTab()
 
-  of Action.GotoDefinition:
-    ed.suggest("dus")
 
   of Action.QuitApplication: sdl2.quit()
   of Action.Declarations:
@@ -728,7 +724,7 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
       else:
         main.gotoPos(main.cursor)
     else:
-      ed.statusMsg = "Ctrl+M only supported for Nim."
+      ed.statusMsg = "List of declarations only supported for Nim."
   of Action.NextBuffer:
     main = main.next
     focus = main
@@ -743,6 +739,18 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
     #ed.gotoPrevSpot(ed.hotspots, main)
     #focus = main
     discard "to implement"
+
+  of Action.InsertPrompt:
+    ed.focus = prompt
+    prompt.clear()
+    prompt.insert arg
+  of Action.InsertPromptSelectedText:
+    let text = ed.focus.getSelectedText()
+    ed.focus = prompt
+    prompt.clear()
+    prompt.insert arg & text.singleQuoted & " "
+  of Action.Nimsuggest:
+    ed.suggest(arg)
   of Action.NimScript:
     ed.handleEvent(arg)
 

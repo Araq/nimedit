@@ -1,7 +1,7 @@
 
 import strutils, editor
 
-include keybindings
+import keybindings
 
 proc doQuote*(selected: string): string =
   result = ""

@@ -30,11 +30,6 @@ type
     Redo,
     SelectAll,
     SendBreak,
-    Run,
-    Exec,
-    Goto,
-    Find,
-    Replace,
     UpdateView,
     OpenTab,
     SaveTab,
@@ -42,13 +37,15 @@ type
     CloseTab,
     SwitchEditorConsole,
     SwitchEditorPrompt,
-    GotoDefinition,
     QuitApplication,
     Declarations,
     NextBuffer,
     PrevBuffer,
     NextEditLocation,
     PrevEditLocation,
+    InsertPrompt,
+    InsertPromptSelectedText,
+    NimSuggest,
     NimScript
 
 proc bindKey*(key: set[Key]; action: Action; arg: string=nil) =

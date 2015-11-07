@@ -7,32 +7,6 @@ proc singleQuoted(s: string): string =
   else:
     result = s
 
-proc findCmd(ed: Editor) =
-  let prompt = ed.prompt
-  let text = ed.focus.getSelectedText()
-  ed.focus = prompt
-  prompt.clear()
-  prompt.insert "find " & text.singleQuoted
-
-proc replaceCmd(ed: Editor) =
-  let prompt = ed.prompt
-  let text = ed.focus.getSelectedText()
-  ed.focus = prompt
-  prompt.clear()
-  prompt.insert "replace " & text.singleQuoted & " "
-
-proc gotoCmd(ed: Editor) =
-  let prompt = ed.prompt
-  ed.focus = prompt
-  prompt.clear()
-  prompt.insert "goto "
-
-proc runScriptCmd(ed: Editor) =
-  let prompt = ed.prompt
-  ed.focus = prompt
-  prompt.clear()
-  prompt.insert "e "
-
 proc openCmd(ed: Editor) =
   when defined(windows):
     if ed.prompt.fullText == "o ":
