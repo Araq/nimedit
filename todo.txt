@@ -1,10 +1,9 @@
 TODO:
- - replace '+' does not work!!!
+ - multi windows support
  - console doesn't filter .exe files properly
  - 'nim check' integration
  - add the option for semantic highlighting
 
- - on the fly search
  - draw gradient for scrollbar
  - tabsize vs displaytabsize
 
@@ -26,10 +25,11 @@ Optional:
 
  - simple refactorings: rename
  - highlighting of substring occurences
-Optimizations:
- - cache font renderings
+ - on the fly search
  - finish support for ligatures
 
+Optimizations:
+ - cache font renderings
 
 
 Font rendering

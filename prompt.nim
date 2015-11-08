@@ -138,7 +138,8 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
                  else: requestedNothing
     of requestedReplace:
       if ed.main.doReplace():
-        ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
+        #ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
+        discard
       else:
         ed.statusMsg = readyMsg
         ed.state = requestedNothing

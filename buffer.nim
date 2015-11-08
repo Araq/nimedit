@@ -362,14 +362,25 @@ proc down*(b: Buffer; jump: bool) =
   cursorMoved(b)
 
 proc updateMarkers(b: Buffer; cursorMovement: int) =
-  for x in mitems(b.markers):
-    if x.b < b.cursor+cursorMovement:
-      discard
-    elif b.cursor+cursorMovement in x.a..x.b:
-      x.b += cursorMovement
-    else:
-      x.a += cursorMovement
-      x.b += cursorMovement
+  # +++
+  # -
+  when true:
+    b.markers.setLen 0
+  else:
+    for x in mitems(b.markers):
+      if x.b < b.cursor+cursorMovement:
+        discard
+      elif b.cursor-1 in x.a..x.b:
+        # [ab|def]
+        #    ^  insert 4 chars --> adjust b by 4 chars
+        # [ab|def]
+        #    ^  delete 3 chars --> adjust b by 3 chars
+        x.b += cursorMovement
+        echo "adjusting only b ", x.b, " ", cursorMovement
+      else:
+        x.a += cursorMovement
+        x.b += cursorMovement
+        echo "adjusting a, b ", x.a, " ", x.b, " ", cursorMovement
 
 proc filterForInsert(s: string): string =
   result = newStringOfCap(s.len)
@@ -380,31 +391,31 @@ proc filterForInsert(s: string): string =
       for j in 1..tabWidth: result.add(' ')
     else: result.add(s[i])
 
-proc rawInsert*(b: Buffer; c: char) =
+proc rawInsert*(b: Buffer; c: char; keepMarkers=false) =
   case c
   of '\L':
     b.front.add Cell(c: '\L')
     inc b.numberOfLines
     scroll(b, 1)
-    updateMarkers(b, 1)
+    if not keepMarkers: updateMarkers(b, 1)
     inc b.cursor
   of '\C': discard
   of '\t':
     for i in 1..tabWidth:
       b.front.add Cell(c: ' ')
-      updateMarkers(b, 1)
+      if not keepMarkers: updateMarkers(b, 1)
       inc b.cursor
   of '\0':
     b.front.add Cell(c: '_')
-    updateMarkers(b, 1)
+    if not keepMarkers: updateMarkers(b, 1)
     inc b.cursor
   else:
     b.front.add Cell(c: c)
-    updateMarkers(b, 1)
+    if not keepMarkers: updateMarkers(b, 1)
     inc b.cursor
 
-proc rawInsert*(b: Buffer; s: string) =
-  for i in 0..<s.len: rawInsert(b, s[i])
+proc rawInsert*(b: Buffer; s: string; keepMarkers=false) =
+  for i in 0..<s.len: rawInsert(b, s[i], keepMarkers)
 
 proc loadFromFile*(b: Buffer; filename: string) =
   template detectTabSize() =
@@ -511,7 +522,7 @@ proc rawBackspace(b: Buffer; overrideUtf8=false; undoAction: var string) =
   if not undoAction.isNil:
     for i in countdown(b.front.len-1, b.front.len-x):
       undoAction.add b.front[i].c
-  updateMarkers(b, -x)
+  if not overrideUtf8: updateMarkers(b, -x)
   b.cursor -= x
   b.front.setLen(b.cursor)
 
@@ -549,8 +560,7 @@ proc setCaret*(b: Buffer; pos: int) =
   b.cursor = pos
   b.currentLine = getLineFromOffset(b, b.cursor)
 
-
-proc removeSelectedText*(b: Buffer; selectedA, selectedB: var int) =
+proc removeSelectedText*(b: Buffer; selectedA, selectedB: int) =
   if selectedB < 0: return
   b.setCaret(selectedB+1)
   let oldCursor = b.cursor
@@ -566,7 +576,6 @@ proc removeSelectedText*(b: Buffer; selectedA, selectedB: var int) =
     b.actions[^1].pos = b.cursor
   b.desiredCol = getColumn(b)
   highlightLine(b, oldCursor)
-  selectedB = -1
 
 proc removeText*(b: Buffer; selectedA, selectedB: int) =
   var x = selectedA.clamp(0, b.len-1)
@@ -575,6 +584,7 @@ proc removeText*(b: Buffer; selectedA, selectedB: int) =
 
 proc removeSelectedText*(b: Buffer) =
   removeSelectedText(b, b.selected.a, b.selected.b)
+  b.selected.b = -1
 
 proc deselect*(b: Buffer) {.inline.} = b.selected.b = -1
 
@@ -673,7 +683,8 @@ proc deleteKey*(b: Buffer) =
     removeSelectedText(b)
   cursorMoved(b)
 
-proc insertNoSelect(b: Buffer; s: string; singleUndoOp=false) =
+proc insertNoSelect(b: Buffer; s: string; singleUndoOp=false;
+                    keepMarkers=false) =
   if b.cursor <= b.readOnly or s.len == 0: return
   let oldCursor = b.cursor
   prepareForEdit(b)
@@ -685,7 +696,7 @@ proc insertNoSelect(b: Buffer; s: string; singleUndoOp=false) =
                          version: b.version))
   if s[^1] in Whitespace or singleUndoOp: b.actions[^1].k = insFinished
   edit(b)
-  rawInsert(b, s)
+  rawInsert(b, s, keepMarkers)
   b.desiredCol = getColumn(b)
   highlightLine(b, oldCursor)
 
@@ -707,6 +718,9 @@ proc insertSingleKey*(b: Buffer; s: string) =
     removeSelectedText(b)
     insertNoSelect(b, s)
   cursorMoved(b)
+
+proc insertKeepMarkers*(b: Buffer; s: string) =
+  insertNoSelect(b, s, true, true)
 
 proc insert*(b: Buffer; s: string) =
   inc b.version

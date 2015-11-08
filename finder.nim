@@ -1,5 +1,6 @@
 
-import buffertype, buffer, re, strutils
+import buffertype, buffer, re, nimscriptsupport
+import strutils except `%`
 from unicode import runeLen
 
 type
@@ -56,6 +57,64 @@ proc find(s: Buffer; sub: string, start: Natural; options: SearchOptions): int =
   preprocessSub(sub, a, options)
   result = findAux(s, sub, start, a, options)
 
+proc `%`(formatstr: string; a: openArray[string]): string =
+  # safe format that doesn't throw and supports NimScript.
+  template parseDigits() {.dirty.} =
+    var j = 0
+    var negative = formatstr[i] == '-'
+    if negative: inc i
+    while formatstr[i] in Digits:
+      j = j * 10 + ord(formatstr[i]) - ord('0')
+      inc(i)
+    let idx = if not negative: j-1 else: a.len-j
+
+  var i = 0
+  var num = 0
+  result = newStringOfCap(formatstr.len + 10)
+  while i < len(formatstr):
+    if formatstr[i] == '$':
+      inc i
+      case formatstr[i]
+      of '#':
+        if num <=% a.high and not a[num].isNil:
+          add result, a[num]
+          inc i
+          inc num
+      of '$':
+        add result, '$'
+        inc(i)
+      of '1'..'9', '-':
+        parseDigits()
+        if idx <=% a.high and not a[idx].isNil:
+          add result, a[idx]
+      of 'a'..'z', 'A'..'Z', '_', '\128'..'\255':
+        var procname = ""
+        while true:
+          if i >= formatstr.len: return
+          if formatstr[i] == '(': break
+          procname.add formatstr[i]
+          inc i
+        inc i
+        if formatstr[i] in {'1'..'9', '_'}:
+          parseDigits()
+          if idx <=% a.high and not a[idx].isNil:
+            let x = runTransformator(procname, a[idx])
+            if x.len > 0:
+              result.add x
+        elif formatstr[i] == '#':
+          if num <=% a.high and not a[num].isNil:
+            add result, a[num]
+            inc i
+            inc num
+          let x = runTransformator(procname, a[num])
+          if x.len > 0:
+            result.add x
+      else:
+        result.add '$'
+    else:
+      result.add formatstr[i]
+      inc(i)
+
 proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
                toReplaceWith: string = nil) =
   const Letters = {'a'..'z', '_', 'A'..'Z', '\128'..'\255', '0'..'9'}
@@ -103,16 +162,35 @@ proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
 
 proc doReplace*(b: Buffer): bool =
   if b.activeMarker < b.markers.len:
-    # we have to copy it here and delete it immediately so that the updates
-    # to b.markers that 'removeSelectedText' and 'insert' perform do not
-    # affect us:
     let m = b.markers[b.activeMarker]
     var x = m.a
     var y = m.b
-    b.markers.delete b.activeMarker
     inc b.version
     removeSelectedText(b, x, y)
     if m.replacement.len > 0:
-      dec b.version
-      insert(b, m.replacement)
+      insertKeepMarkers(b, m.replacement)
+    let diff = m.replacement.len - (y-x+1)
+    if diff != 0:
+      for i in b.activeMarker+1 .. high(b.markers):
+        b.markers[i].a += diff
+        b.markers[i].b += diff
+    b.markers.delete b.activeMarker
     result = true
+
+when isMainModule:
+  import styles
+
+  var mgr: StyleManager
+  var b = newBuffer("test", addr mgr)
+  b.insert("abc abc abc")
+  b.findNext(r"abc", {}, "d")
+  while doReplace(b): discard
+  echo b.fullText
+  doAssert b.fullText == "d d d"
+
+  b.clear()
+  b.insert("abc abc abc")
+  b.findNext(r"(\w+)", {searchRe}, "W$1W")
+  while doReplace(b): discard
+  echo b.fullText
+  doAssert b.fullText == "WabcW WabcW WabcW"
