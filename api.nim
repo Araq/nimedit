@@ -4,10 +4,10 @@
 import
   compiler/ast, compiler/vm, compiler/vmdef, compiler/msgs
 
-proc setupApi(result: PEvalContext; ed: Editor) =
+proc setupApi(result: PEvalContext; sh: SharedState) =
   msgs.gErrorMax = high(int)
   msgs.writelnHook = proc (msg: string) =
-    ed.console.insertReadOnly(msg & '\L')
+    sh.firstWindow.console.insertReadOnly(msg & '\L')
 
   # XXX: Expose markers.
   template expose(name, body) {.dirty.} =
@@ -27,103 +27,102 @@ proc setupApi(result: PEvalContext; ed: Editor) =
 
   expose charAt:
     let i = getInt(a, 0)
-    let res = if i < 0: '\0' else: ed.main[i]
+    let res = if i < 0: '\0' else: sh.activeWindow.main[i]
     setResult(a, res.ord)
   expose tokenAt:
     let i = getInt(a, 0)
-    let res = if i < 0: TokenClass.None else: ed.main.getCell(i).s
+    let res = if i < 0: TokenClass.None else: sh.activeWindow.main.getCell(i).s
     setResult(a, res.ord)
   expose insert:
     let x = getString(a, 0)
-    dec ed.main.version
-    ed.main.insert(x)
+    dec sh.activeWindow.main.version
+    sh.activeWindow.main.insert(x)
   expose setLang:
-    ed.main.lang = SourceLanguage(getInt(a, 0))
+    sh.activeWindow.main.lang = SourceLanguage(getInt(a, 0))
   expose getLang:
-    setResult(a, ed.main.lang.ord)
+    setResult(a, sh.activeWindow.main.lang.ord)
   expose remove:
     let x = getInt(a, 0)
     let y = getInt(a, 1)
-    ed.main.removeText(x.int, y.int)
+    sh.activeWindow.main.removeText(x.int, y.int)
   expose getSelection:
     let res = newNode(nkPar)
-    res.add newIntNode(nkIntLit, ed.main.selected.a)
-    res.add newIntNode(nkIntLit, ed.main.selected.b)
+    res.add newIntNode(nkIntLit, sh.activeWindow.main.selected.a)
+    res.add newIntNode(nkIntLit, sh.activeWindow.main.selected.b)
     setResult(a, res)
   expose setSelection:
-    let b = ed.main
+    let b = sh.activeWindow.main
     let x = getInt(a, 0).int.clamp(0, b.len-1)
     let y = getInt(a, 1).int.clamp(-1, b.len-1)
-    ed.main.selected.a = x
-    ed.main.selected.b = y
+    sh.activeWindow.main.selected.a = x
+    sh.activeWindow.main.selected.b = y
   expose setFocus:
     let x = getInt(a, 0)
     if x <= 0:
-      ed.focus = ed.main
+      sh.focus = sh.activeWindow.main
     elif x == 1:
-      ed.focus = ed.prompt
-    elif ed.hasConsole:
-      ed.focus = ed.console
+      sh.focus = sh.activeWindow.prompt
+    elif sh.activeWindow.hasConsole:
+      sh.focus = sh.activeWindow.console
   expose setPrompt:
     let x = getString(a, 0)
-    ed.prompt.clear()
-    ed.prompt.insert(x)
+    sh.activeWindow.prompt.clear()
+    sh.activeWindow.prompt.insert(x)
   expose getPrompt:
-    setResult(a, ed.prompt.fullText)
+    setResult(a, sh.activeWindow.prompt.fullText)
   expose clear:
-    ed.main.clear()
+    sh.activeWindow.main.clear()
   expose gotoPos:
-    let b = ed.main
+    let b = sh.activeWindow.main
     let x = getInt(a, 0).int
     let y = getInt(a, 1).int
     b.gotoLine(x+1, y+1)
 
   expose setCaret:
-    let b = ed.main
+    let b = sh.activeWindow.main
     let x = getInt(a, 0).int
     b.gotoPos(x)
   expose getCaret:
-    let b = ed.main
+    let b = sh.activeWindow.main
     setResult(a, b.cursor)
   expose currentLineNumber:
-    let b = ed.main
+    let b = sh.activeWindow.main
     setResult(a, b.currentLine)
   expose openTab:
     let x = getString(a, 0)
-    setResult(a, ed.openTab(x, true))
+    setResult(a, sh.activeWindow.openTab(x, true))
   expose closeTab:
-    ed.removeBuffer(ed.main)
+    sh.activeWindow.removeBuffer(sh.activeWindow.main)
   expose getHistory:
     let i = getInt(a, 0).int
-    if i < 0 or i >= ed.con.hist.cmds.len:
+    if i < 0 or i >= sh.activeWindow.con.hist.cmds.len:
       setResult(a, "")
     else:
-      setResult(a, ed.con.hist.cmds[i])
+      setResult(a, sh.activeWindow.con.hist.cmds[i])
   expose historyLen:
-    setResult(a, ed.con.hist.cmds.len)
+    setResult(a, sh.activeWindow.con.hist.cmds.len)
   expose runConsoleCmd:
-    ed.console.gotoPos(ed.console.len)
-    ed.console.insert(getString(a, 0))
-    ed.con.enterPressed()
+    sh.activeWindow.console.gotoPos(sh.activeWindow.console.len)
+    sh.activeWindow.console.insert(getString(a, 0))
+    sh.activeWindow.con.enterPressed()
   expose currentFilename:
-    setResult(a, ed.main.filename)
+    setResult(a, sh.activeWindow.main.filename)
   expose addSearchPath:
-    ed.addSearchPath(getString(a, 0))
+    sh.addSearchPath(getString(a, 0))
   expose getSearchPath:
     let i = getInt(a, 0).int
-    if i < 0 or i >= ed.searchPath.len:
+    if i < 0 or i >= sh.searchPath.len:
       setResult(a, "")
     else:
-      setResult(a, ed.searchPath[i])
+      setResult(a, sh.searchPath[i])
   expose setStatus:
-    ed.statusMsg = getString(a, 0)
+    sh.statusMsg = getString(a, 0)
   expose save:
-    ed.main.save()
+    sh.activeWindow.main.save()
   expose saveAs:
-    ed.main.saveAs(getString(a, 0))
+    sh.activeWindow.main.saveAs(getString(a, 0))
   expose defineAlias:
-    ed.con.aliases.add((getString(a, 0), getString(a, 1)))
-
+    sh.activeWindow.con.aliases.add((getString(a, 0), getString(a, 1)))
 
   result.registerCallback "nimedit.keydefs.bindKey",
     proc (a: VmArgs) =
@@ -138,5 +137,5 @@ proc setupApi(result: PEvalContext; ed: Editor) =
           doAssert false
       let action = getInt(a, 1)
       doAssert action >= 0 and action <= int(high(Action))
-      ed.keymapping[bitset] = Command(action: Action(action),
+      sh.keymapping[bitset] = Command(action: Action(action),
                                       arg: getString(a, 2))
