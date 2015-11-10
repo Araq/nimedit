@@ -59,7 +59,7 @@ type
     fontM: FontManager
     cfgColors, cfgActions: string
     project: string
-    nimsuggestDebug, clickOnFilename: bool
+    nimsuggestDebug, clickOnFilename, windowHasFocus: bool
     state: EditorState
     searchOptions: SearchOptions
 
@@ -74,7 +74,6 @@ type
     buffersCounter: int
     con, promptCon: Console
     bar: TabBar
-    windowHasFocus: bool
     next: Editor
 
 proc trackSpot(s: var Spots; b: Buffer) =
@@ -123,7 +122,6 @@ proc setDefaults(ed: Editor; sh: SharedState) =
   ed.screenH = cint(780)
   sh.statusMsg = readyMsg
 
-  ed.main = newBuffer(unkownName(), addr sh.mgr)
   ed.prompt = newBuffer("prompt", addr sh.mgr)
   ed.console = newBuffer("console", addr sh.mgr)
   ed.console.lang = langConsole
@@ -136,13 +134,16 @@ proc setDefaults(ed: Editor; sh: SharedState) =
   ed.sug.isSmall = true
   ed.sug.lang = langNim
 
+  sh.focus = ed.prompt
+  ed.con = newConsole(ed.console)
+  ed.promptCon = newConsole(ed.prompt)
+
+proc createUnknownTab(ed: Editor; sh: SharedState) =
+  ed.main = newBuffer(unkownName(), addr sh.mgr)
   ed.buffersCounter = 1
   ed.main.next = ed.main
   ed.main.prev = ed.main
   sh.focus = ed.main
-
-  ed.con = newConsole(ed.console)
-  ed.promptCon = newConsole(ed.prompt)
 
 proc destroy(ed: Editor) =
   destroyRenderer ed.renderer
@@ -216,14 +217,18 @@ proc findFileAbbrev(ed: Editor; filename: string): string =
           result = p / f
           dist = currDist
 
-proc getWindow(sh: SharedState; b: Buffer): Editor =
+proc getWindow(sh: SharedState; b: Buffer; returnPrevious=false): Editor =
   result = sh.firstWindow
   while result != nil:
     var it = result.main
+    var prev: Editor = nil
     while true:
-      if it == b: return
+      if it == b:
+        if returnPrevious: return result
+        else: return prev
       it = it.next
       if it == result.main or it == result.bar.last: break
+    prev = result
     result = result.next
   doAssert false
 
@@ -513,7 +518,7 @@ proc handleEvent(ed: Editor; procname: string) =
       ed.sh.statusMsg = "Errors! Open console to see them."
 
 proc pollEvent(e: var Event; ed: Editor): auto =
-  if ed.windowHasFocus or ed.con.processRunning:
+  if ed.sh.windowHasFocus or ed.con.processRunning:
     result = pollEvent(e)
   else:
     result = waitEvent(e)
@@ -608,9 +613,12 @@ proc setActiveWindow(sh: SharedState; wid: uint32): Editor =
         break
   return sh.activeWindow
 
-proc createSdlWindow(ed: Editor) =
+proc createSdlWindow(ed: Editor; maximize: range[0u32 .. 1u32]) =
   # Doesn't work on Linux. Yay.
-  const maximized = when defined(linux): 0'u32 else: SDL_WINDOW_MAXIMIZED
+  when defined(linux):
+    const maximized = 0'u32
+  else:
+    let maximized = SDL_WINDOW_MAXIMIZED * maximize
 
   ed.window = createWindow(windowTitle, 10, 30, ed.screenW, ed.screenH,
                             SDL_WINDOW_RESIZABLE or maximized)
@@ -619,27 +627,42 @@ proc createSdlWindow(ed: Editor) =
 
 
 proc moveTabToRightWindow(ed: Editor) =
-  var result: Editor
-  if ed.next != nil:
-    result = ed.next
-  else:
+  let current = ed.main
+  var result = ed.next
+
+  ed.removeBuffer(current)
+  if result.isNil:
     result = Editor()
-    createSdlWindow(ed)
     result.setDefaults(ed.sh)
+    createSdlWindow(result, 0)
     result.next = ed.next
     ed.next = result
+    result.bar.first = current
+    result.bar.last = result.bar.first
+  if ed.bar.last.isNil:
+    ed.bar.last = ed.bar.first.prev
 
-  if ed.bar.last.isNil or ed.bar.last == ed.main:
-    ed.bar.last = ed.main.prev
-  if ed.bar.first == ed.main:
-    ed.bar.first = ed.main.next
-  swapBuffers(ed.main, result.main)
-
-  closeTab(ed)
-  result.bar.first = ed.main
-  result.bar.last = result.bar.first
-  ed.sh.focus = result.main
+  #insertBuffer(result.main, current)
+  result.main = current
+  current.prev = ed.bar.last
+  ed.bar.last.next = current
+  if result.buffersCounter == 0:
+    current.next = ed.bar.first
+  else:
+    current.next = result.bar.first
+  current.next.prev = current
+  result.bar.first = current
+  ed.sh.focus = current
   ed.sh.activeWindow = result
+
+proc closeWindow(ed: Editor) =
+  var left = ed.sh.firstWindow
+  while left.next != ed:
+    left = left.next
+  # move all tabs back to the Window on the left:
+  left.bar.last = ed.bar.last
+  destroy ed
+  ed.sh.activeWindow = left
 
 proc runAction(ed: Editor; action: Action; arg: string): bool =
   template console: expr = ed.console
@@ -842,6 +865,16 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
   of Action.NimScript:
     ed.handleEvent(arg)
 
+proc handleQuitEvent(ed: Editor): bool =
+  saveOpenTabs(ed)
+  ed.sh.state = requestedShutdown
+  let b = withUnsavedChanges(main)
+  if b == nil:
+    result = true
+  else:
+    main = b
+    ed.askForQuitTab()
+
 proc processEvents(e: var Event; ed: Editor): bool =
   template console: expr = ed.console
 
@@ -849,25 +882,29 @@ proc processEvents(e: var Event; ed: Editor): bool =
   while pollEvent(e, ed) == SdlSuccess:
     case e.kind
     of QuitEvent:
-      saveOpenTabs(ed)
-      ed.sh.state = requestedShutdown
-      let b = withUnsavedChanges(main)
-      if b == nil:
+      if handleQuitEvent(ed):
         result = true
         break
-      main = b
-      ed.askForQuitTab()
     of WindowEvent:
       let w = e.window
       let ed = ed.sh.setActiveWindow(w.windowId)
-      if w.event == WindowEvent_Resized:
+      case w.event
+      of WindowEvent_Resized:
         ed.screenW = w.data1
         ed.screenH = w.data2
         layout(ed)
-      elif w.event == WindowEvent_FocusLost:
-        ed.windowHasFocus = false
-      elif w.event == WindowEvent_FocusGained:
-        ed.windowHasFocus = true
+      of WindowEvent_FocusLost:
+        sh.windowHasFocus = false
+      of WindowEvent_FocusGained:
+        sh.windowHasFocus = true
+      of WindowEvent_Close:
+        if sh.firstWindow.next.isNil:
+          if handleQuitEvent(ed):
+            result = true
+            break
+        else:
+          closeWindow(sh.activeWindow)
+      else: discard
     of MouseButtonDown:
       let w = e.button
       # This mitigates problems with older SDL 2 versions. Prior to 2.0.3
@@ -1031,6 +1068,7 @@ proc mainProc(ed: Editor) =
 
   var sh = newSharedState()
   setDefaults(ed, sh)
+  createUnknownTab(ed, sh)
   sh.activeWindow = ed
   sh.firstWindow = ed
   let scriptContext = setupNimscript(sh.cfgColors)
@@ -1038,7 +1076,7 @@ proc mainProc(ed: Editor) =
   compileActions(sh.cfgActions)
 
   loadTheme(sh)
-  createSdlWindow(ed)
+  createSdlWindow(ed, 1)
 
   ed.bar.first = ed.main
 
@@ -1049,7 +1087,7 @@ proc mainProc(ed: Editor) =
   if sh.project.len > 0:
     sh.setTitle(windowTitle & " - " & sh.project.extractFilename)
   ed.con.insertPrompt()
-  ed.windowHasFocus = true
+  sh.windowHasFocus = true
   # we only redraw if an event has been processed or after a timeout
   # for the cursor blinking in order to save CPU cycles massively:
   var doRedraw = true

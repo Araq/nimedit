@@ -86,7 +86,7 @@ proc drawTextWithBorder*(t: InternalTheme; text: string; active: bool;
     result.h += 2
     drawBorder(t, result, active, 4)
 
-proc swapBuffers*(a, b: Buffer) =
+proc swapBuffers(a, b: Buffer) =
   #  a.prev | a | b | b.next
   #           |-->
   if a != b:
