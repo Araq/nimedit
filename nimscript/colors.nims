@@ -18,7 +18,7 @@ const
 
 theme.editorFont = when defined(linux): "dejavu/DejaVuSansMono"
                    else: "DejaVuSansMono"
-theme.editorFontSize = 15
+theme.editorFontSize = 12
 
 theme.uiFont = when defined(linux): "freefont/FreeSans" else: "Arial"
 theme.uiFontSize = 12
@@ -64,7 +64,7 @@ ss HexNumber, Blue
 ss OctNumber, Blue
 ss FloatNumber, Blue
 ss Identifier, White
-ss Keyword, White, FontStyle.Bold
+ss Keyword, Yellow
 ss StringLit, Orange
 ss LongStringLit, Orange
 ss CharLit, Orange

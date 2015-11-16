@@ -677,7 +677,7 @@ proc deleteKey*(b: Buffer) =
   if b.selected.b < 0:
     if b.cursor >= b.len: return
     let (_, L) = lastRune(b, b.cursor+1)
-    inc(b.cursor, L)
+    b.setCaret(b.cursor + L)
     backspace(b, false)
   else:
     removeSelectedText(b)
