@@ -10,8 +10,8 @@ const
   ]
 
 proc ignoreFile*(f: string): bool =
-  let (_, _, ext) = f.splitFile
-  result = f[0] == '.' or ext in ExtensionsToIgnore or f == "nimcache"
+  let (_, name, ext) = f.splitFile
+  result = name[0] == '.' or ext in ExtensionsToIgnore or f == "nimcache"
 
 type
   CmdHistory* = object
@@ -201,7 +201,7 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
   var sug = -1
   if prefix.len > 0:
     for i, x in c.files:
-      if x.startsWithIgnoreCase(prefix) and not x.ignoreFile:
+      if x.extractFilename.startsWithIgnoreCase(prefix) and not x.ignoreFile:
         sug = i
         break
   if sug < 0 and prefix.len > 0:
@@ -212,7 +212,7 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
         sug = i
         break
   # no match, just suggest something, but ignore crap starting with a dot:
-  if sug < 0:
+  if sug < 0 and prefix.len == 0:
     sug = 0
     while sug < c.files.high:
       if c.files[sug].ignoreFile: inc sug
