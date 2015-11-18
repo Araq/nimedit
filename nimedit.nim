@@ -546,11 +546,12 @@ proc eventToKeySet(e: var Event): set[Key] =
   elif e.kind == KeyUp: result.incl(Key.KeyReleased)
   else: return
   let w = e.key
-  case char(w.keysym.sym and 0xff)
+  let ch = char(w.keysym.sym and 0xff)
+  case ch
   of 'a'..'z':
-    result.incl(Key(ord(w.keysym.sym) - 'a'.ord + Key.A.ord))
+    result.incl(Key(ord(ch) - 'a'.ord + Key.A.ord))
   of '0'..'9':
-    result.incl(Key(ord(w.keysym.sym) - '0'.ord + Key.N0.ord))
+    result.incl(Key(ord(ch) - '0'.ord + Key.N0.ord))
   else: discard
   case w.keysym.scancode
   of SDL_SCANCODE_F1..SDL_SCANCODE_F12:

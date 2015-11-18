@@ -283,10 +283,11 @@ proc cmdToArgs(cmd: string): tuple[exe: string, args: seq[string]] =
     result.args.add x
 
 proc dirContents(c: Console; ext: string) =
-  for k, f in os.walkDir(getCurrentDir()):
+  for k, f in os.walkDir(getCurrentDir(), relative=true):
     if ext.len == 0 or cmpPaths(f.splitFile.ext, ext) == 0:
       c.insertReadonly(f)
       c.insertReadonly("    ")
+  c.insertReadonly("\L")
 
 # Threading channels
 var requests: Channel[string]
@@ -431,9 +432,12 @@ proc enterPressed*(c: Console): string =
   of "":
     insertPrompt c
   of "o":
-    result = ""
-    i = parseWord(cmd, result, i)
+    var b = ""
+    i = parseWord(cmd, b, i)
     insertPrompt c
+    if b.len > 0:
+      if isAbsolute(b): result = b
+      else: result = os.getCurrentDir() / b
   of "cls":
     clear(c.b)
     insertPrompt c
