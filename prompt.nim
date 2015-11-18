@@ -259,6 +259,11 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
   of "save", "s":
     var p = ""
     i = parseWord(cmd, p, i)
+    if not p.isAbsolute:
+      if ed.main.filename.isNil:
+        p = os.getCurrentDir() / p
+      else:
+        p = ed.main.filename.splitFile.dir / p
     if p.len > 0:
       sh.statusMsg = readyMsg
       var answer = ""

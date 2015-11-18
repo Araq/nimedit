@@ -1,6 +1,6 @@
 TODO:
- - multi windows support
- - console doesn't filter .exe files properly
+ - indent/dedent for multi lines a bit buggy
+ - finish multi windows support
  - 'nim check' integration
  - add the option for semantic highlighting
 

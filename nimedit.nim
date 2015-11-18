@@ -224,8 +224,8 @@ proc getWindow(sh: SharedState; b: Buffer; returnPrevious=false): Editor =
     var prev: Editor = nil
     while true:
       if it == b:
-        if returnPrevious: return result
-        else: return prev
+        if returnPrevious: return prev
+        else: return result
       it = it.next
       if it == result.main or it == result.bar.last: break
     prev = result
@@ -736,7 +736,9 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
         saveOpenTabs(ed)
         result = true
     elif focus==console:
-      enterPressed(ed.con)
+      let x = enterPressed(ed.con)
+      if x.len > 0:
+        openTab(ed, x, true)
     elif focus==ed.autocomplete:
       indexer.selected(ed.autocomplete, main)
       focus = main
@@ -775,7 +777,7 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
       discard sdl2.setClipboardText(text)
   of Action.Paste:
     let text = sdl2.getClipboardText()
-    focus.insert($text)
+    focus.insert($text, smartInsert=true)
     freeClipboardText(text)
 
   of Action.AutoComplete:

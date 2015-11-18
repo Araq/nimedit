@@ -104,7 +104,9 @@ proc setupApi(result: PEvalContext; sh: SharedState) =
   expose runConsoleCmd:
     sh.activeWindow.console.gotoPos(sh.activeWindow.console.len)
     sh.activeWindow.console.insert(getString(a, 0))
-    sh.activeWindow.con.enterPressed()
+    let x = sh.activeWindow.con.enterPressed()
+    if x.len > 0:
+      sh.activeWindow.openTab(x, true)
   expose currentFilename:
     setResult(a, sh.activeWindow.main.filename)
   expose addSearchPath:

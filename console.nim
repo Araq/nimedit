@@ -11,7 +11,7 @@ const
 
 proc ignoreFile*(f: string): bool =
   let (_, _, ext) = f.splitFile
-  result = f[0] == '.' or ext in ExtensionsToIgnore
+  result = f[0] == '.' or ext in ExtensionsToIgnore or f == "nimcache"
 
 type
   CmdHistory* = object
@@ -201,22 +201,21 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
   var sug = -1
   if prefix.len > 0:
     for i, x in c.files:
-      if x.startsWithIgnoreCase(prefix):
+      if x.startsWithIgnoreCase(prefix) and not x.ignoreFile:
         sug = i
         break
   if sug < 0 and prefix.len > 0:
     # if we have no prefix, pick a file that contains the prefix somewhere
     let p = prefix.toLower
     for i, x in c.files:
-      if p in x.toLower:
+      if p in x.toLower and not x.ignoreFile:
         sug = i
         break
   # no match, just suggest something, but ignore crap starting with a dot:
   if sug < 0:
     sug = 0
     while sug < c.files.high:
-      if c.files[sug] == "nimcache": inc sug
-      elif c.files[sug].ignoreFile: inc sug
+      if c.files[sug].ignoreFile: inc sug
       else: break
   if sug >=% c.files.len: return
   # these inserts&deletes do not count as changed event:
@@ -282,6 +281,12 @@ proc cmdToArgs(cmd: string): tuple[exe: string, args: seq[string]] =
     i = parseWord(cmd, x, i)
     if x.len == 0: break
     result.args.add x
+
+proc dirContents(c: Console; ext: string) =
+  for k, f in os.walkDir(getCurrentDir()):
+    if ext.len == 0 or cmpPaths(f.splitFile.ext, ext) == 0:
+      c.insertReadonly(f)
+      c.insertReadonly("    ")
 
 # Threading channels
 var requests: Channel[string]
@@ -409,7 +414,7 @@ proc extractFilePosition*(b: Buffer): (string, int, int) =
         result[1] = line
         result[2] = col
 
-proc enterPressed*(c: Console) =
+proc enterPressed*(c: Console): string =
   c.b.gotoPos(c.b.len)
   c.files.setLen 0
   var cmd = getCommand(c)
@@ -424,6 +429,10 @@ proc enterPressed*(c: Console) =
       break
   case a
   of "":
+    insertPrompt c
+  of "o":
+    result = ""
+    i = parseWord(cmd, result, i)
     insertPrompt c
   of "cls":
     clear(c.b)
@@ -440,6 +449,11 @@ proc enterPressed*(c: Console) =
     var filename = ""
     i = parseWord(cmd, filename, i)
     if filename.len > 0: c.b.saveAs(filename)
+    insertPrompt c
+  of "d":
+    var b = ""
+    i = parseWord(cmd, b, i)
+    c.dirContents(b)
     insertPrompt c
   else:
     if i >= cmd.len-1 and (a.endsWith".html" or a.startsWith"http://" or
