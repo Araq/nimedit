@@ -20,7 +20,6 @@ Later versions:
    - introduce a "legend" feature
 
 Optional:
- - the command history needs to be persistent (also for redirected programs!)
  - what is kept in the command history should be scriptable
 
  - simple refactorings: rename

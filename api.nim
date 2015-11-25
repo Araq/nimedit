@@ -95,16 +95,18 @@ proc setupApi(result: PEvalContext; sh: SharedState) =
     sh.activeWindow.removeBuffer(sh.activeWindow.main)
   expose getHistory:
     let i = getInt(a, 0).int
-    if i < 0 or i >= sh.activeWindow.con.hist.cmds.len:
+    let cmds = sh.activeWindow.con.hist[""].cmds
+    if i < 0 or i >= cmds.len:
       setResult(a, "")
     else:
-      setResult(a, sh.activeWindow.con.hist.cmds[i])
+      setResult(a, cmds[i])
   expose historyLen:
-    setResult(a, sh.activeWindow.con.hist.cmds.len)
+    setResult(a, sh.activeWindow.con.hist[""].cmds.len)
   expose runConsoleCmd:
     sh.activeWindow.console.gotoPos(sh.activeWindow.console.len)
-    sh.activeWindow.console.insert(getString(a, 0))
-    let x = sh.activeWindow.con.enterPressed()
+    var aa = getString(a, 0)
+    sh.activeWindow.console.insertReadonly(aa)
+    let x = sh.activeWindow.con.runCommand(aa)
     if x.len > 0:
       sh.activeWindow.openTab(x, true)
   expose currentFilename:

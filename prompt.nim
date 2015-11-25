@@ -103,7 +103,7 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
   let prompt = ed.prompt
   let sh = ed.sh
 
-  ed.promptCon.hist.addCmd(cmd)
+  ed.promptCon.hist[""].addCmd(cmd)
 
   template success() =
     prompt.clear()

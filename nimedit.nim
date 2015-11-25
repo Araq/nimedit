@@ -378,14 +378,19 @@ proc saveOpenTabs(ed: Editor) =
     var it = ed.main.prev
     while it != nil:
       if it.filename.len > 0:
-        f.writeline(it.filename, "\t", it.getLine, "\t", it.getColumn)
+        f.writeline("file\t", it.filename, "\t", it.getLine, "\t", it.getColumn)
       if it == ed.main: break
       it = it.prev
+    for key, vals in pairs(ed.con.hist):
+      f.writeline("histkey\t", key, "\t", vals.suggested)
+      for v in vals.cmds:
+        f.writeline("histval\t", v)
     f.close()
 
 proc loadOpenTabs(ed: Editor) =
   var oldRoot = ed.main
   var f: File
+  var key: string
   if open(f, filelistFile()):
     let fileVersion = f.readline
     if fileVersion == SessionFileVersion:
@@ -396,12 +401,22 @@ proc loadOpenTabs(ed: Editor) =
         discard
       for line in lines(f):
         let x = line.split('\t')
-        if ed.openTab(x[0]):
-          gotoLine(ed.main, parseInt(x[1]), parseInt(x[2]))
-          ed.sh.focus = ed.main
-          if oldRoot != nil:
-            ed.removeBuffer(oldRoot)
-            oldRoot = nil
+        case x[0]
+        of "file":
+          if ed.openTab(x[1]):
+            gotoLine(ed.main, parseInt(x[2]), parseInt(x[3]))
+            ed.sh.focus = ed.main
+            if oldRoot != nil:
+              ed.removeBuffer(oldRoot)
+              oldRoot = nil
+        of "histkey":
+          key = x[1]
+          let suggested = parseInt(x[2])
+          ed.con.hist[key] = CmdHistory(cmds: @[], suggested: suggested)
+        of "histval":
+          doAssert(not key.isNil)
+          ed.con.hist[key].cmds.add x[1]
+        else: discard
     else:
       ed.sh.statusMsg = "cannot restore session; versions differ"
     f.close()
