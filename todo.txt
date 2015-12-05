@@ -1,4 +1,5 @@
 TODO:
+ - undo/redo still buggy
  - indent/dedent for multi lines a bit buggy
  - finish multi windows support
  - 'nim check' integration
