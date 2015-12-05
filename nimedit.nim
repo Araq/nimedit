@@ -331,12 +331,13 @@ proc layout(ed: Editor) =
   let yGap = sh.theme.uiYGap
   let xGap = sh.theme.uiXGap
   let fontSize = sh.theme.editorFontSize.int
-  ed.mainRect = rect(15, yGap*3+fontSize,
-                        ed.screenW - 15*2,
-                        ed.screenH - 7*fontSize - yGap*2)
-  ed.promptRect = rect(15, fontSize+yGap*3 + ed.screenH - 7*fontSize,
+  ed.promptRect = rect(15, ed.screenH - 3*fontSize - yGap*3,
                           ed.screenW - 15*2,
                           fontSize+yGap*2)
+  ed.mainRect = rect(15, yGap*3+sh.theme.uiFontSize.int+3,
+                        ed.screenW - 15*2,
+                        ed.promptRect.y -
+                        (yGap*5+sh.theme.uiFontSize.int+3))
   if ed.screenW > sh.theme.consoleAfter and sh.theme.consoleAfter >= 0:
     # enable the console:
     let d = ed.screenW * (100 - sh.theme.consoleWidth.cint) div 100
