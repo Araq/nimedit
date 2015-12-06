@@ -651,11 +651,14 @@ proc moveTabToRightWindow(ed: Editor) =
   if result.isNil:
     result = Editor()
     result.setDefaults(ed.sh)
+    result.screenW = ed.screenW
+    result.screenH = ed.screenH
     createSdlWindow(result, 0)
     result.next = ed.next
     ed.next = result
     result.bar.first = current
     result.bar.last = result.bar.first
+    layout(result)
   if ed.bar.last.isNil:
     ed.bar.last = ed.bar.first.prev
 
@@ -679,6 +682,7 @@ proc closeWindow(ed: Editor) =
   # move all tabs back to the Window on the left:
   left.bar.last = ed.bar.last
   destroy ed
+  left.next = left.next.next
   ed.sh.activeWindow = left
 
 proc runAction(ed: Editor; action: Action; arg: string): bool =
