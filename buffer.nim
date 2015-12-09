@@ -677,7 +677,7 @@ proc deleteKey*(b: Buffer) =
   if b.selected.b < 0:
     if b.cursor >= b.len: return
     let (_, L) = lastRune(b, b.cursor+1)
-    inc(b.cursor, L)
+    b.setCaret(b.cursor + L)
     backspace(b, false)
   else:
     removeSelectedText(b)
@@ -722,10 +722,65 @@ proc insertSingleKey*(b: Buffer; s: string) =
 proc insertKeepMarkers*(b: Buffer; s: string) =
   insertNoSelect(b, s, true, true)
 
-proc insert*(b: Buffer; s: string) =
+proc baseIndent(s: string): int =
+  result = -1
+  var i = 0
+  while i < s.len:
+    var ind = 0
+    while s[i] == ' ':
+      inc i
+      inc ind
+    while i < s.len and s[i] != '\L': inc i
+    if i >= s.len: break
+    if result == -1 or ind < result:
+      result = ind
+    inc i
+
+proc insert*(b: Buffer; s: string; smartInsert=false) =
   inc b.version
   removeSelectedText(b)
-  insertNoSelect(b, s, true)
+  let base = baseIndent(s)
+  if smartInsert and base >= 0:
+    # move to the *start* of this line
+    var i = b.cursor
+    var inComment = false
+    while i >= 1:
+      case b[i-1]
+      of '\L': break
+      of '#':
+        if b.lang == langNim: inComment = true
+      else: discard
+      dec i
+
+    var newLine = "\L"
+    while true:
+      let c = b[i]
+      if c == ' ' or c == '\t':
+        newLine.add c
+      else:
+        break
+      inc i
+    var last = b.cursor-1
+    while last > 0 and b[last] == ' ': dec last
+    if last >= 0 and b[last] in additionalIndentChars[b.lang] and not inComment:
+      for i in 1..b.tabSize: newLine.add ' '
+    # remove existing and use fresh indentation
+    var t = newStringOfCap(s.len)
+    i = 0
+    while i < s.len:
+      var ind = base
+      while s[i] == ' ' and ind > 0:
+        inc i
+        dec ind
+      t.add newLine
+      while i < s.len and s[i] != '\L':
+        t.add s[i]
+        inc i
+      inc i
+    t.add '\L'
+    insertNoSelect(b, t, true)
+  else:
+    insertNoSelect(b, s, true)
 
 proc dedentSingleLine(b: Buffer; i: int) =
   if b[i] == '\t':

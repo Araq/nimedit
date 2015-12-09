@@ -35,6 +35,8 @@ type
     SaveTab,
     NewTab,
     CloseTab,
+    MoveTabLeft,
+    MoveTabRight,
     SwitchEditorConsole,
     SwitchEditorPrompt,
     QuitApplication,

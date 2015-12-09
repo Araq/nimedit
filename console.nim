@@ -1,6 +1,6 @@
 # Some nice console support.
 
-import buffertype, buffer, os, osproc, streams, strutils, browsers
+import buffertype, buffer, os, osproc, streams, strutils, browsers, tables
 
 const
   ExtensionsToIgnore* = [
@@ -10,8 +10,8 @@ const
   ]
 
 proc ignoreFile*(f: string): bool =
-  let (_, _, ext) = f.splitFile
-  result = f[0] == '.' or ext in ExtensionsToIgnore
+  let (_, name, ext) = f.splitFile
+  result = name[0] == '.' or ext in ExtensionsToIgnore or f == "nimcache"
 
 type
   CmdHistory* = object
@@ -23,6 +23,7 @@ proc addCmd*(h: var CmdHistory; cmd: string) =
   for i in 0..high(h.cmds):
     if h.cmds[i] == cmd:
       # suggest it again:
+      swap(h.cmds[i], h.cmds[^1])
       h.suggested = i
       return
     elif h.cmds[i] in cmd:
@@ -45,12 +46,13 @@ proc suggest*(h: var CmdHistory; up: bool): string =
 type
   Console* = ref object
     b: Buffer
-    hist*: CmdHistory
+    hist*: Table[string, CmdHistory]
     files: seq[string]
     prefix: string
     processRunning*: bool
     beforeSuggestionPos: int
     aliases*: seq[(string, string)]
+    process: string
 
 proc insertReadonly*(c: Console; s: string) =
   insertReadonly(c.b, s)
@@ -59,8 +61,9 @@ proc insertPrompt*(c: Console) =
   c.insertReadOnly(os.getCurrentDir() & ">")
 
 proc newConsole*(b: Buffer): Console =
-  result = Console(b: b, hist: CmdHistory(cmds: @[], suggested: -1), files: @[],
-                   prefix: "", aliases: @[])
+  result = Console(b: b, hist: initTable[string, CmdHistory](), files: @[],
+                   prefix: "", aliases: @[], process: "")
+  result.hist[""] = CmdHistory(cmds: @[], suggested: -1)
 
 proc getCommand(c: Console): string =
   result = ""
@@ -74,14 +77,21 @@ proc emptyCmd(c: Console) =
     if b.len-1 <= b.readOnly: break
     backspace(b, false)
 
+proc caretToEnd(c: Console) =
+  if c.b.numberOfLines > 1:
+    deselect(c.b)
+    c.b.gotoPos(c.b.len)
+
 proc upPressed*(c: Console) =
-  let sug = c.hist.suggest(up=true)
+  c.caretToEnd
+  let sug = c.hist[c.process].suggest(up=true)
   if sug.len > 0:
     emptyCmd(c)
     c.b.insert sug
 
 proc downPressed*(c: Console) =
-  let sug = c.hist.suggest(up=false)
+  c.caretToEnd
+  let sug = c.hist[c.process].suggest(up=false)
   if sug.len > 0:
     emptyCmd(c)
     c.b.insert sug
@@ -201,22 +211,21 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
   var sug = -1
   if prefix.len > 0:
     for i, x in c.files:
-      if x.startsWithIgnoreCase(prefix):
+      if x.extractFilename.startsWithIgnoreCase(prefix) and not x.ignoreFile:
         sug = i
         break
   if sug < 0 and prefix.len > 0:
     # if we have no prefix, pick a file that contains the prefix somewhere
     let p = prefix.toLower
     for i, x in c.files:
-      if p in x.toLower:
+      if p in x.toLower and not x.ignoreFile:
         sug = i
         break
   # no match, just suggest something, but ignore crap starting with a dot:
-  if sug < 0:
+  if sug < 0 and prefix.len == 0:
     sug = 0
     while sug < c.files.high:
-      if c.files[sug] == "nimcache": inc sug
-      elif c.files[sug].ignoreFile: inc sug
+      if c.files[sug].ignoreFile: inc sug
       else: break
   if sug >=% c.files.len: return
   # these inserts&deletes do not count as changed event:
@@ -282,6 +291,19 @@ proc cmdToArgs(cmd: string): tuple[exe: string, args: seq[string]] =
     i = parseWord(cmd, x, i)
     if x.len == 0: break
     result.args.add x
+
+proc dirContents(c: Console; ext: string) =
+  var i = 0
+  for k, f in os.walkDir(getCurrentDir(), relative=true):
+    if ext.len == 0 or cmpPaths(f.splitFile.ext, ext) == 0:
+      c.insertReadonly(f)
+      if i == 4:
+        c.insertReadonly("\L")
+        i = 0
+      else:
+        c.insertReadonly("    ")
+      inc i
+  c.insertReadonly("\L")
 
 # Threading channels
 var requests: Channel[string]
@@ -358,6 +380,7 @@ proc update*(c: Console) =
       let resp = responses.recv()
       if resp == EndToken:
         c.processRunning = false
+        c.process.setLen 0
         c.insertReadOnly "\L"
         insertPrompt(c)
       else:
@@ -409,11 +432,14 @@ proc extractFilePosition*(b: Buffer): (string, int, int) =
         result[1] = line
         result[2] = col
 
-proc enterPressed*(c: Console) =
+proc runCommand*(c: Console; cmd: var string): string =
   c.b.gotoPos(c.b.len)
   c.files.setLen 0
-  var cmd = getCommand(c)
-  addCmd(c.hist, cmd)
+  addCmd(c.hist[c.process], cmd)
+  if c.processRunning:
+    requests.send cmd
+    return
+
   var a = ""
   var i = parseWord(cmd, a, 0, true)
   c.insertReadOnly "\L"
@@ -425,6 +451,13 @@ proc enterPressed*(c: Console) =
   case a
   of "":
     insertPrompt c
+  of "o":
+    var b = ""
+    i = parseWord(cmd, b, i)
+    insertPrompt c
+    if b.len > 0:
+      if isAbsolute(b): result = b
+      else: result = os.getCurrentDir() / b
   of "cls":
     clear(c.b)
     insertPrompt c
@@ -441,6 +474,11 @@ proc enterPressed*(c: Console) =
     i = parseWord(cmd, filename, i)
     if filename.len > 0: c.b.saveAs(filename)
     insertPrompt c
+  of "d":
+    var b = ""
+    i = parseWord(cmd, b, i)
+    c.dirContents(b)
+    insertPrompt c
   else:
     if i >= cmd.len-1 and (a.endsWith".html" or a.startsWith"http://" or
         a.startsWith"https://"):
@@ -449,3 +487,11 @@ proc enterPressed*(c: Console) =
     else:
       requests.send cmd
       c.processRunning = true
+      swap(c.process, cmd)
+      if c.process notin c.hist:
+        c.hist[c.process] = CmdHistory(cmds: @[], suggested: -1)
+
+proc enterPressed*(c: Console): string =
+  c.b.gotoPos(c.b.len)
+  var cmd = getCommand(c)
+  result = runCommand(c, cmd)

@@ -16,10 +16,10 @@ proc openCmd(ed: Editor) =
       let toOpen = chooseFilesToOpen(nil, previousLocation)
       for p in toOpen:
         ed.openTab(p)
-      ed.focus = ed.main
+      focus = ed.main
       return
   let prompt = ed.prompt
-  ed.focus = prompt
+  focus = prompt
 
   prompt.clear()
   prompt.insert "o "
@@ -31,8 +31,8 @@ const
 proc askForQuitTab(ed: Editor) =
   let prompt = ed.prompt
   prompt.clear()
-  ed.statusMsg = saveChanges
-  ed.focus = prompt
+  ed.sh.statusMsg = saveChanges
+  focus = prompt
 
 proc findAll(ed: Editor; searchPhrase: string; searchOptions: SearchOptions;
              toReplaceWith: string = nil) =
@@ -93,25 +93,26 @@ proc smartOpen(ed: Editor; p: var string): bool {.discardable.} =
     result = true
 
 proc unmark(ed: Editor) =
-  ed.focus = ed.main
-  ed.state = requestedNothing
-  ed.statusMsg = readyMsg
+  ed.sh.focus = ed.main
+  ed.sh.state = requestedNothing
+  ed.sh.statusMsg = readyMsg
   for x in allBuffers(ed):
     x.markers.setLen 0
 
 proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
   let prompt = ed.prompt
+  let sh = ed.sh
 
-  ed.promptCon.hist.addCmd(cmd)
+  ed.promptCon.hist[""].addCmd(cmd)
 
   template success() =
     prompt.clear()
-    ed.focus = ed.main
+    sh.focus = ed.main
 
   var action = ""
   var i = parseWord(cmd, action, 0, true)
   case action
-  of "": ed.focus = ed.main
+  of "": focus = ed.main
   of "exec", "e":
     var procName = ""
     i = parseWord(cmd, procName, i)
@@ -124,60 +125,59 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
           dec ed.main.version
           ed.main.insert(x)
       else:
-        ed.statusMsg = "Unknown command: " & procname
+        sh.statusMsg = "Unknown command: " & procname
     success()
-    ed.state = requestedNothing
+    sh.state = requestedNothing
   of "yes", "y":
-    case ed.state
+    case sh.state
     of requestedShutdown, requestedCloseTab:
       ed.main.save()
       ed.removeBuffer(ed.main)
       success()
-      ed.statusMsg = readyMsg
-      ed.state = if ed.state==requestedShutdown: requestedShutdownNext
+      sh.statusMsg = readyMsg
+      sh.state = if sh.state==requestedShutdown: requestedShutdownNext
                  else: requestedNothing
     of requestedReplace:
       if ed.main.doReplace():
-        #ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
-        discard
+        ed.gotoNextMarker(onlyCurrentFile in sh.searchOptions)
       else:
-        ed.statusMsg = readyMsg
-        ed.state = requestedNothing
-        ed.focus = ed.main
+        sh.statusMsg = readyMsg
+        sh.state = requestedNothing
+        focus = ed.main
     of requestedReload:
       loadFromFile(ed.main, ed.main.filename)
       success()
-      ed.statusMsg = readyMsg
+      sh.statusMsg = readyMsg
     else: discard
   of "no", "n":
-    case ed.state
+    case sh.state
     of requestedShutdown, requestedCloseTab:
       ed.main.changed = false
       ed.removeBuffer(ed.main)
       success()
-      ed.statusMsg = readyMsg
-      ed.state = if ed.state==requestedShutdown: requestedShutdownNext
+      sh.statusMsg = readyMsg
+      sh.state = if sh.state==requestedShutdown: requestedShutdownNext
                  else: requestedNothing
     of requestedReplace:
-      ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
+      ed.gotoNextMarker(onlyCurrentFile in sh.searchOptions)
     of requestedReload:
-      ed.state = requestedNothing
-      ed.statusMsg = readyMsg
+      sh.state = requestedNothing
+      sh.statusMsg = readyMsg
       success()
     else: discard
   of "abort", "a":
     success()
-    ed.statusMsg = readyMsg
-    ed.state = requestedNothing
+    sh.statusMsg = readyMsg
+    sh.state = requestedNothing
   of "all":
-    if ed.state == requestedReplace:
+    if sh.state == requestedReplace:
       ed.main.activeMarker = 0
       while ed.main.doReplace():
-        ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
-      ed.statusMsg = readyMsg
+        ed.gotoNextMarker(onlyCurrentFile in sh.searchOptions)
+      sh.statusMsg = readyMsg
       ed.prompt.clear()
-      ed.focus = ed.main
-      ed.state = requestedNothing
+      focus = ed.main
+      sh.state = requestedNothing
   of "quit", "q": result = true
   of "find", "findall", "f", "filter":
     var searchPhrase = ""
@@ -185,34 +185,34 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
     if searchPhrase.len > 0:
       var searchOptions = ""
       i = parseWord(cmd, searchOptions, i)
-      ed.searchOptions = parseSearchOptions searchOptions
-      if action != "findall": ed.searchOptions.incl onlyCurrentFile
-      ed.findAll(searchPhrase, ed.searchOptions)
-      if ed.gotoFirstMarker(onlyCurrentFile in ed.searchOptions):
+      sh.searchOptions = parseSearchOptions searchOptions
+      if action != "findall": sh.searchOptions.incl onlyCurrentFile
+      ed.findAll(searchPhrase, sh.searchOptions)
+      if ed.gotoFirstMarker(onlyCurrentFile in sh.searchOptions):
         ed.prompt.clear()
         if action == "filter":
           filterOccurances(ed.main)
-          ed.focus = ed.main
+          focus = ed.main
         else:
           ed.prompt.insert("next")
           ed.prompt.selected.a = 0
           ed.prompt.selected.b = len"next" - 1
       else:
-        ed.statusMsg = "Match not found."
+        sh.statusMsg = "Match not found."
     else:
       unmark(ed)
       if action == "filter":
         ed.main.filterLines = false
   of "next":
     if not shiftPressed:
-      ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
+      ed.gotoNextMarker(onlyCurrentFile in sh.searchOptions)
     else:
-      ed.gotoPrevMarker(onlyCurrentFile in ed.searchOptions)
+      ed.gotoPrevMarker(onlyCurrentFile in sh.searchOptions)
   of "prev", "v":
     if not shiftPressed:
-      ed.gotoPrevMarker(onlyCurrentFile in ed.searchOptions)
+      ed.gotoPrevMarker(onlyCurrentFile in sh.searchOptions)
     else:
-      ed.gotoNextMarker(onlyCurrentFile in ed.searchOptions)
+      ed.gotoNextMarker(onlyCurrentFile in sh.searchOptions)
   of "replace", "r", "replaceall":
     var searchPhrase = ""
     i = parseWord(cmd, searchPhrase, i)
@@ -221,15 +221,17 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
       i = parseWord(cmd, toReplaceWith, i)
       var searchOptions = ""
       i = parseWord(cmd, searchOptions, i)
-      ed.searchOptions = parseSearchOptions searchOptions
-      if action != "replaceall": ed.searchOptions.incl onlyCurrentFile
-      ed.findAll(searchPhrase, ed.searchOptions, toReplaceWith)
-      if ed.gotoFirstMarker(onlyCurrentFile in ed.searchOptions):
+      sh.searchOptions = parseSearchOptions searchOptions
+      if action != "replaceall": sh.searchOptions.incl onlyCurrentFile
+      ed.findAll(searchPhrase, sh.searchOptions)
+      ed.main.findNext(searchPhrase, sh.searchOptions,
+                       toReplaceWith)
+      if ed.gotoFirstMarker(onlyCurrentFile in sh.searchOptions):
         ed.prompt.clear()
-        ed.state = requestedReplace
-        ed.statusMsg = askForReplace
+        sh.state = requestedReplace
+        sh.statusMsg = askForReplace
       else:
-        ed.statusMsg = "Match not found."
+        sh.statusMsg = "Match not found."
     else:
       unmark(ed)
   of "goto", "g":
@@ -252,13 +254,18 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
           lineAsInt = gotoNextDeclaration(ed.main, dest)
           if lineAsInt > 0:
             ed.main.gotoLine(lineAsInt, -1)
-        ed.focus = ed.main
+        focus = ed.main
     prompt.clear()
   of "save", "s":
     var p = ""
     i = parseWord(cmd, p, i)
+    if not p.isAbsolute:
+      if ed.main.filename.isNil:
+        p = os.getCurrentDir() / p
+      else:
+        p = ed.main.filename.splitFile.dir / p
     if p.len > 0:
-      ed.statusMsg = readyMsg
+      sh.statusMsg = readyMsg
       var answer = ""
       i = parseWord(cmd, answer, i, true)
       if cmpPaths(ed.main.filename, p) == 0 or
@@ -272,7 +279,7 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
       elif answer[0] == 'n':
         success()
       else:
-        ed.statusMsg = "File already exists. Overwrite? [yes|no]"
+        sh.statusMsg = "File already exists. Overwrite? [yes|no]"
         ed.prompt.insert(" no")
     else:
       ed.main.save()
@@ -289,10 +296,10 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
     highlightEverything(ed.main)
     success()
   of "config", "conf", "cfg", "colors":
-    openTab(ed, ed.cfgColors, true)
+    openTab(ed, sh.cfgColors, true)
     success()
   of "script", "scripts", "actions":
-    openTab(ed, ed.cfgActions, true)
+    openTab(ed, sh.cfgActions, true)
     success()
   of "cr":
     ed.main.lineending = "\C"
@@ -312,14 +319,14 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
       ed.main.tabSize = xx.int8
       success()
   of "setproject", "proj", "project":
-    ed.project = ""
-    i = parseWord(cmd, ed.project, i)
-    if ed.project.len == 0:
-      ed.window.setTitle(windowTitle)
+    sh.project = ""
+    i = parseWord(cmd, sh.project, i)
+    if sh.project.len == 0:
+      sh.setTitle(windowTitle)
     else:
-      let p = findFile(ed, ed.project.addFileExt("nim"))
-      if p.len != 0: ed.project = p
-      ed.window.setTitle(windowTitle & " - " & ed.project.extractFilename)
+      let p = findFile(ed, sh.project.addFileExt("nim"))
+      if p.len != 0: sh.project = p
+      sh.setTitle(windowTitle & " - " & sh.project.extractFilename)
     success()
   of "nimsug", "nimsuggest", "sug":
     var a = ""
@@ -328,17 +335,17 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
     of "shutdown", "stop", "quit", "halt", "exit":
       nimsuggestclient.shutdown()
     of "restart", "start":
-      if not startup(ed.theme.nimsuggestPath, ed.project, ed.nimsuggestDebug):
-        ed.statusMsg = "Nimsuggest failed for: " & ed.project
+      if not startup(sh.theme.nimsuggestPath, sh.project, sh.nimsuggestDebug):
+        sh.statusMsg = "Nimsuggest failed for: " & sh.project
     of "debug":
       var onoff = ""
       i = parseWord(cmd, onoff, i, true)
-      ed.nimsuggestDebug = onoff != "off"
+      sh.nimsuggestDebug = onoff != "off"
     else:
-      ed.statusMsg = "wrong command, try: start|stop|debug"
+      sh.statusMsg = "wrong command, try: start|stop|debug"
     success()
   of "help":
     openDefaultBrowser getAppDir() / "docs.html"
     success()
   else:
-    ed.statusMsg = "wrong command, try: help|open|save|find|..."
+    sh.statusMsg = "wrong command, try: help|open|save|find|..."

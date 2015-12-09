@@ -42,33 +42,39 @@ type
     a: array[7, Spot]    # keeping track of N different edit
                          # positions should really be enough!
 
-  Editor = ref object
-    focus, main, prompt, console, autocomplete, minimap, sug: Buffer
-    mainRect, promptRect, consoleRect: Rect
+  SharedState = ref object ## state that is shared for all windows
+    focus: Buffer
+    firstWindow, activeWindow: Editor
+    mgr: StyleManager
     statusMsg: string
     uiFont: FontPtr
-
-    renderer: RendererPtr
-    window: WindowPtr
-    theme: InternalTheme
-    keymapping: KeyMapping
-    screenW, screenH: cint
-    buffersCounter, idle, blink: int
-    con, promptCon: Console
-    mgr: StyleManager
-    cfgColors, cfgActions: string
-    project: string
-    state: EditorState
-    bar: TabBar
-    ticker: int
+    ticker, idle, blink: int
     indexer: Index
     hotspots: Spots
     searchPath: seq[string] # we use an explicit search path rather than
                             # the list of open buffers so that it's dead
                             # simple to reopen a recently closed file.
-    nimsuggestDebug, windowHasFocus, clickOnFilename: bool
-    searchOptions: SearchOptions
+    theme: InternalTheme
+    keymapping: KeyMapping
     fontM: FontManager
+    cfgColors, cfgActions: string
+    project: string
+    nimsuggestDebug, clickOnFilename, windowHasFocus: bool
+    state: EditorState
+    searchOptions: SearchOptions
+
+  Editor = ref object
+    sh: SharedState
+    main, prompt, console, autocomplete, minimap, sug: Buffer
+    mainRect, promptRect, consoleRect: Rect
+
+    renderer: RendererPtr
+    window: WindowPtr
+    screenW, screenH: cint
+    buffersCounter: int
+    con, promptCon: Console
+    bar: TabBar
+    next: Editor
 
 proc trackSpot(s: var Spots; b: Buffer) =
   if b.filename.len == 0: return
@@ -95,33 +101,8 @@ proc trackSpot(s: var Spots; b: Buffer) =
 
 template unkownName(): untyped = "unknown-" & $ed.buffersCounter & ".txt"
 
-proc setDefaults(ed: Editor; fontM: var FontManager) =
-  ed.screenW = cint(650)
-  ed.screenH = cint(780)
-  ed.statusMsg = readyMsg
-
-  ed.main = newBuffer(unkownName(), addr ed.mgr)
-  ed.prompt = newBuffer("prompt", addr ed.mgr)
-  ed.console = newBuffer("console", addr ed.mgr)
-  ed.console.lang = langConsole
-
-  ed.autocomplete = newBuffer("autocomplete", addr ed.mgr)
-  ed.autocomplete.isSmall = true
-  ed.minimap = newBuffer("minimap", addr ed.mgr)
-  ed.minimap.isSmall = true
-  ed.sug = newBuffer("sug", addr ed.mgr)
-  ed.sug.isSmall = true
-  ed.sug.lang = langNim
-
-  ed.buffersCounter = 1
-  ed.main.next = ed.main
-  ed.main.prev = ed.main
-  ed.focus = ed.main
-
-  ed.con = newConsole(ed.console)
-  ed.promptCon = newConsole(ed.prompt)
-
-  #ed.uiFont = fontM.fontByName("Arial", 12)
+proc newSharedState(): SharedState =
+  var ed = SharedState()
   ed.theme.active[true] = parseColor"#FFA500"
   ed.theme.active[false] = parseColor"#C0C0C0"
   ed.theme.bg = parseColor"#292929"
@@ -132,6 +113,37 @@ proc setDefaults(ed: Editor; fontM: var FontManager) =
   ed.searchPath = @[]
   ed.nimsuggestDebug = true
   ed.keymapping = initTable[set[Key], Command]()
+  ed.fontM = @[]
+  result = ed
+
+proc setDefaults(ed: Editor; sh: SharedState) =
+  ed.sh = sh
+  ed.screenW = cint(650)
+  ed.screenH = cint(780)
+  sh.statusMsg = readyMsg
+
+  ed.prompt = newBuffer("prompt", addr sh.mgr)
+  ed.console = newBuffer("console", addr sh.mgr)
+  ed.console.lang = langConsole
+
+  ed.autocomplete = newBuffer("autocomplete", addr sh.mgr)
+  ed.autocomplete.isSmall = true
+  ed.minimap = newBuffer("minimap", addr sh.mgr)
+  ed.minimap.isSmall = true
+  ed.sug = newBuffer("sug", addr sh.mgr)
+  ed.sug.isSmall = true
+  ed.sug.lang = langNim
+
+  sh.focus = ed.prompt
+  ed.con = newConsole(ed.console)
+  ed.promptCon = newConsole(ed.prompt)
+
+proc createUnknownTab(ed: Editor; sh: SharedState) =
+  ed.main = newBuffer(unkownName(), addr sh.mgr)
+  ed.buffersCounter = 1
+  ed.main.next = ed.main
+  ed.main.prev = ed.main
+  sh.focus = ed.main
 
 proc destroy(ed: Editor) =
   destroyRenderer ed.renderer
@@ -148,10 +160,12 @@ template insertBuffer(head, n) =
 proc removeBuffer(ed: Editor; n: Buffer) =
   if ed.buffersCounter > 1:
     let nxt = n.next
-    if n == ed.bar:
-      ed.bar = nxt
-    if n == ed.focus:
-      ed.focus = nxt
+    if n == ed.bar.first:
+      ed.bar.first = nxt
+    if n == ed.bar.last:
+      ed.bar.last = nxt
+    if n == ed.sh.focus:
+      ed.sh.focus = nxt
     n.next.prev = n.prev
     n.prev.next = n.next
     ed.main = nxt
@@ -165,7 +179,7 @@ iterator allBuffers(ed: Editor): Buffer =
     it = it.next
     if it == start: break
 
-proc addSearchPath(ed: Editor; path: string) =
+proc addSearchPath(ed: SharedState; path: string) =
   for i in 0..ed.searchPath.high:
     if cmpPaths(ed.searchPath[i], path) == 0:
       # move to front so we remember it's a path that's preferred:
@@ -183,16 +197,16 @@ proc findFile(ed: Editor; filename: string): string =
                  else: os.getCurrentDir()
   let cwd = basePath / filename
   if fileExists(cwd): return cwd
-  for i in 0..ed.searchPath.high:
-    let res = ed.searchPath[i] / filename
+  for i in 0..ed.sh.searchPath.high:
+    let res = ed.sh.searchPath[i] / filename
     if fileExists(res): return res
 
 proc findFileAbbrev(ed: Editor; filename: string): string =
   # open the file in searchpath with minimal edit distance.
   var dist = high(int)
 
-  ed.addSearchPath os.getCurrentDir()
-  for p in ed.searchPath:
+  ed.sh.addSearchPath os.getCurrentDir()
+  for p in ed.sh.searchPath:
     for k, f in os.walkDir(p, relative=true):
       if k in {pcLinkToFile, pcFile} and not f.ignoreFile:
         var currDist = editDistance(f, filename)
@@ -203,21 +217,39 @@ proc findFileAbbrev(ed: Editor; filename: string): string =
           result = p / f
           dist = currDist
 
+proc getWindow(sh: SharedState; b: Buffer; returnPrevious=false): Editor =
+  result = sh.firstWindow
+  while result != nil:
+    var it = result.main
+    var prev: Editor = nil
+    while true:
+      if it == b:
+        if returnPrevious: return prev
+        else: return result
+      it = it.next
+      if it == result.main or it == result.bar.last: break
+    prev = result
+    result = result.next
+  doAssert false
+
 proc openTab(ed: Editor; filename: string;
              doTrack=false): bool {.discardable.} =
   var fullpath = findFile(ed, filename)
   if fullpath.len == 0:
-    ed.statusMsg = "cannot open: " & filename
+    ed.sh.statusMsg = "cannot open: " & filename
     return false
 
   fullpath = expandFilename(fullpath)
-  ed.statusMsg = readyMsg
-  # be intelligent:
+  ed.sh.statusMsg = readyMsg
   for it in ed.allBuffers:
     if cmpPaths(it.filename, fullpath) == 0:
       # just bring the existing tab into focus:
-      if doTrack: trackSpot(ed.hotspots, ed.main)
-      ed.main = it
+      let window = getWindow(ed.sh, it)
+      if doTrack: trackSpot(ed.sh.hotspots, ed.main)
+      if window != ed.sh.activeWindow:
+        ed.sh.activeWindow = window
+        #setGrab(window.w, true)
+      window.main = it
       return true
 
   # be more intelligent; if now the display name is ambiguous, disambiguate it:
@@ -239,19 +271,19 @@ proc openTab(ed: Editor; filename: string;
       aa = aa.splitPath()[0]
       bb = bb.splitPath()[0]
 
-  ed.addSearchPath(fullpath.splitFile.dir)
-  let x = newBuffer(displayname, addr ed.mgr)
+  ed.sh.addSearchPath(fullpath.splitFile.dir)
+  let x = newBuffer(displayname, addr ed.sh.mgr)
   try:
     x.loadFromFile(fullpath)
-    if doTrack: trackSpot(ed.hotspots, ed.main)
+    if doTrack: trackSpot(ed.sh.hotspots, ed.main)
     insertBuffer(ed.main, x)
-    ed.focus = ed.main
+    ed.sh.focus = ed.main
     for it in ed.allBuffers:
       if it.heading == displayname:
         disamb(it.filename, fullpath, it.heading, x.heading)
     result = true
   except IOError:
-    ed.statusMsg = "cannot open: " & filename
+    ed.sh.statusMsg = "cannot open: " & filename
 
 proc gotoNextSpot(ed: Editor; s: var Spots; b: Buffer) =
   # again, be smart. Do not go to where we already are.
@@ -265,7 +297,7 @@ proc gotoNextSpot(ed: Editor; s: var Spots; b: Buffer) =
         for it in ed.allBuffers:
           if cmpPaths(it.filename, s.a[i].fullpath) == 0:
             ed.main = it
-            ed.focus = ed.main
+            ed.sh.focus = ed.main
             it.gotoLine(s.a[i].line+1, s.a[i].col+1)
             dec i
             if i < 0: i = s.a.len-1
@@ -275,23 +307,40 @@ proc gotoNextSpot(ed: Editor; s: var Spots; b: Buffer) =
     if i < 0: i = s.a.len-1
     inc j
 
+template prompt: expr = ed.prompt
+template focus: expr = ed.sh.focus
+template main: expr = ed.main
+template renderer: expr = ed.renderer
+
+iterator allWindows(sh: SharedState): Editor =
+  var it = sh.firstWindow
+  while it != nil:
+    yield it
+    it = it.next
+
+proc setTitle(sh: SharedState; title: string) =
+  for w in allWindows(sh):
+    w.window.setTitle title
+
 include prompt
 
 proc hasConsole(ed: Editor): bool = ed.consoleRect.x >= 0
 
 proc layout(ed: Editor) =
-  let yGap = ed.theme.uiYGap
-  let xGap = ed.theme.uiXGap
-  let fontSize = ed.theme.editorFontSize.int
-  ed.mainRect = rect(15, yGap*3+fontSize,
-                        ed.screenW - 15*2,
-                        ed.screenH - 7*fontSize - yGap*2)
-  ed.promptRect = rect(15, fontSize+yGap*3 + ed.screenH - 7*fontSize,
+  let sh = ed.sh
+  let yGap = sh.theme.uiYGap
+  let xGap = sh.theme.uiXGap
+  let fontSize = sh.theme.editorFontSize.int
+  ed.promptRect = rect(15, ed.screenH - 3*fontSize - yGap*3,
                           ed.screenW - 15*2,
                           fontSize+yGap*2)
-  if ed.screenW > ed.theme.consoleAfter and ed.theme.consoleAfter >= 0:
+  ed.mainRect = rect(15, yGap*3+sh.theme.uiFontSize.int+3,
+                        ed.screenW - 15*2,
+                        ed.promptRect.y -
+                        (yGap*5+sh.theme.uiFontSize.int+3))
+  if ed.screenW > sh.theme.consoleAfter and sh.theme.consoleAfter >= 0:
     # enable the console:
-    let d = ed.screenW * (100 - ed.theme.consoleWidth.cint) div 100
+    let d = ed.screenW * (100 - sh.theme.consoleWidth.cint) div 100
     ed.mainRect.w = d - 15
     ed.consoleRect = ed.mainRect
     ed.consoleRect.w = ed.screenW - d - 15
@@ -300,7 +349,7 @@ proc layout(ed: Editor) =
     # disable console:
     ed.consoleRect.x = -1
     # if the console is disabled, it cannot have the focus:
-    if ed.focus == ed.console: ed.focus = ed.main
+    if sh.focus == ed.console: sh.focus = ed.main
 
 proc withUnsavedChanges(start: Buffer): Buffer =
   result = start
@@ -325,37 +374,52 @@ proc saveOpenTabs(ed: Editor) =
   var f: File
   if open(f, filelistFile(), fmWrite):
     f.writeline(SessionFileVersion)
-    f.writeline(ed.project)
+    f.writeline(ed.sh.project)
     f.writeline(os.getCurrentDir())
     var it = ed.main.prev
     while it != nil:
       if it.filename.len > 0:
-        f.writeline(it.filename, "\t", it.getLine, "\t", it.getColumn)
+        f.writeline("file\t", it.filename, "\t", it.getLine, "\t", it.getColumn)
       if it == ed.main: break
       it = it.prev
+    for key, vals in pairs(ed.con.hist):
+      f.writeline("histkey\t", key, "\t", vals.suggested)
+      for v in vals.cmds:
+        f.writeline("histval\t", v)
     f.close()
 
 proc loadOpenTabs(ed: Editor) =
   var oldRoot = ed.main
   var f: File
+  var key: string
   if open(f, filelistFile()):
     let fileVersion = f.readline
     if fileVersion == SessionFileVersion:
-      ed.project = f.readline
+      ed.sh.project = f.readline
       try:
         os.setCurrentDir f.readline
       except OSError:
         discard
       for line in lines(f):
         let x = line.split('\t')
-        if ed.openTab(x[0]):
-          gotoLine(ed.main, parseInt(x[1]), parseInt(x[2]))
-          ed.focus = ed.main
-          if oldRoot != nil:
-            ed.removeBuffer(oldRoot)
-            oldRoot = nil
+        case x[0]
+        of "file":
+          if ed.openTab(x[1]):
+            gotoLine(ed.main, parseInt(x[2]), parseInt(x[3]))
+            ed.sh.focus = ed.main
+            if oldRoot != nil:
+              ed.removeBuffer(oldRoot)
+              oldRoot = nil
+        of "histkey":
+          key = x[1]
+          let suggested = parseInt(x[2])
+          ed.con.hist[key] = CmdHistory(cmds: @[], suggested: suggested)
+        of "histval":
+          doAssert(not key.isNil)
+          ed.con.hist[key].cmds.add x[1]
+        else: discard
     else:
-      ed.statusMsg = "cannot restore session; versions differ"
+      ed.sh.statusMsg = "cannot restore session; versions differ"
     f.close()
 
 proc sugSelected(ed: Editor; s: Buffer) =
@@ -371,7 +435,7 @@ proc sugSelected(ed: Editor; s: Buffer) =
     if ed.openTab(file, true):
       gotoLine(ed.main, line, col)
     else:
-      ed.statusMsg = "Cannot open: " & file
+      ed.sh.statusMsg = "Cannot open: " & file
   else:
     var main = ed.main
     inc main.version
@@ -390,13 +454,13 @@ proc harddiskCheck(ed: Editor) =
         let newTimestamp = os.getLastModificationTime(it.filename)
         if it.timestamp != newTimestamp:
           it.timestamp = newTimestamp
-          ed.state = requestedReload
+          ed.sh.state = requestedReload
           if it != ed.main:
-            trackSpot(ed.hotspots, ed.main)
+            trackSpot(ed.sh.hotspots, ed.main)
             ed.main = it
           ed.main.changed = true
-          ed.focus = ed.prompt
-          ed.statusMsg = "File changed on disk. Reload?"
+          ed.sh.focus = ed.prompt
+          ed.sh.statusMsg = "File changed on disk. Reload?"
           break
       except OSError:
         discard
@@ -405,29 +469,33 @@ const
   DefaultTimeOut = 500.cint
   TimeoutsPerSecond = 1000 div DefaultTimeOut
 
-proc tick(ed: Editor) =
-  inc ed.ticker
-  if ed.idle > 1:
+proc hashPosition(b: Buffer): int = b.currentLine shl 20 + b.firstLine
+
+proc tick(sh: SharedState) =
+  let ed = sh.activeWindow
+  inc sh.ticker
+  if sh.idle > 1:
     # run the index every 500ms. It's incremental and fast.
-    indexBuffers(ed.indexer, ed.main)
+    indexBuffers(sh.indexer, ed.main)
     highlightIncrementally(ed.main)
 
-    if ed.theme.showMinimap:
-      if ed.minimap.version != ed.main.currentLine:
-        ed.minimap.version = ed.main.currentLine
+    if sh.theme.showMinimap:
+      if ed.minimap.version != hashPosition(ed.main):
         fillMinimap(ed.minimap, ed.main)
+        ed.minimap.version = hashPosition(ed.main)
       if ed.minimap.heading != ed.main.heading:
         ed.minimap.heading = ed.main.heading
         fillMinimap(ed.minimap, ed.main)
+        ed.minimap.version = hashPosition(ed.main)
 
   # every 10 seconds check if the file's contents have changed on the hard disk
   # behind our back:
-  if ed.ticker mod (TimeoutsPerSecond*10) == 0:
+  if sh.ticker mod (TimeoutsPerSecond*10) == 0:
     harddiskCheck(ed)
 
   # periodic events. Every 5 minutes we save the list of open tabs.
-  if ed.ticker > TimeoutsPerSecond*60*5:
-    ed.ticker = 0
+  if sh.ticker > TimeoutsPerSecond*60*5:
+    sh.ticker = 0
     saveOpenTabs(ed)
 
 proc findProject(ed: Editor): string =
@@ -441,18 +509,19 @@ proc findProject(ed: Editor): string =
 
 proc suggest(ed: Editor; cmd: string) =
   if ed.main.lang != langNim: return
-  if ed.project.len == 0:
-    ed.statusMsg = "Which project?"
+  let sh = ed.sh
+  if sh.project.len == 0:
+    sh.statusMsg = "Which project?"
     let prompt = ed.prompt
-    ed.focus = ed.prompt
+    sh.focus = ed.prompt
     prompt.clear()
     prompt.insert "project " & findProject(ed)
-  elif not startup(ed.theme.nimsuggestPath, ed.project, ed.nimsuggestDebug):
-    ed.statusMsg = "Nimsuggest failed for: " & ed.project
+  elif not startup(sh.theme.nimsuggestPath, sh.project, sh.nimsuggestDebug):
+    sh.statusMsg = "Nimsuggest failed for: " & sh.project
   else:
     requestSuggestion(ed.main, cmd)
     ed.sug.clear()
-    ed.focus = ed.sug
+    sh.focus = ed.sug
 
 include api
 
@@ -462,10 +531,10 @@ proc handleEvent(ed: Editor; procname: string) =
   except:
     ed.con.insertReadonly(getCurrentExceptionMsg())
     if not ed.hasConsole:
-      ed.statusMsg = "Errors! Open console to see them."
+      ed.sh.statusMsg = "Errors! Open console to see them."
 
 proc pollEvent(e: var Event; ed: Editor): auto =
-  if ed.windowHasFocus or ed.con.processRunning:
+  if ed.sh.windowHasFocus or ed.con.processRunning:
     result = pollEvent(e)
   else:
     result = waitEvent(e)
@@ -480,12 +549,7 @@ proc shiftKeyPressed*(): bool =
   result = keys[SDL_SCANCODE_LSHIFT.int] == 1 or
            keys[SDL_SCANCODE_RSHIFT.int] == 1
 
-template prompt: expr = ed.prompt
-template focus: expr = ed.focus
-template main: expr = ed.main
-template renderer: expr = ed.renderer
-
-proc loadTheme(ed: Editor) =
+proc loadTheme(ed: SharedState) =
   loadTheme(ed.cfgColors, ed.theme, ed.mgr, ed.fontM)
   ed.uiFont = ed.fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)
   ed.theme.uiFontPtr = ed.uiFont
@@ -498,11 +562,12 @@ proc eventToKeySet(e: var Event): set[Key] =
   elif e.kind == KeyUp: result.incl(Key.KeyReleased)
   else: return
   let w = e.key
-  case char(w.keysym.sym and 0xff)
+  let ch = char(w.keysym.sym and 0xff)
+  case ch
   of 'a'..'z':
-    result.incl(Key(ord(w.keysym.sym) - 'a'.ord + Key.A.ord))
+    result.incl(Key(ord(ch) - 'a'.ord + Key.A.ord))
   of '0'..'9':
-    result.incl(Key(ord(w.keysym.sym) - '0'.ord + Key.N0.ord))
+    result.incl(Key(ord(ch) - '0'.ord + Key.N0.ord))
   else: discard
   case w.keysym.scancode
   of SDL_SCANCODE_F1..SDL_SCANCODE_F12:
@@ -549,6 +614,76 @@ proc eventToKeySet(e: var Event): set[Key] =
     result.incl Key.Shift
   if (w.keysym.modstate and KMOD_ALT()) != 0:
     result.incl Key.Alt
+
+proc closeTab(ed: Editor) =
+  if not main.changed:
+    ed.removeBuffer(main)
+  else:
+    ed.sh.state = requestedCloseTab
+    ed.askForQuitTab()
+
+proc setActiveWindow(sh: SharedState; wid: uint32): Editor =
+  if sh.activeWindow.window.getId() != wid:
+    for it in sh.allWindows:
+      if it.window.getId() == wid:
+        sh.activeWindow = it
+        break
+  return sh.activeWindow
+
+proc createSdlWindow(ed: Editor; maximize: range[0u32 .. 1u32]) =
+  # Doesn't work on Linux. Yay.
+  when defined(linux):
+    const maximized = 0'u32
+  else:
+    let maximized = SDL_WINDOW_MAXIMIZED * maximize
+
+  ed.window = createWindow(windowTitle, 10, 30, ed.screenW, ed.screenH,
+                            SDL_WINDOW_RESIZABLE or maximized)
+  ed.window.getSize(ed.screenW, ed.screenH)
+  ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
+
+
+proc moveTabToRightWindow(ed: Editor) =
+  let current = ed.main
+  var result = ed.next
+
+  ed.removeBuffer(current)
+  if result.isNil:
+    result = Editor()
+    result.setDefaults(ed.sh)
+    result.screenW = ed.screenW
+    result.screenH = ed.screenH
+    createSdlWindow(result, 0)
+    result.next = ed.next
+    ed.next = result
+    result.bar.first = current
+    result.bar.last = result.bar.first
+    layout(result)
+  if ed.bar.last.isNil:
+    ed.bar.last = ed.bar.first.prev
+
+  #insertBuffer(result.main, current)
+  result.main = current
+  current.prev = ed.bar.last
+  ed.bar.last.next = current
+  if result.buffersCounter == 0:
+    current.next = ed.bar.first
+  else:
+    current.next = result.bar.first
+  current.next.prev = current
+  result.bar.first = current
+  ed.sh.focus = current
+  ed.sh.activeWindow = result
+
+proc closeWindow(ed: Editor) =
+  var left = ed.sh.firstWindow
+  while left.next != ed:
+    left = left.next
+  # move all tabs back to the Window on the left:
+  left.bar.last = ed.bar.last
+  destroy ed
+  left.next = left.next.next
+  ed.sh.activeWindow = left
 
 proc runAction(ed: Editor; action: Action; arg: string): bool =
   template console: expr = ed.console
@@ -601,28 +736,30 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
       # delegate to main, but keep the focus on the autocomplete!
       main.backspace(false)
       if focus==ed.autocomplete:
-        populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+        populateBuffer(ed.sh.indexer, ed.autocomplete, main.getWordPrefix())
       else:
         gotoPrefix(ed.sug, main.getWordPrefix())
-      trackSpot(ed.hotspots, main)
+      trackSpot(ed.sh.hotspots, main)
     elif focus == ed.prompt:
       focus.backspacePrompt()
     else:
       focus.backspace(true)
-      if focus==main: trackSpot(ed.hotspots, main)
+      if focus==main: trackSpot(ed.sh.hotspots, main)
   of Action.Del:
     focus.deleteKey()
-    if focus==main: trackSpot(ed.hotspots, main)
+    if focus==main: trackSpot(ed.sh.hotspots, main)
   of Action.Enter:
     if focus==main:
       main.insertEnter()
-      trackSpot(ed.hotspots, main)
+      trackSpot(ed.sh.hotspots, main)
     elif focus==prompt:
       if ed.runCmd(prompt.fullText, shiftKeyPressed()):
         saveOpenTabs(ed)
         result = true
     elif focus==console:
-      enterPressed(ed.con)
+      let x = enterPressed(ed.con)
+      if x.len > 0:
+        openTab(ed, x, true)
     elif focus==ed.autocomplete:
       indexer.selected(ed.autocomplete, main)
       focus = main
@@ -661,7 +798,7 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
       discard sdl2.setClipboardText(text)
   of Action.Paste:
     let text = sdl2.getClipboardText()
-    focus.insert($text)
+    focus.insert($text, smartInsert=true)
     freeClipboardText(text)
 
   of Action.AutoComplete:
@@ -672,7 +809,7 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
       ed.suggest("con")
     else:
       focus = ed.autocomplete
-      populateBuffer(ed.indexer, ed.autocomplete, prefix)
+      populateBuffer(ed.sh.indexer, ed.autocomplete, prefix)
 
   of Action.Undo:
     if focus==prompt: prompt.undo
@@ -686,30 +823,34 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
 
   of Action.UpdateView:
     main.markers.setLen 0
-    if ed.state == requestedReplace: ed.state = requestedNothing
+    if ed.sh.state == requestedReplace: ed.sh.state = requestedNothing
     highlightEverything(focus)
 
   of Action.OpenTab: ed.openCmd()
   of Action.SaveTab:
     main.save()
-    if cmpPaths(main.filename, ed.cfgColors) == 0:
-      loadTheme(ed)
+    let sh = ed.sh
+    if cmpPaths(main.filename, sh.cfgColors) == 0:
+      loadTheme(sh)
       layout(ed)
-    elif cmpPaths(main.filename, ed.cfgActions) == 0:
-      reloadActions(ed.cfgActions)
-    ed.statusMsg = readyMsg
+    elif cmpPaths(main.filename, sh.cfgActions) == 0:
+      reloadActions(sh.cfgActions)
+    sh.statusMsg = readyMsg
 
   of Action.NewTab:
-    let x = newBuffer(unkownName(), addr ed.mgr)
+    let x = newBuffer(unkownName(), addr ed.sh.mgr)
     insertBuffer(main, x)
     focus = main
   of Action.CloseTab:
-    if not main.changed:
-      ed.removeBuffer(main)
-    else:
-      ed.state = requestedCloseTab
-      ed.askForQuitTab()
+    ed.closeTab()
 
+  of Action.MoveTabLeft:
+    # if already leftmost, create new window to the left:
+    if ed.buffersCounter >= 2:
+      discard "too implement"
+  of Action.MoveTabRight:
+    if ed.buffersCounter >= 2:
+      moveTabToRightWindow(ed)
 
   of Action.QuitApplication: sdl2.quit()
   of Action.Declarations:
@@ -721,7 +862,7 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
       else:
         main.gotoPos(main.cursor)
     else:
-      ed.statusMsg = "List of declarations only supported for Nim."
+      ed.sh.statusMsg = "List of declarations only supported for Nim."
   of Action.NextBuffer:
     main = main.next
     focus = main
@@ -729,17 +870,17 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
     main = main.prev
     focus = main
   of Action.NextEditLocation:
-    trackSpot(ed.hotspots, main)
-    ed.gotoNextSpot(ed.hotspots, main)
+    trackSpot(ed.sh.hotspots, main)
+    ed.gotoNextSpot(ed.sh.hotspots, main)
     focus = main
 
   of Action.InsertPrompt:
-    ed.focus = prompt
+    focus = prompt
     prompt.clear()
     prompt.insert arg
   of Action.InsertPromptSelectedText:
-    let text = ed.focus.getSelectedText()
-    ed.focus = prompt
+    let text = focus.getSelectedText()
+    focus = prompt
     prompt.clear()
     prompt.insert arg & text.singleQuoted
   of Action.Nimsuggest:
@@ -747,30 +888,46 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
   of Action.NimScript:
     ed.handleEvent(arg)
 
+proc handleQuitEvent(ed: Editor): bool =
+  saveOpenTabs(ed)
+  ed.sh.state = requestedShutdown
+  let b = withUnsavedChanges(main)
+  if b == nil:
+    result = true
+  else:
+    main = b
+    ed.askForQuitTab()
+
 proc processEvents(e: var Event; ed: Editor): bool =
   template console: expr = ed.console
 
+  let sh = ed.sh
   while pollEvent(e, ed) == SdlSuccess:
     case e.kind
     of QuitEvent:
-      saveOpenTabs(ed)
-      ed.state = requestedShutdown
-      let b = withUnsavedChanges(main)
-      if b == nil:
+      if handleQuitEvent(ed):
         result = true
         break
-      main = b
-      ed.askForQuitTab()
     of WindowEvent:
       let w = e.window
-      if w.event == WindowEvent_Resized:
+      let ed = ed.sh.setActiveWindow(w.windowId)
+      case w.event
+      of WindowEvent_Resized:
         ed.screenW = w.data1
         ed.screenH = w.data2
         layout(ed)
-      elif w.event == WindowEvent_FocusLost:
-        ed.windowHasFocus = false
-      elif w.event == WindowEvent_FocusGained:
-        ed.windowHasFocus = true
+      of WindowEvent_FocusLost:
+        sh.windowHasFocus = false
+      of WindowEvent_FocusGained:
+        sh.windowHasFocus = true
+      of WindowEvent_Close:
+        if sh.firstWindow.next.isNil:
+          if handleQuitEvent(ed):
+            result = true
+            break
+        else:
+          closeWindow(sh.activeWindow)
+      else: discard
     of MouseButtonDown:
       let w = e.button
       # This mitigates problems with older SDL 2 versions. Prior to 2.0.3
@@ -795,7 +952,7 @@ proc processEvents(e: var Event; ed: Editor): bool =
       elif hasConsole(ed) and ed.consoleRect.contains(p):
         if focus == console:
           console.setCursorFromMouse(ed.consoleRect, p, w.clicks.int)
-          ed.clickOnFilename = w.clicks.int >= 2
+          ed.sh.clickOnFilename = w.clicks.int >= 2
         else:
           focus = console
     of MouseWheel:
@@ -817,28 +974,29 @@ proc processEvents(e: var Event; ed: Editor): bool =
           # delegate to main, but keep the focus on the autocomplete!
           main.insertSingleKey($w.text)
           if focus==ed.autocomplete:
-            populateBuffer(ed.indexer, ed.autocomplete, main.getWordPrefix())
+            populateBuffer(ed.sh.indexer, ed.autocomplete, main.getWordPrefix())
           else:
             gotoPrefix(ed.sug, main.getWordPrefix())
-          trackSpot(ed.hotspots, main)
+          trackSpot(ed.sh.hotspots, main)
         else:
           focus.insertSingleKey($w.text)
-          if focus==main: trackSpot(ed.hotspots, main)
+          if focus==main: trackSpot(ed.sh.hotspots, main)
     of KeyDown, KeyUp:
       let ks = eventToKeySet(e)
-      let cmd = ed.keymapping.getOrDefault(ks)
+      let cmd = sh.keymapping.getOrDefault(ks)
       if ed.runAction(cmd.action, cmd.arg):
         result = true
         break
     else: discard
     # keydown means show the cursor:
-    ed.blink = 0
-    ed.idle = 0
+    sh.blink = 0
+    sh.idle = 0
 
 proc draw(e: var Event; ed: Editor) =
+  let sh = ed.sh
   # position of the tab bar hard coded for now as we don't want to adapt it
   # to the main margin (tried it, is ugly):
-  let activeTab = drawTabBar(ed.bar, ed.theme, 47, ed.screenW,
+  let activeTab = drawTabBar(ed.bar, sh.theme, 47, ed.screenW,
                              e, ed.main)
   if activeTab != nil:
     if (getMouseState(nil, nil) and SDL_BUTTON(BUTTON_RIGHT)) != 0:
@@ -847,7 +1005,7 @@ proc draw(e: var Event; ed: Editor) =
         ed.removeBuffer(activeTab)
         if oldMain != activeTab: main = oldMain
       else:
-        ed.state = requestedCloseTab
+        ed.sh.state = requestedCloseTab
         main = activeTab
         ed.askForQuitTab()
     else:
@@ -856,30 +1014,30 @@ proc draw(e: var Event; ed: Editor) =
 
   var rawMainRect = ed.mainRect
   rawMainRect.w -= scrollBarWidth(main)
-  ed.theme.draw(main, rawMainRect, (ed.blink==0 and focus==main) or
+  sh.theme.draw(main, rawMainRect, (sh.blink==0 and focus==main) or
                                     focus==ed.autocomplete,
-                if ed.theme.showLines: {showLines} else: {})
-  let scrollTo = drawScrollBar(main, ed.theme, e, ed.mainRect)
+                if sh.theme.showLines: {showLines} else: {})
+  let scrollTo = drawScrollBar(main, sh.theme, e, ed.mainRect)
   if scrollTo >= 0:
     scrollLines(main, scrollTo-main.firstLine)
 
   var mainBorder = ed.mainRect
-  mainBorder.x = spaceForLines(main, ed.theme).cint + ed.theme.uiXGap.cint + 2
+  mainBorder.x = spaceForLines(main, sh.theme).cint + sh.theme.uiXGap.cint + 2
   mainBorder.w = ed.mainRect.x + ed.mainRect.w - 1 - mainBorder.x
-  ed.theme.drawBorder(mainBorder, focus==main)
-  if main.posHint.w > 0 and ed.minimap.len > 0 and ed.theme.showMinimap and
+  sh.theme.drawBorder(mainBorder, focus==main)
+  if main.posHint.w > 0 and ed.minimap.len > 0 and sh.theme.showMinimap and
       main.cursorDim.h > 0 and ed.minimap.heading == ed.main.heading:
     # cursorDim.h > 0 means that the cursor is in the view. The minimap is
     # too confusing when the cursor is not visible.
-    main.posHint.x += ed.theme.uiXGap.cint
-    main.posHint.y += ed.theme.uiYGap.cint
-    main.posHint.w -= ed.theme.uiXGap.cint
-    main.posHint.h -= ed.theme.uiYGap.cint * 2
+    main.posHint.x += sh.theme.uiXGap.cint
+    main.posHint.y += sh.theme.uiYGap.cint
+    main.posHint.w -= sh.theme.uiXGap.cint
+    main.posHint.h -= sh.theme.uiYGap.cint * 2
 
-    main.posHint.h = min(ed.theme.draw(ed.minimap, main.posHint,
+    main.posHint.h = min(sh.theme.draw(ed.minimap, main.posHint,
                                    false, {showGaps}) -
                      main.posHint.y + 1, main.posHint.h)
-    ed.theme.drawBorder(main.posHint, ed.theme.lines)
+    sh.theme.drawBorder(main.posHint, sh.theme.lines)
 
   if focus == ed.autocomplete or focus == ed.sug:
     var autoRect = mainBorder
@@ -887,63 +1045,72 @@ proc draw(e: var Event; ed: Editor) =
     autoRect.w -= 20
     autoRect.y = cint(main.cursorDim.y + main.cursorDim.h + 10)
     autoRect.h = min(ed.mainRect.y + ed.mainRect.h - autoRect.y, 400)
-    ed.theme.drawBorderBox(autoRect, true)
-    ed.theme.drawAutoComplete(focus, autoRect)
+    sh.theme.drawBorderBox(autoRect, true)
+    sh.theme.drawAutoComplete(focus, autoRect)
 
   if ed.hasConsole:
-    ed.theme.draw(ed.console, ed.consoleRect,
-                  ed.blink==0 and focus==ed.console)
-    ed.theme.drawBorder(ed.consoleRect, focus==ed.console)
-    #console.span = ed.consoleRect.h div fontLineSkip(ed.theme.editorFontPtr)
+    sh.theme.draw(ed.console, ed.consoleRect,
+                  sh.blink==0 and focus==ed.console)
+    sh.theme.drawBorder(ed.consoleRect, focus==ed.console)
+    #console.span = ed.consoleRect.h div fontLineSkip(sh.theme.editorFontPtr)
 
-  ed.theme.draw(prompt, ed.promptRect, ed.blink==0 and focus==prompt)
-  ed.theme.drawBorder(ed.promptRect, focus==prompt)
+  sh.theme.draw(prompt, ed.promptRect, sh.blink==0 and focus==prompt)
+  sh.theme.drawBorder(ed.promptRect, focus==prompt)
 
-  let statusBar = ed.theme.renderText(ed.statusMsg & "     " & main.filename,
-                      ed.uiFont,
-    if ed.statusMsg == readyMsg: ed.theme.fg else: color(0xff, 0x44, 0x44, 0))
-  let bottom = ed.screenH - ed.theme.editorFontSize.cint - ed.theme.uiYGap*2
+  let statusBar = sh.theme.renderText(ed.sh.statusMsg & "     " & main.filename,
+                      sh.uiFont,
+    if ed.sh.statusMsg == readyMsg: sh.theme.fg else: color(0xff, 0x44, 0x44, 0))
+  let bottom = ed.screenH - sh.theme.editorFontSize.cint - sh.theme.uiYGap*2
 
-  let position = ed.theme.renderText("Ln: " & $(getLine(main)+1) &
+  let position = sh.theme.renderText("Ln: " & $(getLine(main)+1) &
                                      " Col: " & $(getColumn(main)+1) &
                                      " \\t: " & $main.tabSize &
                                      " " & main.lineending.displayNL,
-                                     ed.uiFont, ed.theme.fg)
+                                     sh.uiFont, sh.theme.fg)
   renderer.draw(statusBar, 15, bottom)
   renderer.draw(position,
-    ed.mainRect.x + ed.mainRect.w - 14*ed.theme.uiFontSize.int, bottom)
+    ed.mainRect.x + ed.mainRect.w - 14*sh.theme.uiFontSize.int, bottom)
 
   present(renderer)
 
+proc drawAllWindows(sh: SharedState; e: var Event) =
+  var ed = sh.firstWindow
+  while ed != nil:
+    clear(renderer)
+    # little hack so that not everything needs to be rewritten
+    ed.sh.theme.renderer = renderer
+    if ed == sh.activeWindow:
+      draw(e, ed)
+    else:
+      var nop = Event(kind: UserEvent5)
+      draw(nop, ed)
+    ed = ed.next
 
 proc mainProc(ed: Editor) =
   addQuitProc nimsuggestclient.shutdown
 
-  ed.fontM = @[]
-  setDefaults(ed, ed.fontM)
-  let scriptContext = setupNimscript(ed.cfgColors)
-  scriptContext.setupApi(ed)
-  compileActions(ed.cfgActions)
+  var sh = newSharedState()
+  setDefaults(ed, sh)
+  createUnknownTab(ed, sh)
+  sh.activeWindow = ed
+  sh.firstWindow = ed
+  let scriptContext = setupNimscript(sh.cfgColors)
+  scriptContext.setupApi(sh)
+  compileActions(sh.cfgActions)
 
-  loadTheme(ed)
-  # Doesn't work on Linux. Yay.
-  const maximized = when defined(linux): 0'u32 else: SDL_WINDOW_MAXIMIZED
+  loadTheme(sh)
+  createSdlWindow(ed, 1)
 
-  ed.window = createWindow(windowTitle, 10, 30, ed.screenW, ed.screenH,
-                            SDL_WINDOW_RESIZABLE or maximized)
-  ed.window.getSize(ed.screenW, ed.screenH)
-  ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
-  ed.theme.renderer = ed.renderer
-  ed.bar = ed.main
+  ed.bar.first = ed.main
 
-  ed.blink = 1
-  ed.clickOnFilename = false
+  sh.blink = 1
+  sh.clickOnFilename = false
   layout(ed)
   loadOpenTabs(ed)
-  if ed.project.len > 0:
-    ed.window.setTitle(windowTitle & " - " & ed.project.extractFilename)
+  if sh.project.len > 0:
+    sh.setTitle(windowTitle & " - " & sh.project.extractFilename)
   ed.con.insertPrompt()
-  ed.windowHasFocus = true
+  sh.windowHasFocus = true
   # we only redraw if an event has been processed or after a timeout
   # for the cursor blinking in order to save CPU cycles massively:
   var doRedraw = true
@@ -951,8 +1118,8 @@ proc mainProc(ed: Editor) =
   while true:
     # we need to wait for the next frame until the cursor has moved to the
     # right position:
-    if ed.clickOnFilename:
-      ed.clickOnFilename = false
+    if sh.clickOnFilename:
+      sh.clickOnFilename = false
       let (file, line, col) = ed.console.extractFilePosition()
       if file.len > 0 and line > 0:
         if ed.openTab(file, true):
@@ -960,9 +1127,9 @@ proc mainProc(ed: Editor) =
           focus = main
 
     var e = Event(kind: UserEvent5)
-    if processEvents(e, ed): break
-    if ed.state == requestedShutdownNext:
-      ed.state = requestedShutdown
+    if processEvents(e, sh.activeWindow): break
+    if sh.state == requestedShutdownNext:
+      sh.state = requestedShutdown
       let b = withUnsavedChanges(main)
       if b == nil: break
       main = b
@@ -972,9 +1139,7 @@ proc mainProc(ed: Editor) =
       doRedraw = false
       update(ed.con)
       nimsuggestclient.update(ed.sug)
-      clear(renderer)
-
-      draw(e, ed)
+      sh.drawAllWindows(e)
     # if we have an external process running in the background, we have a
     # much shorter timeout. Nevertheless this should not affect our blinking
     # speed:
@@ -988,19 +1153,19 @@ proc mainProc(ed: Editor) =
     if newTicks - oldTicks > timeout.uint32:
       oldTicks = newTicks
 
-      inc ed.idle
+      inc sh.idle
       if timeout == 500:
-        ed.blink = 1-ed.blink
-        tick(ed)
+        sh.blink = 1-sh.blink
+        tick(sh)
         doRedraw = true
       else:
-        inc ed.blink
-        if ed.blink >= 5:
-          ed.blink = 0
-          tick(ed)
+        inc sh.blink
+        if sh.blink >= 5:
+          sh.blink = 0
+          tick(sh)
           doRedraw = true
 
-  freeFonts ed.fontM
+  freeFonts sh.fontM
   destroy ed
 
 if sdl2.init(INIT_VIDEO) != SdlSuccess:

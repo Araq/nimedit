@@ -4,7 +4,8 @@ import buffertype, themes
 import sdl2, sdl2/ttf, prims
 
 type
-  TabBar* = Buffer
+  TabBar* = object
+    first*, last*: Buffer
 
 proc rect*(x,y,w,h: int): Rect = sdl2.rect(x.cint, y.cint, w.cint, h.cint)
 
@@ -130,7 +131,7 @@ proc drawButtonList*(buttons: openArray[string]; t: Internaltheme;
 proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
                  x, screenW: cint; e: var Event;
                  active: Buffer): Buffer =
-  var it = tabs
+  var it = tabs.first
   var activeDrawn = false
   var xx = x # 15.cint
   let yy = t.uiYGap.cint
@@ -143,8 +144,8 @@ proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
       if not activeDrawn:
         # retry the whole rendering, setting the start of the tabbar to
         # something else:
-        if it.prev != tabs:
-          tabs = it.prev
+        if it.prev != tabs.first:
+          tabs.first = it.prev
           return drawTabBar(tabs, t, x, screenW, e, active)
       break
 
@@ -161,12 +162,13 @@ proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
         let p = point(w.x, w.y)
         if rect.contains(p):
           if w.xrel >= 4:
-            if it == tabs: tabs = it.next
+            if it == tabs.first: tabs.first = it.next
             swapBuffers(it, it.next)
           elif w.xrel <= -4:
-            if it == tabs: tabs = it.prev
+            if it == tabs.first: tabs.first = it.prev
             swapBuffers(it.prev, it)
 
     inc xx, rect.w + t.uiXGap*2
+    if it == tabs.last: break
     it = it.next
-    if it == tabs: break
+    if it == tabs.first: break

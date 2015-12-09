@@ -49,6 +49,8 @@ bindKey({Control,O}, Action.OpenTab)
 bindKey({Control,S}, Action.SaveTab)
 bindKey({Control,N}, Action.NewTab)
 bindKey({Control,Q}, Action.CloseTab)
+bindKey({Control,W}, Action.MoveTabRight)
+bindKey({Control,Shift,W}, Action.MoveTabLeft)
 
 bindKey({Control,M}, Action.Declarations)
 bindKey({F3}, Action.NextEditLocation)

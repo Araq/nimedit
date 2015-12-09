@@ -1,7 +1,8 @@
 TODO:
  - persist last edit locations
- - multi windows support
- - console doesn't filter .exe files properly
+ - undo/redo still buggy
+ - indent/dedent for multi lines a bit buggy
+ - finish multi windows support
  - 'nim check' integration
  - add the option for semantic highlighting
 
@@ -21,7 +22,6 @@ Later versions:
    - introduce a "legend" feature
 
 Optional:
- - the command history needs to be persistent (also for redirected programs!)
  - what is kept in the command history should be scriptable
 
  - simple refactorings: rename
