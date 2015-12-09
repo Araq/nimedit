@@ -1,4 +1,5 @@
 TODO:
+ - persist last edit locations
  - multi windows support
  - console doesn't filter .exe files properly
  - 'nim check' integration
