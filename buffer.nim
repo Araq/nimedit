@@ -807,7 +807,6 @@ proc dedent*(b: Buffer) =
     while i >= 1 and b[i-1] != '\L': dec i
     while i <= b.selected.b:
       dedentSingleLine(b, i)
-      inc i
       while i < b.len-1 and b[i] != '\L': inc i
       if b[i] == '\L': inc i
 
