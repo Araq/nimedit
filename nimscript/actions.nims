@@ -15,6 +15,30 @@ proc commas*(selected: string): string =
     if result.len > 0: result.add ", "
     result.add x
 
+proc toSql*(s: string): string =
+  proc isSql(s: string): bool =
+    s in ["select", "from", "where", "group", "by", "having",
+          "as", "update", "like", "length", "coalesce", "length",
+          "between", "and", "or", "not", "sum", "if", "case", "end",
+          "create", "table", "insert", "into", "left", "right",
+          "outer", "inner", "join", "on", "concat"]
+
+  const letters = {'a'..'z', '0'..'9', '_', 'A'..'Z'}
+  result = ""
+  var i = 0
+  while i < s.len:
+    let k = i
+    while i < s.len and s[i] in letters: inc i
+    if k != i:
+      let w = s.substr(k, i-1)
+      if isSql w.toLower:
+        result.add w.toUpper
+      else:
+        result.add w
+    while i < s.len and s[i] notin letters:
+      result.add s[i]
+      inc i
+
 proc pressedF5*() =
   save()
   for i in countdown(historyLen()-1, 0):

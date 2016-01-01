@@ -1,7 +1,6 @@
 TODO:
- - persist last edit locations
  - undo/redo still buggy
- - indent/dedent for multi lines a bit buggy
+ - persist last edit locations
  - finish multi windows support
  - 'nim check' integration
  - add the option for semantic highlighting

@@ -18,7 +18,7 @@ const
 
 theme.editorFont = when defined(linux): "dejavu/DejaVuSansMono"
                    else: "DejaVuSansMono"
-theme.editorFontSize = 12
+theme.editorFontSize = 15
 
 theme.uiFont = when defined(linux): "freefont/FreeSans" else: "Arial"
 theme.uiFontSize = 12
