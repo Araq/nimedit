@@ -533,7 +533,7 @@ proc backspaceNoSelect(b: Buffer; overrideUtf8=false) =
   prepareForEdit(b)
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
   var ah = b.actions.high
-  if ah == -1 or b.actions[ah].k != dele:
+  if ah == -1 or b.actions[ah].k != dele or b.actions[ah].pos != oldCursor:
     setLen(b.actions, ah+2)
     inc ah
     b.actions[ah].word = ""
@@ -689,7 +689,7 @@ proc insertNoSelect(b: Buffer; s: string; singleUndoOp=false;
   let oldCursor = b.cursor
   prepareForEdit(b)
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))
-  if b.actions.len > 0 and b.actions[^1].k == ins and not singleUndoOp:
+  if b.actions.len > 0 and b.actions[^1].k == ins and b.actions[^1].pos == oldCursor-b.actions[^1].word.len and not singleUndoOp:
     b.actions[^1].word.add s.filterForInsert
   else:
     b.actions.add(Action(k: ins, pos: b.cursor, word: s.filterForInsert,

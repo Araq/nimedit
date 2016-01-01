@@ -541,6 +541,8 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   if b.firstLineOffset != realOffset:
     # XXX make this a real assertion when tested well
     echo "real offset ", realOffset, " wrong ", b.firstLineOffset
+    echo "char at real offset ", b[realOffset].ord, " wrong ",
+      b[b.firstLineOffset]
     assert false
   var renderLine = b.firstLine
   var i = nextLineOffset(b, renderLine, b.firstLineOffset)
