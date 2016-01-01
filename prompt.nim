@@ -38,8 +38,8 @@ proc findAll(ed: Editor; searchPhrase: string; searchOptions: SearchOptions;
              toReplaceWith: string = nil) =
   for it in allBuffers(ed):
     it.findNext(searchPhrase, searchOptions, toReplaceWith)
-    it.activeMarker = 0
     if onlyCurrentFile in searchOptions: break
+    it.activeMarker = 0
 
 proc gotoFirstMarker(ed: Editor; stayInFile: bool): bool =
   for b in allBuffers(ed):

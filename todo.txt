@@ -1,4 +1,5 @@
 TODO:
+ - console needs to support mark/j commands
  - undo/redo still buggy
  - persist last edit locations
  - finish multi windows support
