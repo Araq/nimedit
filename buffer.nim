@@ -979,3 +979,12 @@ proc filterOccurances*(b: Buffer) =
   for m in b.markers:
     b.activeLines.incl b.getLineFromOffset(m.a)
     b.activeLines.incl b.getLineFromOffset(m.b)
+
+proc deleteVerb*(b: Buffer) =
+  var i = b.cursor
+  while i >= 1 and b[i-1] != '\L' and b.readOnly < i-1: dec i
+  b.cursor = i
+  var j = i
+  while b[j] in Letters: inc j
+  if j != i:
+    b.removeText(i, j-1)

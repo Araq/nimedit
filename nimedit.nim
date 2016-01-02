@@ -748,6 +748,9 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
   of Action.Del:
     focus.deleteKey()
     if focus==main: trackSpot(ed.sh.hotspots, main)
+  of Action.DelVerb:
+    focus.deleteVerb()
+    if focus==main: trackSpot(ed.sh.hotspots, main)
   of Action.Enter:
     if focus==main:
       main.insertEnter()

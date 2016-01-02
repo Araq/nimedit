@@ -27,6 +27,7 @@ bindkey({Shift,Ctrl,Down}, Action.DownJumpSelect)
 
 bindKey({Enter}, Action.Enter)
 bindKey({Backspace}, Action.Backspace)
+bindKey({Shift,Backspace}, Action.DelVerb)
 bindKey({Del}, Action.Del)
 
 bindKey({Control,C}, Action.Copy)

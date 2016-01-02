@@ -47,7 +47,8 @@ type
     InsertPrompt,
     InsertPromptSelectedText,
     NimSuggest,
-    NimScript
+    NimScript,
+    DelVerb
 
 proc bindKey*(key: set[Key]; action: Action; arg: string=nil) =
   discard
