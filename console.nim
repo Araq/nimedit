@@ -24,7 +24,7 @@ proc addCmd*(h: var CmdHistory; cmd: string) =
     if h.cmds[i] == cmd:
       # suggest it again:
       swap(h.cmds[i], h.cmds[^1])
-      h.suggested = i
+      h.suggested = h.cmds.high
       return
     elif h.cmds[i] in cmd:
       # correct previously wrong or shorter command:
