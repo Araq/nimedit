@@ -1,5 +1,4 @@
-
-- indentation is still wrong
+- search&replace still occasionally very buggy
 
 
 TODO:

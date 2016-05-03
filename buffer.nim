@@ -736,6 +736,20 @@ proc baseIndent(s: string): int =
       result = ind
     inc i
 
+proc startsWithWord[T](b: T; s: string; start: int): bool =
+  var i = 0
+  while i+start < b.len and i < s.len and b[i+start] == s[i]: inc i
+  if i >= s.len: result = b[i+start] <= ' '
+
+type InsertContext = enum ordinary, inOfBranch, inElif
+
+proc insertCon(s: string): InsertContext =
+  var i = 0
+  while s[i] in {'\L', '\C', ' ', '\t'}: inc i
+  result = ordinary
+  if s.startsWithWord("of", i): result = inOfBranch
+  elif s.startsWithWord("elif", i): result = inElif
+
 proc insert*(b: Buffer; s: string; smartInsert=false) =
   inc b.version
   removeSelectedText(b)
@@ -744,19 +758,33 @@ proc insert*(b: Buffer; s: string; smartInsert=false) =
     # move to the *start* of this line
     var i = b.cursor
     var inComment = false
+    var ctx = ordinary
     while i >= 1:
       case b[i-1]
-      of '\L': break
+      of '\L':
+        var j = i
+        # ignore empty lines for this analysis:
+        while j < b.len and b[j] in {' ', '\t'}: inc(j)
+        if b[j] != '\L':
+          if b.lang == langNim:
+            if b.startsWithWord("of", j): ctx = inOfBranch
+            elif b.startsWithWord("elif", j): ctx = inElif
+          break
       of '#':
         if b.lang == langNim: inComment = true
       else: discard
       dec i
 
+    var inhibit = 0
+    if b.lang == langNim and insertCon(s) != ctx:
+      inhibit = b.tabSize
+
     var newLine = "\L"
     while true:
       let c = b[i]
       if c == ' ' or c == '\t':
-        newLine.add c
+        if inhibit > 0: dec inhibit
+        else: newLine.add c
       else:
         break
       inc i
