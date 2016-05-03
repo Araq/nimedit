@@ -868,17 +868,21 @@ proc insertEnter*(b: Buffer; smartIndent=true) =
     dec i
   var toInsert = "\L"
   if smartIndent:
+    var eat = b.cursor
     while true:
       let c = b[i]
       if c == ' ' or c == '\t':
-        toInsert.add c
+        if b[eat] == ' ': inc eat
+        else: toInsert.add c
       else:
         break
       inc i
     var last = b.cursor-1
     while last > 0 and b[last] == ' ': dec last
     if last >= 0 and b[last] in additionalIndentChars[b.lang] and not inComment:
-      for i in 1..b.tabSize: toInsert.add ' '
+      for i in 1..b.tabSize:
+        if b[eat] == ' ': inc eat
+        else: toInsert.add ' '
   b.insert(toInsert)
 
 proc gotoLine*(b: Buffer; line, col: int) =
