@@ -193,7 +193,7 @@ proc whichColumn(db: var DrawBuffer; ra, rb: int): int =
   let ending = db.toCursor[rb] # j+(rb-ra+1)
   while j < ending:
     var L = graphemeLen(db.b, j)
-    for k in 0..<L:
+    for k in 0..<int(L):
       buffer[r] = db.b[k+j]
       inc r
     buffer[r] = '\0'

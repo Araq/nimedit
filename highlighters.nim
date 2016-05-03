@@ -87,6 +87,36 @@ const
   OpChars  = {'+', '-', '*', '/', '\\', '<', '>', '!', '?', '^', '.',
               '|', '=', '%', '&', '$', '@', '~', ':', '\x80'..'\xFF'}
 
+proc nimMultilineComment(g: var GeneralTokenizer; pos: int;
+                          isDoc: bool): int =
+  var pos = pos
+  var nesting = 0
+  while pos < g.buf.len:
+    case g.buf[pos]
+    of '#':
+      if isDoc:
+        if g.buf[pos+1] == '#' and g.buf[pos+2] == '[':
+          inc nesting
+      elif g.buf[pos+1] == '[':
+        inc nesting
+      inc pos
+    of ']':
+      if isDoc:
+        if g.buf[pos+1] == '#' and g.buf[pos+2] == '#':
+          if nesting == 0:
+            inc(pos, 3)
+            break
+          dec nesting
+      elif g.buf[pos+1] == '#':
+        if nesting == 0:
+          inc(pos, 2)
+          break
+        dec nesting
+      inc pos
+    else:
+      inc pos
+  result = pos
+
 proc nimNextToken(g: var GeneralTokenizer) =
   const
     hexChars = {'0'..'9', 'A'..'F', 'a'..'f', '_'}
@@ -132,15 +162,26 @@ proc nimNextToken(g: var GeneralTokenizer) =
       else:
         inc(pos)
     g.state = TokenClass.None
+  elif g.state in {TokenClass.LongComment, TokenClass.Comment}:
+    g.kind = g.state
+    pos = nimMultilineComment(g, pos, g.kind == TokenClass.LongComment)
+    g.state = TokenClass.None
   else:
     case g.buf[pos]
     of ' ', '\x09'..'\x0D':
       g.kind = TokenClass.Whitespace
       while pos < g.buf.len and g.buf[pos] in {' ', '\x09'..'\x0D'}: inc(pos)
     of '#':
-      if g.buf[pos+1] == '#': g.kind = TokenClass.LongComment
+      if g.buf[pos+1] == '#':
+        g.kind = TokenClass.LongComment
+        inc pos
       else: g.kind = TokenClass.Comment
-      while g.buf[pos] != '\L': inc(pos)
+      if g.buf[pos+1] == '[':
+        g.state = g.kind
+        pos = nimMultilineComment(g, pos+2, g.kind == TokenClass.LongComment)
+        g.state = TokenClass.None
+      else:
+        while g.buf[pos] != '\L': inc(pos)
     of 'a'..'z', 'A'..'Z', '_', '\x80'..'\xFF':
       var id = ""
       while g.buf[pos] in SymChars + {'_'}:
