@@ -1,5 +1,5 @@
 - search&replace still occasionally very buggy
-
+- keep search results
 
 
 TODO:

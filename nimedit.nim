@@ -202,20 +202,14 @@ proc findFile(ed: Editor; filename: string): string =
     if fileExists(res): return res
 
 proc findFileAbbrev(ed: Editor; filename: string): string =
-  # open the file in searchpath with minimal edit distance.
-  var dist = high(int)
-
+  # open the file in searchpath. Be fuzzy.
   ed.sh.addSearchPath os.getCurrentDir()
   for p in ed.sh.searchPath:
     for k, f in os.walkDir(p, relative=true):
       if k in {pcLinkToFile, pcFile} and not f.ignoreFile:
-        var currDist = editDistance(f, filename)
         # we love substrings:
-        if filename in f and '.' in f: currDist = 4
-        # -4 because the '.ext' should not count:
-        if currDist < dist and currDist-4 <= (f.len-4) div 2:
-          result = p / f
-          dist = currDist
+        if filename in f and '.' in f:
+          return p / f
 
 proc getWindow(sh: SharedState; b: Buffer; returnPrevious=false): Editor =
   result = sh.firstWindow
@@ -615,6 +609,32 @@ proc eventToKeySet(e: var Event): set[Key] =
   if (w.keysym.modstate and KMOD_ALT()) != 0:
     result.incl Key.Alt
 
+proc produceHelp(ed: Editor): string =
+  proc getArg(a: Command): string =
+    (if a.arg.isNil or a.arg.len == 0: ""
+    else: " " & a.arg)
+  const width = 24
+  result = "\L"
+  var probed = initTable[set[Key], Command]()
+  for m in Key.Ctrl..Key.Apple:
+    for k in Key.A..Key.Z:
+      let cmd = ed.sh.keymapping.getOrDefault({m,k})
+      if cmd.action != Action.None:
+        let keys = $m & "+" & $k
+        result.add(keys & repeat(' ', max(1, width-keys.len)) & " " & $cmd.action & cmd.getArg & "\L")
+        probed[{m,k}] = Command()
+  for k in Key.N0..Key.F12:
+    let cmd = ed.sh.keymapping.getOrDefault({k})
+    if cmd.action != Action.None:
+      let keys = $k
+      result.add(keys & repeat(' ', max(1, width-keys.len)) & " " & $cmd.action & cmd.getArg & "\L")
+      probed[{k}] = Command()
+  # now check for other keybindings, but in no order:
+  for binding, cmd in pairs(ed.sh.keymapping):
+    if not probed.contains(binding):
+      let keys = $binding
+      result.add(keys & repeat(' ', max(1, width-keys.len)) & " " & $cmd.action & cmd.getArg & "\L")
+
 proc closeTab(ed: Editor) =
   if not main.changed:
     ed.removeBuffer(main)
@@ -690,6 +710,9 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
 
   case action
   of Action.None: discard
+  of Action.ShowHelp:
+    ed.con.insertReadonly(produceHelp(ed))
+    ed.con.insertPrompt()
   of Action.Left, Action.LeftJump:
     focus.deselect()
     focus.left(action == Action.LeftJump)

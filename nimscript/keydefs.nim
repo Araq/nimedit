@@ -18,6 +18,7 @@ type
 
   Action* {.pure.} = enum
     None,
+    ShowHelp,
     Left, Right, Up, Down,
     LeftJump, RightJump, UpJump, DownJump,
     LeftSelect, RightSelect, UpSelect, DownSelect,

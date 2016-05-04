@@ -56,7 +56,7 @@ bindKey({Control,Shift,W}, Action.MoveTabLeft)
 bindKey({Control,M}, Action.Declarations)
 bindKey({F3}, Action.NextEditLocation)
 
-bindKey({F1}, Action.SwitchEditorConsole)
+bindKey({F1}, Action.ShowHelp)
 bindKey({F2}, Action.Nimsuggest, "dus")
 bindKey({Esc}, Action.SwitchEditorPrompt)
 bindKey({Shift,Esc}, Action.SwitchEditorConsole)
