@@ -105,7 +105,8 @@ proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: c
   # requested breakpoint update?
   if b.clicks > 0:
     let p = point(b.mouseX, b.mouseY)
-    if d.contains(p):
+    if (x: 1.cint, y: y, w: w, h: d.h).contains(p):
+      b.clicks = 0
       let nextState = case br
                       of TokenClass.None: TokenClass.Breakpoint1
                       of TokenClass.Breakpoint1: TokenClass.Breakpoint2
@@ -155,10 +156,10 @@ proc mouseSelectCurrentToken(b: Buffer) =
   cursorMoved(b)
 
 proc setCurrentLine(b: Buffer) =
-  if b.filterLines:
-    b.currentLine = getLineFromOffset(b, b.cursor)
-  else:
-    b.currentLine = max(b.firstLine + b.span, 0)
+  #if b.filterLines:
+  b.currentLine = getLineFromOffset(b, b.cursor)
+  #else:
+  #  b.currentLine = max(b.firstLine + b.span, 0)
   b.currentLine = clamp(b.currentLine, 0, b.numberOfLines)
 
 proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: cint) =
@@ -608,7 +609,7 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   # if not found, set the cursor to the last possible position (this is
   # required when the screen is not completely filled with text lines):
   mouseAfterNewLine(b, min(i, b.len),
-    (x: cint(b.mouseX-1), y: 100_000i32, w: 0'i32, h: 0'i32), lineH)
+    (x: dim.x, y: 100_000i32, w: 0'i32, h: 0'i32), lineH)
   if b.posHint.h < lineH*4:
     b.posHint.w = 0
     b.posHint.h = 0
