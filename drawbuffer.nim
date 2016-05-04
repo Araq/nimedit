@@ -85,28 +85,50 @@ proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
     echo("CreateTexture failed")
   freeSurface(surf)
 
-proc drawNumberBegin*(t: InternalTheme; number, current: int; w, y: cint) =
+proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: cint) =
   proc sprintf(buf, frmt: cstring) {.header: "<stdio.h>",
     importc: "sprintf", varargs, noSideEffect.}
   var buf {.noinit.}: array[25, char]
   sprintf(buf, "%ld", number)
 
-  let tex = drawTexture(t.renderer, t.editorFontPtr, buf,
-                        if number == current: t.fg else: t.lines, t.bg)
+  let br = b.breakpoints.getOrDefault(number)
+  let col = if number == b.runningLine: b.mgr[].getStyle(TokenClass.LineActive).attr.color
+            elif br != TokenClass.None: b.mgr[].getStyle(br).attr.color
+            elif number == current: t.fg
+            else: t.lines
+  let tex = drawTexture(t.renderer, t.editorFontPtr, buf, col, t.bg)
   var d: Rect
   d.x = 1
   d.y = y
   queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
+
+  # requested breakpoint update?
+  if b.clicks > 0:
+    let p = point(b.mouseX, b.mouseY)
+    if d.contains(p):
+      let nextState = case br
+                      of TokenClass.None: TokenClass.Breakpoint1
+                      of TokenClass.Breakpoint1: TokenClass.Breakpoint2
+                      else: TokenClass.None
+      b.breakpoints[number] = nextState
   t.renderer.copy(tex, nil, addr d)
   destroy tex
-  if number == current:
-    t.renderer.setDrawColor(t.fg)
+  if number == current or br != TokenClass.None or number == b.runningLine:
+    t.renderer.setDrawColor(col)
     t.renderer.drawLine(1, y-1, 1+w, y-1)
 
-proc drawNumberEnd*(t: InternalTheme; number, current: int; w, y: cint) =
-  if number == current:
-    t.renderer.setDrawColor(t.fg)
+proc drawNumberEnd*(t: InternalTheme; b: Buffer; number, current: int; w, y: cint) =
+  if number == b.runningLine:
+    t.renderer.setDrawColor(b.mgr[].getStyle(TokenClass.LineActive).attr.color)
     t.renderer.drawLine(1, y-1, 1+w, y-1)
+  else:
+    let br = b.breakpoints.getOrDefault(number)
+    if br != TokenClass.None:
+      t.renderer.setDrawColor(b.mgr[].getStyle(br).attr.color)
+      t.renderer.drawLine(1, y-1, 1+w, y-1)
+    elif number == current:
+      t.renderer.setDrawColor(t.fg)
+      t.renderer.drawLine(1, y-1, 1+w, y-1)
 
 proc textSize*(font: FontPtr; buffer: cstring): cint =
   discard sizeUtf8(font, buffer, addr result, nil)
@@ -555,10 +577,10 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
 
   template drawCurrent() =
     if showLines in options:
-      t.drawNumberBegin(renderLine+1, b.currentLine+1, spl, dim.y)
+      t.drawNumberBegin(b, renderLine+1, b.currentLine+1, spl, dim.y)
     i = t.drawTextLine(b, i, dim, blink)
     if showLines in options:
-      t.drawNumberEnd(renderLine+1, b.currentLine+1, spl, dim.y)
+      t.drawNumberEnd(b, renderLine+1, b.currentLine+1, spl, dim.y)
 
   if showLines in options: dim.x = spl + RoomForMargin
   b.span = 0

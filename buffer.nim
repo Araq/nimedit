@@ -1,6 +1,6 @@
 # Implementation uses a gap buffer with explicit undo stack.
 
-import strutils, unicode, intsets, compiler/ast
+import strutils, unicode, intsets, compiler/ast, tables
 import styles, highlighters, nimscript/common, themes
 import sdl2, sdl2/ttf, prims
 import buffertype, unihelp, languages
@@ -76,6 +76,7 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.bracketToHighlightB = -1
   result.activeLines = initIntSet()
   initStrTable(result.symtab)
+  result.breakpoints = initTable[int, TokenClass]()
 
 proc clear*(result: Buffer) =
   result.front.setLen 0
@@ -102,6 +103,7 @@ proc clear*(result: Buffer) =
   result.filterLines = false
   result.minimapVersion = 0
   initStrTable(result.symtab)
+  result.breakpoints = initTable[int, TokenClass]()
 
 proc fullText*(b: Buffer): string =
   result = newStringOfCap(b.front.len + b.back.len)
@@ -751,6 +753,7 @@ proc insertCon(s: string): InsertContext =
   elif s.startsWithWord("elif", i): result = inElif
 
 proc insert*(b: Buffer; s: string; smartInsert=false) =
+
   inc b.version
   removeSelectedText(b)
   let base = baseIndent(s)

@@ -1,5 +1,5 @@
 
-import styles, languages, nimscript/common, intsets, compiler/ast
+import styles, languages, nimscript/common, intsets, compiler/ast, tables
 from times import Time
 from sdl2 import Rect
 
@@ -29,7 +29,7 @@ type
 
   Buffer* = ref object
     cursor*: Natural
-    firstLine*, currentLine*, desiredCol*, numberOfLines*: Natural
+    firstLine*, currentLine*, desiredCol*, numberOfLines*, runningLine*: Natural
     span*: int
     firstLineOffset*: Natural
     bracketToHighlightA*, bracketToHighlightB*: int
@@ -59,6 +59,7 @@ type
     posHint*: Rect
     symtab*: TStrTable
     offsetToLineCache*: array[20, tuple[version, offset, line: int]]
+    breakpoints*: Table[int, TokenClass]
 
 proc getCell*(b: Buffer; i: Natural): Cell =
   if i < b.front.len:

@@ -2,6 +2,11 @@
 - keep search results
 
 
+- debugger support!
+  - have support for conditional breakpoints: only tell gdb about breakpoints
+    after a special event! --> much better debugging than VS!
+
+
 TODO:
 
 
@@ -18,7 +23,6 @@ system.nim(2527)         sysFatal
 Error: unhandled exception: false  [AssertionError]
 
  - minimap can overdraw the code when there are line continuations in the code
- - console needs to support mark/j commands
  - persist last edit locations
  - finish multi windows support
  - 'nim check' integration
@@ -28,9 +32,6 @@ Error: unhandled exception: false  [AssertionError]
  - tabsize vs displaytabsize
 
 Later versions:
- - debugger support!
-   - have support for conditional breakpoints: only tell gdb about breakpoints
-     after a special event! --> much better debugging than VS!
  - show which 'when' sections are active
  - large file handling
 

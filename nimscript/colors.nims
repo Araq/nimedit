@@ -94,3 +94,7 @@ ss Other, White
 ss Red, Red
 ss Green, Green
 ss Yellow, Yellow
+
+ss Breakpoint1, Red
+ss Breakpoint2, Orange
+ss LineActive, Yellow

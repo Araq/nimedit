@@ -10,7 +10,8 @@ type
     Operator, Punctuation, Comment, LongComment, RegularExpression,
     TagStart, TagStandalone, TagEnd, Key, Value, RawData, Assembler,
     Preprocessor, Directive, Command, Rule, Link, Label,
-    Reference, Text, Other, Green, Yellow, Red
+    Reference, Text, Other, Green, Yellow, Red,
+    Breakpoint1, Breakpoint2, LineActive
 
   FontStyle* {.pure.} = enum
     Normal, Bold, Italic, BoldItalic
