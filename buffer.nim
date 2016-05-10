@@ -779,8 +779,13 @@ proc insert*(b: Buffer; s: string; smartInsert=false) =
       dec i
 
     var inhibit = 0
-    if b.lang == langNim and insertCon(s) != ctx:
-      inhibit = b.tabSize
+    if b.lang == langNim:
+      case insertCon(s)
+      of ordinary: discard
+      of inOfBranch:
+        if ctx == inOfBranch: inhibit = b.tabSize
+      of inElif:
+        if ctx == inElif: inhibit = b.tabSize
 
     var newLine = "\L"
     while true:
