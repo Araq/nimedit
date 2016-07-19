@@ -1,6 +1,6 @@
 
-from sdl2 import Color, RendererPtr
-from sdl2/ttf import FontPtr
+import textrenderer
+from sdl2 import nil
 
 type
   InternalTheme* = object
@@ -27,3 +27,8 @@ type
     showLigatures*: bool
     nimsuggestPath*: string
 
+proc sdlrend*(x: InternalTheme): sdl2.RendererPtr =
+  when defined(useNimx):
+    x.renderer.sd
+  else:
+    x.renderer

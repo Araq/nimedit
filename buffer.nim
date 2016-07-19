@@ -2,9 +2,12 @@
 
 import strutils, unicode, intsets, compiler/ast, tables
 import styles, highlighters, nimscript/common, themes
-import sdl2, sdl2/ttf, prims
+import sdl2 except RendererPtr
+import prims
+import sdl2/ttf except FontPtr
 import buffertype, unihelp, languages
 from os import splitFile
+import textrenderer
 
 const
   tabWidth = 2

@@ -71,20 +71,6 @@ proc getLineOffset(b: Buffer; lines: Natural): int =
       break
     inc idx
 
-
-proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
-                 fg, bg: Color): TexturePtr =
-  assert font != nil
-  assert msg[0] != '\0'
-  var surf: SurfacePtr = renderUtf8Shaded(font, msg, fg, bg)
-  if surf == nil:
-    echo("TTF_RenderText failed")
-    return
-  result = createTextureFromSurface(r, surf)
-  if result == nil:
-    echo("CreateTexture failed")
-  freeSurface(surf)
-
 proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: cint) =
   proc sprintf(buf, frmt: cstring) {.header: "<stdio.h>",
     importc: "sprintf", varargs, noSideEffect.}
@@ -96,43 +82,36 @@ proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: c
             elif br != TokenClass.None: b.mgr[].getStyle(br).attr.color
             elif number == current: t.fg
             else: t.lines
-  let tex = drawTexture(t.renderer, t.editorFontPtr, buf, col, t.bg)
-  var d: Rect
-  d.x = 1
-  d.y = y
-  queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
+  var xx = 1
+  var yy = int y
+  drawText(t.renderer, t.editorFontPtr, buf, col, t.bg, xx, yy)
+  let dw = cint(xx-1)
+  let dh = cint(yy-y)
 
   # requested breakpoint update?
   if b.clicks > 0:
     let p = point(b.mouseX, b.mouseY)
-    if (x: 1.cint, y: y, w: w, h: d.h).contains(p):
+    if (x: 1.cint, y: y, w: w, h: dh).contains(p):
       b.clicks = 0
       let nextState = case br
                       of TokenClass.None: TokenClass.Breakpoint1
                       of TokenClass.Breakpoint1: TokenClass.Breakpoint2
                       else: TokenClass.None
       b.breakpoints[number] = nextState
-  t.renderer.copy(tex, nil, addr d)
-  destroy tex
   if number == current or br != TokenClass.None or number == b.runningLine:
-    t.renderer.setDrawColor(col)
-    t.renderer.drawLine(1, y-1, 1+w, y-1)
+    t.renderer.drawLine(col, 1, y-1, 1+w, y-1)
 
 proc drawNumberEnd*(t: InternalTheme; b: Buffer; number, current: int; w, y: cint) =
   if number == b.runningLine:
-    t.renderer.setDrawColor(b.mgr[].getStyle(TokenClass.LineActive).attr.color)
-    t.renderer.drawLine(1, y-1, 1+w, y-1)
+    t.renderer.drawLine(b.mgr[].getStyle(TokenClass.LineActive).attr.color,
+        1, y-1, 1+w, y-1)
   else:
     let br = b.breakpoints.getOrDefault(number)
     if br != TokenClass.None:
-      t.renderer.setDrawColor(b.mgr[].getStyle(br).attr.color)
-      t.renderer.drawLine(1, y-1, 1+w, y-1)
+      t.renderer.drawLine(b.mgr[].getStyle(br).attr.color, 1, y-1, 1+w, y-1)
     elif number == current:
-      t.renderer.setDrawColor(t.fg)
-      t.renderer.drawLine(1, y-1, 1+w, y-1)
+      t.renderer.drawLine(t.fg, 1, y-1, 1+w, y-1)
 
-proc textSize*(font: FontPtr; buffer: cstring): cint =
-  discard sizeUtf8(font, buffer, addr result, nil)
 
 proc mouseSelectWholeLine(b: Buffer) =
   var first = b.cursor
@@ -204,11 +183,6 @@ proc minimapCandidate(r: RendererPtr; db: DrawBuffer; minimapDim: var Rect) =
     # mark as finished:
     minimapDim.y = -abs(minimapDim.y)
 
-proc blit(r: RendererPtr; tex: TexturePtr; dim: Rect) =
-  var d = dim
-  queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
-  r.copy(tex, nil, addr d)
-
 proc whichColumn(db: var DrawBuffer; ra, rb: int): int =
   var buffer: array[CharBufSize, char]
   var j = db.toCursor[ra] # db.i - db.charsLen + ra
@@ -225,13 +199,14 @@ proc whichColumn(db: var DrawBuffer; ra, rb: int): int =
       return r
     inc j, L
 
-proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
-                  ra, rb: int) =
+proc drawSubtoken(r: RendererPtr; db: var DrawBuffer;
+                  text: cstring; dw, dh: cint;
+                  ra, rb: int; fg, bg: Color) =
   # Draws the part of the token that actually still fits in the line. Also
   # does the click checking and the cursor tracking.
   var d = db.dim
-  queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
-
+  d.w = dw
+  d.h = dh
   # requested cursor update?
   let i = db.toCursor[ra] # db.i - db.charsLen
   if db.b.clicks > 0:
@@ -258,7 +233,9 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
       db.cursorDim = d
       db.cursorDim.x += textSize(db.font, addr db.chars[ra])
       db.chars[j] = ch
-  r.copy(tex, nil, addr d)
+  var dx = d.x.int
+  var dy = d.y.int
+  drawText(r, db.font, text, fg, bg, dx, dy)
 
 proc indWidth(db: DrawBuffer): cint =
   var
@@ -340,14 +317,13 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
   assert db.font != nil
   if db.dim.y+db.lineH > db.maxY: return
   let r = t.renderer
-  let text = r.drawTexture(db.font, db.chars, fg, bg)
-  var w, h: cint
-  queryTexture(text, nil, nil, addr(w), addr(h))
+  let w = textSize(db.font, db.chars)
+  let h = fontLineSkip(db.font)
 
   #r.pixel(db.dim.w, db.dim.y, color(0x00, 0xff, 0xff, 0xff))
   if db.dim.x + w + db.spaceWidth <= db.dim.w:
     # fast common case: the token still fits:
-    r.drawSubtoken(db, text, 0, db.charsLen-1)
+    r.drawSubtoken(db, db.chars, w, h, 0, db.charsLen-1, fg, bg)
     db.dim.x += w
   else:
     # slow uncommon case: we have to wrap the line.
@@ -384,38 +360,34 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
         let ch = db.chars[probe]
         db.chars[probe] = '\0'
         assert start[0] != '\0'
-        let text = r.drawTexture(db.font, start, fg, bg)
         db.rb = probe-1
         db.chars[probe] = ch
-        var w, h: cint
-        queryTexture(text, nil, nil, addr(w), addr(h))
-        r.drawSubtoken(db, text, db.ra, db.rb)
+        let w = textSize(db.font, start)
+        r.drawSubtoken(db, start, w, h,
+                       db.ra, db.rb, fg, bg)
         db.ra = probe
         db.dim.x += w
-        destroy text
       if not dotsRequired: break
       # draw line continuation and continue in the next line:
-      let cont = r.drawTexture(db.font, Ellipsis, fg, bg)
-      r.blit(cont, db.dim)
-      destroy cont
+      var xx = int db.dim.x
+      var yy = int db.dim.y
+      r.drawText(db.font, Ellipsis, fg, bg, xx, yy)
       db.dim.x = db.oldX
       db.dim.y += db.lineH
       if db.dim.y+db.lineH > db.maxY: break
       # indent the wrapped line properly, but don't overdo it:
       db.dim.x += min(indWidth(db), (db.dim.w - db.oldX) div 2)
-      let dots = r.drawTexture(db.font, Ellipsis, fg, bg)
-      var dotsW: cint
-      queryTexture(dots, nil, nil, addr(dotsW), nil)
-      r.blit(dots, db.dim)
-      destroy dots
-      db.dim.x += dotsW
-  destroy text
+
+      var xx2 = int db.dim.x
+      var yy2 = int db.dim.y
+      r.drawText(db.font, Ellipsis, fg, bg, xx2, yy2)
+      db.dim.x += cint(db.dim.x - xx2)
 
 proc drawCursor(t: InternalTheme; dim: Rect; h: cint) =
-  t.renderer.setDrawColor(t.cursor)
+  t.sdlrend.setDrawColor(t.cursor)
   var d = rect(dim.x, dim.y, t.cursorWidth, h)
-  t.renderer.fillRect(d)
-  t.renderer.setDrawColor(t.bg)
+  t.sdlrend.fillRect(d)
+  t.sdlrend.setDrawColor(t.bg)
 
 proc tabFill(db: var DrawBuffer; j: int) {.noinline.} =
   var i = j
@@ -509,7 +481,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
       r = 0
     while b[i] in {'\t', ' '}:
       if r mod b.tabSize == 0 and r > 1:
-        vlineDotted(t.renderer, w*r+db.oldX, dim.y, dim.y+db.lineH,
+        vlineDotted(t.sdlrend, w*r+db.oldX, dim.y, dim.y+db.lineH,
                     t.indentation)
       if b[i] == '\t': inc r, b.tabsize
       else: inc r
@@ -595,7 +567,7 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
     i = nextLineOffset(b, renderLine, i)
     if expectedLine != renderLine or showGaps in options:
       # show the gap:
-      hlineDotted(t.renderer, dim.x, endX, dim.y+lineH div 4, t.indentation)
+      hlineDotted(t.sdlrend, dim.x, endX, dim.y+lineH div 4, t.indentation)
       dim.y += lineH div 2
 
     drawCurrent()
@@ -636,8 +608,7 @@ proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
     i = t.drawTextLine(b, i, dim, false)
     if  b.firstline+b.span == b.currentLine or
         b.firstline+b.span == b.currentLine+1:
-      t.renderer.setDrawColor(t.fg)
-      t.renderer.drawLine(originalX, y, endX, y)
+      t.renderer.drawLine(t.fg, originalX, y, endX, y)
 
   drawCurrent()
   inc b.span

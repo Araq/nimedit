@@ -52,12 +52,20 @@ proc pressedF6*() =
   insert("<$1></$1>" % w)
   setCaret(getCaret() - w.len - "</>".len)
 
-defineAlias("tt", r"tests\testament\tester")
-defineAlias("j-edit", r"cd C:\Users\Anwender\projects\nimedit")
-defineAlias("j-nim", r"cd C:\Users\Anwender\projects\nim")
-defineAlias("j-lib", r"cd C:\Users\Anwender\projects\nim\lib")
-defineAlias("j-web", r"cd C:\Users\Anwender\projects\nim\web")
-defineAlias("j-sys", r"cd C:\Users\Anwender\projects\nim\lib\system")
+when defined(windows):
+  defineAlias("tt", r"tests\testament\tester")
+  defineAlias("j-edit", r"cd C:\Users\Anwender\projects\nimedit")
+  defineAlias("j-nim", r"cd C:\Users\Anwender\projects\nim")
+  defineAlias("j-lib", r"cd C:\Users\Anwender\projects\nim\lib")
+  defineAlias("j-web", r"cd C:\Users\Anwender\projects\nim\web")
+  defineAlias("j-sys", r"cd C:\Users\Anwender\projects\nim\lib\system")
+else:
+  defineAlias("tt", r"tests/testament/tester")
+  defineAlias("j-edit", r"cd /Users/andreasrumpf-mac/projects/nimedit")
+  defineAlias("j-nim", r"cd /Users/andreasrumpf-mac/projects/nim")
+  defineAlias("j-lib", r"cd /Users/andreasrumpf-mac/projects/nim/lib")
+  defineAlias("j-web", r"cd /Users/andreasrumpf-mac/projects/nim/web")
+  defineAlias("j-sys", r"cd /Users/andreasrumpf-mac/projects/nim/lib/system")
 
 
 when false:

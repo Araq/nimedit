@@ -6,12 +6,15 @@ when defined(gcc) and defined(windows):
 
 import strutils, critbits, os, times, browsers, tables, hashes, intsets
 from parseutils import parseInt
-import sdl2, sdl2/ttf, prims
+import sdl2 except RendererPtr
+import sdl2/ttf except FontPtr
 import buffertype except Action
-import buffer, styles, unicode, highlighters, console
+import buffer, styles, unicode, highlighters, console, prims
 import nimscript/common, nimscript/keydefs, languages, themes,
   nimscriptsupport, tabbar, finder,
-  scrollbar, indexer, overviews, nimsuggestclient, minimap
+  scrollbar, indexer, overviews, nimsuggestclient, minimap, textrenderer
+
+from opengl import loadExtensions
 
 when defined(windows):
   import dialogs
@@ -658,9 +661,10 @@ proc createSdlWindow(ed: Editor; maximize: range[0u32 .. 1u32]) =
     let maximized = SDL_WINDOW_MAXIMIZED * maximize
 
   ed.window = createWindow(windowTitle, 10, 30, ed.screenW, ed.screenH,
-                            SDL_WINDOW_RESIZABLE or maximized)
+                            SDL_WINDOW_RESIZABLE or maximized or
+                            SDL_WINDOW_OPENGL)
   ed.window.getSize(ed.screenW, ed.screenH)
-  ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
+  ed.renderer = createRenderer(ed.window)
 
 
 proc moveTabToRightWindow(ed: Editor) =
@@ -1083,20 +1087,19 @@ proc draw(e: var Event; ed: Editor) =
   sh.theme.draw(prompt, ed.promptRect, sh.blink==0 and focus==prompt)
   sh.theme.drawBorder(ed.promptRect, focus==prompt)
 
-  let statusBar = sh.theme.renderText(ed.sh.statusMsg & "     " & main.filename,
-                      sh.uiFont,
-    if ed.sh.statusMsg == readyMsg: sh.theme.fg else: color(0xff, 0x44, 0x44, 0))
   let bottom = ed.screenH - sh.theme.editorFontSize.cint - sh.theme.uiYGap*2
+  var sx = 15
+  var sy = bottom
+  ed.renderer.drawText(sh.uiFont, ed.sh.statusMsg & "     " & main.filename,
+    if ed.sh.statusMsg == readyMsg: sh.theme.fg else: color(0xff, 0x44, 0x44, 0), sh.theme.bg, sx, sy)
 
-  let position = sh.theme.renderText("Ln: " & $(getLine(main)+1) &
+  sx = ed.mainRect.x + ed.mainRect.w - 14*sh.theme.uiFontSize.int
+  sy = bottom
+  ed.renderer.drawText(sh.uiFont, "Ln: " & $(getLine(main)+1) &
                                      " Col: " & $(getColumn(main)+1) &
                                      " \\t: " & $main.tabSize &
                                      " " & main.lineending.displayNL,
-                                     sh.uiFont, sh.theme.fg)
-  renderer.draw(statusBar, 15, bottom)
-  renderer.draw(position,
-    ed.mainRect.x + ed.mainRect.w - 14*sh.theme.uiFontSize.int, bottom)
-
+                                     sh.theme.fg, sh.theme.bg, sx, sy)
   present(renderer)
 
 proc drawAllWindows(sh: SharedState; e: var Event) =
@@ -1199,6 +1202,7 @@ if sdl2.init(INIT_VIDEO) != SdlSuccess:
 elif ttfInit() != SdlSuccess:
   echo "TTF_Init"
 else:
+  loadExtensions()
   startTextInput()
   mainProc(Editor())
 sdl2.quit()

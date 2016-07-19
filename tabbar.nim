@@ -1,7 +1,8 @@
 
 
 import buffertype, themes
-import sdl2, sdl2/ttf, prims
+import sdl2, prims
+import textrenderer
 
 type
   TabBar* = object
@@ -12,31 +13,19 @@ proc rect*(x,y,w,h: int): Rect = sdl2.rect(x.cint, y.cint, w.cint, h.cint)
 proc drawBorder*(t: InternalTheme; x, y, w, h: int; b: bool; arc=8) =
   let p = Pixel(col: t.active[b], thickness: 2,
                 gradient: color(0xff, 0xff, 0xff, 0))
-  t.renderer.roundedRect(x, y, x+w-1, y+h-1, arc, p)
-  t.renderer.setDrawColor(t.bg)
+  t.sdlrend.roundedRect(x, y, x+w-1, y+h-1, arc, p)
+  t.sdlrend.setDrawColor(t.bg)
 
 proc roundedBox*(t: InternalTheme; x, y, w, h: int; arc=8) =
-  t.renderer.roundedBox(x, y, x+w-1, y+h-1, arc, t.bg)
+  t.sdlrend.roundedBox(x, y, x+w-1, y+h-1, arc, t.bg)
 
 proc drawBox*(t: InternalTheme; r: Rect; b: bool; arc=8) =
   #let p = Pixel(col: t.active[b], thickness: 2,
   #              gradient: color(0xff, 0xff, 0xff, 0))
-  t.renderer.roundedBox(r.x, r.y, r.x+r.w-1, r.y+r.h-1, arc, t.active[b])
-  t.renderer.setDrawColor(t.bg)
+  t.sdlrend.roundedBox(r.x, r.y, r.x+r.w-1, r.y+r.h-1, arc, t.active[b])
+  t.sdlrend.setDrawColor(t.bg)
 
-proc renderText*(t: InternalTheme;
-                message: string; font: FontPtr; color: Color): TexturePtr =
-  var surf: SurfacePtr = renderUtf8Shaded(font, message, color, t.bg)
-  if surf == nil:
-    echo("TTF_RenderText")
-    return nil
-  var texture: TexturePtr = createTextureFromSurface(t.renderer, surf)
-  if texture == nil:
-    echo("CreateTexture")
-  freeSurface(surf)
-  return texture
-
-proc draw*(renderer: RendererPtr; image: TexturePtr; x, y: int) =
+proc draw*(renderer: sdl2.RendererPtr; image: TexturePtr; x, y: int) =
   var
     iW: cint
     iH: cint
@@ -57,9 +46,9 @@ proc drawBorder*(t: InternalTheme; rect: Rect; c: Color; arc=8) =
                 gradient: c) #color(0xff, 0xff, 0xff, 0))
   let yGap = t.uiYGap
   let xGap = t.uiXGap
-  t.renderer.roundedRect(rect.x - xGap, rect.y - yGap,
-                         rect.w + rect.x - 1 + xGap,
-                         rect.h + rect.y - 1 + yGap, arc, p)
+  t.sdlrend.roundedRect(rect.x - xGap, rect.y - yGap,
+                        rect.w + rect.x - 1 + xGap,
+                        rect.h + rect.y - 1 + yGap, arc, p)
 
 proc drawBorderBox*(t: InternalTheme; rect: Rect; active: bool; arc=8) =
   let yGap = t.uiYGap
@@ -71,15 +60,15 @@ proc drawBorderBox*(t: InternalTheme; rect: Rect; active: bool; arc=8) =
 
 proc drawTextWithBorder*(t: InternalTheme; text: string; active: bool;
                          x, y, screenW: cint): Rect =
-  let image = renderText(t, text, t.uiFontPtr, t.fg)
-  var
-    iW: cint
-    iH: cint
-  queryTexture(image, nil, nil, addr(iW), addr(iH))
+  let iW = textSize(t.uiFontPtr, text)
+
   if iW+x < screenW:
+    var xx = int x
+    var yy = int y
+    let iH = fontLineSkip(t.uiFontPtr)
+    t.renderer.drawText(t.uiFontPtr, text, t.fg, t.bg, xx, yy)
+
     result = rect(x, y, iW, iH)
-    copy(t.renderer, image, nil, addr result)
-    destroy image
     result.x += 3
     result.y += 3
     result.w += 3

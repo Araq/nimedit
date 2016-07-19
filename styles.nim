@@ -1,9 +1,10 @@
 
 # Handling of styles.
 
-import sdl2, sdl2/ttf
+import textrenderer
 from strutils import parseHexInt, toLower
 import languages, nimscript/common
+from sdl2 import color
 
 type
   MarkerClass* = enum

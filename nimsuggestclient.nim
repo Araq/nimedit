@@ -5,7 +5,7 @@ const
   endToken = "\e"
   pauseToken = "\e\e"
   clearToken = "\e\e\e"
-  port = 6000.Port
+  port = 30000.Port
 
 type
   SuggestItem* = object
