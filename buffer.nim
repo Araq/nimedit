@@ -573,7 +573,7 @@ proc removeSelectedText*(b: Buffer; selectedA, selectedB: int) =
   b.actions.add(Action(k: delFinished, pos: b.cursor, word: "",
                        version: b.version))
   edit(b)
-  while b.cursor > selectedA:
+  while b.cursor > selectedA and b.cursor > 0:
     if b.cursor <= 0: break
     if b.cursor-1 <= b.readOnly: break
     prepareForEdit(b)
