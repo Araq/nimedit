@@ -380,8 +380,9 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
 
       var xx2 = int db.dim.x
       var yy2 = int db.dim.y
+      #r.hline(xx2, xx2+100, yy2, color(0xff, 0xff, 0xff, 0x00))
       r.drawText(db.font, Ellipsis, fg, bg, xx2, yy2)
-      db.dim.x += cint(db.dim.x - xx2)
+      db.dim.x = cint xx2 #+= cint(db.dim.x - xx2)
 
 proc drawCursor(t: InternalTheme; dim: Rect; h: cint) =
   t.sdlrend.setDrawColor(t.cursor)
