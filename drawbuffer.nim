@@ -361,10 +361,10 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
         db.chars[probe] = '\0'
         assert start[0] != '\0'
         db.rb = probe-1
-        db.chars[probe] = ch
         let w = textSize(db.font, start)
         r.drawSubtoken(db, start, w, h,
                        db.ra, db.rb, fg, bg)
+        db.chars[probe] = ch
         db.ra = probe
         db.dim.x += w
       if not dotsRequired: break
