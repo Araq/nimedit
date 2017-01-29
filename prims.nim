@@ -46,7 +46,6 @@ template prevColor(r, w, i): untyped =
   #uint8(clamp(p.col.r - 1, 0, 255))
 
 proc hlineGradient(renderer: RendererPtr; x, y, w: int; oldp: Pixel) =
-  var j = 1
   var p = oldp
   for i in 0..w-1:
     setDrawColor(renderer, p.col)
@@ -71,7 +70,6 @@ proc hlineGradient(renderer: RendererPtr; x, y, w: int; oldp: Pixel) =
       p.col.b = nextColor(b, 40, strength)
 
 proc vlineGradient(renderer: RendererPtr; x, y, h: int; p: Pixel) =
-  let w = h
   var p = p
   for i in 0..h-1:
     setDrawColor(renderer, p.col)
@@ -384,7 +382,6 @@ proc roundedBox*(renderer: RendererPtr; x1: int; y1: int; x2: int;
     w: int
     h: int
     r2: int
-    tmp: int
   var cx: int = 0
   var cy: int = rad
   var ocx: int = -1

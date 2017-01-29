@@ -1,10 +1,10 @@
 
 import
-  compiler/ast, compiler/modules, compiler/passes, compiler/passaux,
-  compiler/condsyms, compiler/options, compiler/sem, compiler/semdata,
-  compiler/llstream, compiler/vm, compiler/vmdef, compiler/commands,
-  compiler/msgs, compiler/magicsys, compiler/lists, compiler/idents,
-  compiler/astalgo
+  compiler / [ast, modules, passes, passaux,
+  condsyms, options, sem, semdata,
+  llstream, vm, vmdef, commands,
+  msgs, magicsys, lists, idents,
+  astalgo, modulegraphs]
 
 from compiler/scriptconfig import setupVM
 
@@ -25,6 +25,9 @@ proc getIdent(n: PNode): int =
 
 var
   actionsModule, colorsModule: PSym
+
+let identCache* = newIdentCache()
+let graph = newModuleGraph()
 
 proc getAction(x: string): PSym = strTableGet(actionsModule.tab, getIdent(x))
 
@@ -122,20 +125,26 @@ proc setupNimscript*(colorsScript: string): PEvalContext =
   registerPass(semPass)
   registerPass(evalPass)
 
-  colorsModule = makeModule(colorsScript)
+  colorsModule = makeModule(graph, colorsScript)
   incl(colorsModule.flags, sfMainModule)
-  vm.globalCtx = setupVM(colorsModule, colorsScript)
-  compileSystemModule()
+  vm.globalCtx = setupVM(colorsModule, identCache, colorsScript)
+  compileSystemModule(graph, identCache)
   result = vm.globalCtx
 
 proc compileActions*(actionsScript: string) =
   ## Compiles the actions module for the first time.
-  actionsModule = makeModule(actionsScript)
-  processModule(actionsModule, llStreamOpen(actionsScript, fmRead), nil)
+  actionsModule = makeModule(graph, actionsScript)
+  processModule(graph, actionsModule, 
+                llStreamOpen(actionsScript, fmRead), nil, identCache)
+
+proc resetModule(m: PSym) =
+  initStrTable(m.tab)
+  m.ast = nil
 
 proc reloadActions*(actionsScript: string) =
   resetModule(actionsModule)
-  processModule(actionsModule, llStreamOpen(actionsScript, fmRead), nil)
+  processModule(graph, actionsModule, 
+                llStreamOpen(actionsScript, fmRead), nil, identCache)
 
 proc execProc*(procname: string) =
   let a = getAction(procname)
@@ -156,7 +165,7 @@ proc loadTheme*(colorsScript: string; result: var InternalTheme;
   let m = colorsModule
   resetModule(m)
 
-  processModule(m, llStreamOpen(colorsScript, fmRead), nil)
+  processModule(graph, m, llStreamOpen(colorsScript, fmRead), nil, identCache)
 
   template trivialField(field) =
     getGlobal("theme", astToStr field, result.field)

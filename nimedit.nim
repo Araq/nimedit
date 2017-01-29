@@ -149,7 +149,7 @@ proc createUnknownTab(ed: Editor; sh: SharedState) =
   sh.focus = ed.main
 
 proc destroy(ed: Editor) =
-  destroyRenderer ed.renderer
+  textrenderer.destroyRenderer ed.renderer
   destroy ed.window
 
 template insertBuffer(head, n) =
@@ -304,10 +304,10 @@ proc gotoNextSpot(ed: Editor; s: var Spots; b: Buffer) =
     if i < 0: i = s.a.len-1
     inc j
 
-template prompt: expr = ed.prompt
-template focus: expr = ed.sh.focus
-template main: expr = ed.main
-template renderer: expr = ed.renderer
+template prompt: untyped = ed.prompt
+template focus: untyped = ed.sh.focus
+template main: untyped = ed.main
+template renderer: untyped = ed.renderer
 
 iterator allWindows(sh: SharedState): Editor =
   var it = sh.firstWindow
@@ -710,7 +710,7 @@ proc closeWindow(ed: Editor) =
   ed.sh.activeWindow = left
 
 proc runAction(ed: Editor; action: Action; arg: string): bool =
-  template console: expr = ed.console
+  template console: untyped = ed.console
 
   case action
   of Action.None: discard
@@ -929,7 +929,7 @@ proc handleQuitEvent(ed: Editor): bool =
     ed.askForQuitTab()
 
 proc processEvents(e: var Event; ed: Editor): bool =
-  template console: expr = ed.console
+  template console: untyped = ed.console
 
   let sh = ed.sh
   while pollEvent(e, ed) == SdlSuccess:
@@ -1100,12 +1100,12 @@ proc draw(e: var Event; ed: Editor) =
                                      " \\t: " & $main.tabSize &
                                      " " & main.lineending.displayNL,
                                      sh.theme.fg, sh.theme.bg, sx, sy)
-  present(renderer)
+  textrenderer.present(renderer)
 
 proc drawAllWindows(sh: SharedState; e: var Event) =
   var ed = sh.firstWindow
   while ed != nil:
-    clear(renderer)
+    textrenderer.clear(renderer)
     # little hack so that not everything needs to be rewritten
     ed.sh.theme.renderer = renderer
     if ed == sh.activeWindow:
@@ -1202,7 +1202,7 @@ if sdl2.init(INIT_VIDEO) != SdlSuccess:
 elif ttfInit() != SdlSuccess:
   echo "TTF_Init"
 else:
-  loadExtensions()
+  when defined(useNimx): loadExtensions()
   startTextInput()
   mainProc(Editor())
 sdl2.quit()

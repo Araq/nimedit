@@ -34,7 +34,7 @@ proc fillMinimap*(m, b: Buffer) =
         if c notin Letters: break
         if b.lang == langNim:
           if c != '_':
-            keyw.add c.toLower
+            keyw.add c.toLowerAscii
         else:
           keyw.add c
         inc j

@@ -31,7 +31,7 @@ type
   SkipTable = array[char, int]
 
 template conv(x): untyped =
-  (if {ignoreCase, ignoreStyle} * options != {}: x.toLower else: x)
+  (if {ignoreCase, ignoreStyle} * options != {}: x.toLowerAscii else: x)
 
 proc preprocessSub(sub: string, a: var SkipTable; options: SearchOptions) =
   var m = len(sub)

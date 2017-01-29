@@ -160,7 +160,7 @@ proc gotoPrefix*(b: Buffer; prefix: string) =
     if b[i] == prefix[0]:
       var j = 1
       inc i
-      while i < b.len and j < prefix.len and b[i].toLower == prefix[j].toLower:
+      while i < b.len and j < prefix.len and b[i].toLowerAscii == prefix[j].toLowerAscii:
         inc i
         inc j
       if matches[j] == 0: matches[j] = ii+1

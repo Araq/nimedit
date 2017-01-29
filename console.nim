@@ -163,7 +163,7 @@ proc parseEscape(s: string; w: var string; start=0): int =
 
 proc parseWord*(s: string; w: var string;
                 start=0; convToLower=false): int =
-  template conv(c): untyped = (if convToLower: c.toLower else: c)
+  template conv(c): untyped = (if convToLower: c.toLowerAscii else: c)
   w.setLen(0)
   var i = start
   while s[i] in {' ', '\t'}: inc i
@@ -202,7 +202,7 @@ proc startsWithIgnoreCase(s, prefix: string): bool =
   var i = 0
   while true:
     if prefix[i] == '\0': return true
-    if s[i].toLower != prefix[i].toLower: return false
+    if s[i].toLowerAscii != prefix[i].toLowerAscii: return false
     inc(i)
 
 proc suggestPath(c: Console; b: Buffer; prefix: string) =
@@ -216,9 +216,9 @@ proc suggestPath(c: Console; b: Buffer; prefix: string) =
         break
   if sug < 0 and prefix.len > 0:
     # if we have no prefix, pick a file that contains the prefix somewhere
-    let p = prefix.toLower
+    let p = prefix.toLowerAscii
     for i, x in c.files:
-      if p in x.toLower and not x.ignoreFile:
+      if p in x.toLowerAscii and not x.ignoreFile:
         sug = i
         break
   # no match, just suggest something, but ignore crap starting with a dot:

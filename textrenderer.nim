@@ -16,7 +16,7 @@ when defined(useNimx):
       sd*: sdl2.RendererPtr
       w, h: cint
 else:
-  from sdl2/ttf import FontPtr
+  from sdl2/ttf import FontPtr, renderUtf8Shaded, sizeUtf8
   export FontPtr, RendererPtr
 
 proc createRenderer*(window: WindowPtr): RendererPtr =
@@ -32,7 +32,7 @@ proc openFont*(name: string; size: Natural): FontPtr =
     if fileExists(name):
       result = newFontWithFile(expandFilename name, float size)
   else:
-    result = ttf.openFont(name, byte(size))
+    result = ttf.openFont(name, cint(size))
 
 proc close*(f: FontPtr) =
   when not defined(useNimx): ttf.close(f)
@@ -63,7 +63,7 @@ proc drawText*(r: RendererPtr; font: FontPtr; msg: cstring;
     x = int p.x
     y = int p.y
   else:
-    let tex = drawTexture(r, font, buf, col, t.bg)
+    let tex = drawTexture(r, font, msg, fg, bg)
     var d: Rect
     d.x = x.cint
     d.y = y.cint
@@ -91,23 +91,23 @@ proc fontLineSkip*(f: FontPtr): cint =
   when defined(useNimx):
     result = f.sizeOfString("").height.cint
   else:
-    fontLineSkip(f)
+    ttf.fontLineSkip(f)
 
 proc destroyRenderer*(r: RendererPtr) =
   when defined(useNimx):
     r.sd.destroyRenderer()
   else:
-    r.destroyRenderer()
+    sdl2.destroyRenderer(r)
 
 proc present*(r: RendererPtr) =
   when defined(useNimx):
     r.sd.present()
   else:
-    r.present()
+    sdl2.present(r)
 
 proc clear*(r: RendererPtr) =
   when defined(useNimx):
     r.sd.clear()
   else:
-    r.clear()
+    sdl2.clear(r)
 

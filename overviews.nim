@@ -1,6 +1,6 @@
 ## Currently only supports Nim.
 
-import buffertype, buffer
+import buffertype, buffer, nimscriptsupport
 
 import
   parseutils, strutils, intsets,
@@ -53,7 +53,7 @@ proc filterMinimap*(b: Buffer) =
   if b.minimapVersion != b.version:
     b.minimapVersion = b.version
     b.activeLines = initIntSet()
-    let ast = parser.parseString(b.fullText, b.filename, 0,
+    let ast = parser.parseString(b.fullText, identCache, b.filename, 0,
                                  errorHandler)
     allDeclarations(ast, b, true)
 
@@ -85,8 +85,8 @@ proc populateMinimap*(minimap, buffer: Buffer) =
     minimap.filename = buffer.filename
     minimap.lang = buffer.lang
     # XXX make the buffer implement the streams interface
-    let ast = parser.parseString(buffer.fullText, buffer.filename, 0,
-                                 errorHandler)
+    let ast = parser.parseString(buffer.fullText, identCache, 
+                                 buffer.filename, 0, errorHandler)
     minimap.clear()
     allDeclarations(ast, minimap, false)
     if minimap.numberOfLines >= 1:
