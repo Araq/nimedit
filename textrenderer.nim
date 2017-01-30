@@ -72,6 +72,7 @@ proc drawText*(r: RendererPtr; font: FontPtr; msg: cstring;
     y = int p.y
     if not blendWasEnabled:
       gl.disable(gl.BLEND)
+    gl.useProgram(invalidProgram)
   else:
     let tex = drawTexture(r, font, msg, fg, bg)
     var d: Rect
