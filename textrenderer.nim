@@ -7,12 +7,13 @@ from os import fileExists, expandFilename
 
 when defined(useNimx):
   import nimx.types except Color
-  import nimx.font, nimx.context
+  import nimx.font, nimx.context, nimx.portable_gl
 
   type
     FontPtr* = Font
     RendererPtr* = object
       nx*: GraphicsContext
+      sdctx*: GlContextPtr
       sd*: sdl2.RendererPtr
       w, h: cint
 else:
@@ -21,7 +22,13 @@ else:
 
 proc createRenderer*(window: WindowPtr): RendererPtr =
   when defined(useNimx):
-    result.sd = createRenderer(window, -1, Renderer_Software)
+    discard glSetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1)
+    result.sdctx = window.glCreateContext()
+    if result.sdctx == nil:
+        echo "Could not create context!"
+    discard glMakeCurrent(window, result.sdctx)
+
+    result.sd = createRenderer(window, -1, 0)
     window.getSize(result.w, result.h)
     result.nx = newGraphicsContext()
   else:
@@ -54,14 +61,17 @@ when not defined(useNimx):
 proc drawText*(r: RendererPtr; font: FontPtr; msg: cstring;
                fg, bg: Color; x, y: var int) =
   when defined(useNimx):
-    r.nx.fillColor = newColor(fg.r.float / 256.0,
-                              fg.g.float / 256.0,
-                              fg.b.float / 256.0)
+    let gl = r.nx.gl
+    let blendWasEnabled = gl.isEnabled(gl.BLEND)
+    gl.enable(gl.BLEND)
+    r.nx.fillColor = newColorB(int fg.r, int fg.g, int fg.b)
     var p = newPoint(float32 x, float32 y)
     r.nx.withTransform ortho(0, float32 r.w, float32 r.h, 0, -1, 1):
       r.nx.drawText(font, p, $msg)
     x = int p.x
     y = int p.y
+    if not blendWasEnabled:
+      gl.disable(gl.BLEND)
   else:
     let tex = drawTexture(r, font, msg, fg, bg)
     var d: Rect
