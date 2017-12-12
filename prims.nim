@@ -1,6 +1,7 @@
 
 import sdl2
-from math import sin, cos, PI, random
+from math import sin, cos, PI
+import random
 
 type
   Pixel* = object
@@ -46,7 +47,6 @@ template prevColor(r, w, i): untyped =
   #uint8(clamp(p.col.r - 1, 0, 255))
 
 proc hlineGradient(renderer: RendererPtr; x, y, w: int; oldp: Pixel) =
-  var j = 1
   var p = oldp
   for i in 0..w-1:
     setDrawColor(renderer, p.col)
@@ -71,7 +71,6 @@ proc hlineGradient(renderer: RendererPtr; x, y, w: int; oldp: Pixel) =
       p.col.b = nextColor(b, 40, strength)
 
 proc vlineGradient(renderer: RendererPtr; x, y, h: int; p: Pixel) =
-  let w = h
   var p = p
   for i in 0..h-1:
     setDrawColor(renderer, p.col)
@@ -196,8 +195,8 @@ proc arc*(renderer: RendererPtr; x: int; y: int; rad: int; start: int;
   while `end` < 0: inc(`end`, 360)
   start = start mod 360
   `end` = `end` mod 360
-  startoct = start div 45
-  endoct = `end` div 45
+  startoct = start.int32 div 45i32
+  endoct = `end`.int32 div 45i32
   oct = startoct - 1
   while true:
     oct = (oct + 1) mod 8
@@ -384,7 +383,6 @@ proc roundedBox*(renderer: RendererPtr; x1: int; y1: int; x2: int;
     w: int
     h: int
     r2: int
-    tmp: int
   var cx: int = 0
   var cy: int = rad
   var ocx: int = -1

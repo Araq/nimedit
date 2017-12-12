@@ -5,7 +5,7 @@ const
   sourceLanguageToStr*: array[SourceLanguage, string] = ["none",
     "Nim", "C++", "C#", "C", "Java", "JavaScript", "XML", "HTML", "Console"]
 
-  additionalIndentChars*: array [SourceLanguage, set[char]] = [
+  additionalIndentChars*: array[SourceLanguage, set[char]] = [
     langNone: {},
     langNim: {'(', '[', '{', ':', '='},
     langCpp: {'(', '[', '{'},
@@ -17,7 +17,7 @@ const
     langHtml: {'>'},
     langConsole: {}]
 
-from strutils import toLower, cmpIgnoreStyle
+from strutils import toLowerAscii, cmpIgnoreStyle
 
 proc getSourceLanguage*(name: string): SourceLanguage =
   for i in countup(succ(low(SourceLanguage)), high(SourceLanguage)):
@@ -26,7 +26,7 @@ proc getSourceLanguage*(name: string): SourceLanguage =
   result = langNone
 
 proc fileExtToLanguage*(ext: string): SourceLanguage =
-  case ext.toLower
+  case ext.toLowerAscii
   of ".nim", ".nims": langNim
   of ".cpp", ".hpp", ".cxx", ".h": langCpp
   of ".c": langC

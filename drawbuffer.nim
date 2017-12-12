@@ -89,14 +89,14 @@ proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: c
   proc sprintf(buf, frmt: cstring) {.header: "<stdio.h>",
     importc: "sprintf", varargs, noSideEffect.}
   var buf {.noinit.}: array[25, char]
-  sprintf(buf, "%ld", number)
+  sprintf(addr buf, "%ld", number)
 
   let br = b.breakpoints.getOrDefault(number)
   let col = if number == b.runningLine: b.mgr[].getStyle(TokenClass.LineActive).attr.color
             elif br != TokenClass.None: b.mgr[].getStyle(br).attr.color
             elif number == current: t.fg
             else: t.lines
-  let tex = drawTexture(t.renderer, t.editorFontPtr, buf, col, t.bg)
+  let tex = drawTexture(t.renderer, t.editorFontPtr, addr buf, col, t.bg)
   var d: Rect
   d.x = 1
   d.y = y
@@ -220,7 +220,7 @@ proc whichColumn(db: var DrawBuffer; ra, rb: int): int =
       buffer[r] = db.b[k+j]
       inc r
     buffer[r] = '\0'
-    let w = textSize(db.font, buffer)
+    let w = textSize(db.font, addr buffer)
     if db.dim.x+w >= db.b.mouseX-1:
       return r
     inc j, L
@@ -340,7 +340,7 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
   assert db.font != nil
   if db.dim.y+db.lineH > db.maxY: return
   let r = t.renderer
-  let text = r.drawTexture(db.font, db.chars, fg, bg)
+  let text = r.drawTexture(db.font, addr db.chars, fg, bg)
   var w, h: cint
   queryTexture(text, nil, nil, addr(w), addr(h))
 

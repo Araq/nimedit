@@ -301,10 +301,10 @@ proc gotoNextSpot(ed: Editor; s: var Spots; b: Buffer) =
     if i < 0: i = s.a.len-1
     inc j
 
-template prompt: expr = ed.prompt
-template focus: expr = ed.sh.focus
-template main: expr = ed.main
-template renderer: expr = ed.renderer
+template prompt: untyped = ed.prompt
+template focus: untyped = ed.sh.focus
+template main: untyped = ed.main
+template renderer: untyped = ed.renderer
 
 iterator allWindows(sh: SharedState): Editor =
   var it = sh.firstWindow
@@ -673,7 +673,7 @@ proc moveTabToRightWindow(ed: Editor) =
     result.setDefaults(ed.sh)
     result.screenW = ed.screenW
     result.screenH = ed.screenH
-    createSdlWindow(result, 0)
+    createSdlWindow(result, 0u32)
     result.next = ed.next
     ed.next = result
     result.bar.first = current
@@ -706,7 +706,7 @@ proc closeWindow(ed: Editor) =
   ed.sh.activeWindow = left
 
 proc runAction(ed: Editor; action: Action; arg: string): bool =
-  template console: expr = ed.console
+  template console: untyped = ed.console
 
   case action
   of Action.None: discard
@@ -925,7 +925,7 @@ proc handleQuitEvent(ed: Editor): bool =
     ed.askForQuitTab()
 
 proc processEvents(e: var Event; ed: Editor): bool =
-  template console: expr = ed.console
+  template console: untyped = ed.console
 
   let sh = ed.sh
   while pollEvent(e, ed) == SdlSuccess:
@@ -1125,7 +1125,7 @@ proc mainProc(ed: Editor) =
   compileActions(sh.cfgActions)
 
   loadTheme(sh)
-  createSdlWindow(ed, 1)
+  createSdlWindow(ed, 1u32)
 
   ed.bar.first = ed.main
 

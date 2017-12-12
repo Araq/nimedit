@@ -3,8 +3,8 @@ import
   compiler/ast, compiler/modules, compiler/passes, compiler/passaux,
   compiler/condsyms, compiler/options, compiler/sem, compiler/semdata,
   compiler/llstream, compiler/vm, compiler/vmdef, compiler/commands,
-  compiler/msgs, compiler/magicsys, compiler/lists, compiler/idents,
-  compiler/astalgo
+  compiler/msgs, compiler/magicsys, compiler/idents,
+  compiler/astalgo, compiler/modulegraphs
 
 from compiler/scriptconfig import setupVM
 
@@ -107,13 +107,16 @@ proc detectNimLib(): string =
       if not fileExists(result / "system.nim"):
         quit "cannot find Nim's stdlib location"
 
+var identCache = newIdentCache()
+var moduleGraph = newModuleGraph(newConfigRef())
+
 proc setupNimscript*(colorsScript: string): PEvalContext =
   passes.gIncludeFile = includeModule
   passes.gImportModule = importModule
 
   options.libpath = detectNimLib()
-  appendStr(searchPaths, options.libpath)
-  appendStr(searchPaths, options.libpath / "pure")
+  add(searchPaths, options.libpath)
+  add(searchPaths, options.libpath / "pure")
 
   initDefines()
   defineSymbol("nimscript")
@@ -122,20 +125,22 @@ proc setupNimscript*(colorsScript: string): PEvalContext =
   registerPass(semPass)
   registerPass(evalPass)
 
-  colorsModule = makeModule(colorsScript)
+  colorsModule = makeModule(moduleGraph, colorsScript)
   incl(colorsModule.flags, sfMainModule)
-  vm.globalCtx = setupVM(colorsModule, colorsScript)
-  compileSystemModule()
+  vm.globalCtx = setupVM(colorsModule, identCache, colorsScript)
+  compileSystemModule(moduleGraph, identCache)
   result = vm.globalCtx
 
 proc compileActions*(actionsScript: string) =
   ## Compiles the actions module for the first time.
-  actionsModule = makeModule(actionsScript)
-  processModule(actionsModule, llStreamOpen(actionsScript, fmRead), nil)
+  actionsModule = makeModule(moduleGraph, actionsScript)
+  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript, fmRead),
+    nil, identCache)
 
 proc reloadActions*(actionsScript: string) =
-  resetModule(actionsModule)
-  processModule(actionsModule, llStreamOpen(actionsScript, fmRead), nil)
+  #resetModule(actionsModule)
+  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript, fmRead), nil,
+    identCache)
 
 proc execProc*(procname: string) =
   let a = getAction(procname)
@@ -154,9 +159,10 @@ proc runTransformator*(procname, selectedText: string): string =
 proc loadTheme*(colorsScript: string; result: var InternalTheme;
                 sm: var StyleManager; fm: var FontManager) =
   let m = colorsModule
-  resetModule(m)
+  #resetModule(m)
 
-  processModule(m, llStreamOpen(colorsScript, fmRead), nil)
+  processModule(moduleGraph, m, llStreamOpen(colorsScript, fmRead),
+      nil, identCache)
 
   template trivialField(field) =
     getGlobal("theme", astToStr field, result.field)

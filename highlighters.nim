@@ -550,12 +550,12 @@ proc consoleNextToken(g: var GeneralTokenizer) =
   let c = g.buf[pos]
   case c
   of 'a'..'z', 'A'..'Z', '_', '/', '\\', '\x80'..'\xFF':
-    var id = $c.toLower
+    var id = $c.toLowerAscii
     inc pos
     while true:
       let c = g.buf[pos]
       if c in (symChars+{'/','\\',':','\x80'..'\xFF', '.'}):
-        add(id, c.toLower)
+        add(id, c.toLowerAscii)
         inc(pos)
       else:
         break
