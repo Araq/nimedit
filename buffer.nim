@@ -497,6 +497,9 @@ proc save*(b: Buffer) =
   b.timestamp = os.getLastModificationTime(b.filename)
 
 proc saveAs*(b: Buffer; filename: string) =
+  if filename == "":
+    echo "save needs filename argument"
+    return
   b.filename = filename
   b.heading = os.extractFilename(filename)
   let newlang = fileExtToLanguage(splitFile(filename).ext)
