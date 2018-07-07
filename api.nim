@@ -2,11 +2,12 @@
 
 # List only the imports that the main file doesn't already import here:
 import
-  compiler/ast, compiler/vm, compiler/vmdef, compiler/msgs
+  compiler/ast, compiler/vm, compiler/vmdef, compiler/msgs,
+  nimscriptsupport
 
 proc setupApi(result: PEvalContext; sh: SharedState) =
-  msgs.gErrorMax = high(int)
-  msgs.writelnHook = proc (msg: string) =
+  gConfig.errorMax = high(int)
+  gConfig.writelnHook = proc (msg: string) =
     sh.firstWindow.console.insertReadOnly(msg & '\L')
 
   # XXX: Expose markers.

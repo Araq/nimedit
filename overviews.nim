@@ -3,20 +3,42 @@
 import buffertype, buffer
 
 import
-  parseutils, strutils, intsets,
-  compiler/ast, compiler/idents, compiler/parser,
-  compiler/llstream,
-  compiler/msgs,
-  compiler/astalgo, compiler/renderer, compiler/lookups
+  parseutils, strutils, intsets, nimscriptsupport,
+  compiler / [ast, idents, parser, llstream, msgs, astalgo, renderer, lookups,
+    lineinfos, options]
 
-proc errorHandler(info: TLineInfo; msg: TMsgKind; arg: string) =
+proc errorHandler(conf: ConfigRef; info: TLineInfo; msg: TMsgKind; arg: string) =
   discard "ignore errors for the minimap generation"
+
+proc considerQuotedIdent(n: PNode): PIdent =
+  case n.kind
+  of nkIdent: result = n.ident
+  of nkSym: result = n.sym.name
+  of nkAccQuoted:
+    case n.len
+    of 0: discard
+    of 1: result = considerQuotedIdent(n.sons[0])
+    else:
+      var id = ""
+      for i in 0..<n.len:
+        let x = n.sons[i]
+        case x.kind
+        of nkIdent: id.add(x.ident.s)
+        of nkSym: id.add(x.sym.name.s)
+        of nkLiterals - nkFloatLiterals: id.add(x.renderTree)
+        else: discard
+      result = getIdent(identCache, id)
+  of nkOpenSymChoice, nkClosedSymChoice:
+    if n[0].kind == nkSym:
+      result = n.sons[0].sym.name
+  else:
+    discard
 
 proc allDeclarations(n: PNode; minimap: Buffer; useActiveLines: bool) =
   proc addDecl(n: PNode; minimap: Buffer; useActiveLines: bool) =
-    if n.info.line >= 0:
+    if n.info.line >= 0u16:
       if useActiveLines:
-        minimap.activeLines.incl n.info.line-1
+        minimap.activeLines.incl n.info.line.int-1
         var nn = n
         if nn.kind == nkPragmaExpr: nn = nn[0]
         if nn.kind == nkPostfix: nn = nn[1]
@@ -53,7 +75,7 @@ proc filterMinimap*(b: Buffer) =
   if b.minimapVersion != b.version:
     b.minimapVersion = b.version
     b.activeLines = initIntSet()
-    let ast = parser.parseString(b.fullText, newIdentCache(), b.filename, 0,
+    let ast = parser.parseString(b.fullText, identCache, gConfig, b.filename, 0,
                                  errorHandler)
     allDeclarations(ast, b, true)
 
@@ -63,19 +85,19 @@ proc containsIgnoreStyle(a, b: string): bool =
 
 proc gotoNextDeclaration*(b: Buffer; ident: string): int =
   var it: TIdentIter
-  var s = initIdentIter(it, b.symtab, getIdent(ident))
+  var s = initIdentIter(it, b.symtab, getIdent(identCache, ident))
   if s == nil:
     # there is no such declared identifier, so search for something similar:
     var it: TTabIter
     s = initTabIter(it, b.symtab)
     while s != nil:
-      if s.name.s.containsIgnoreStyle(ident) and b.currentLine+1 != s.info.line:
-        return s.info.line
+      if s.name.s.containsIgnoreStyle(ident) and b.currentLine+1 != s.info.line.int:
+        return s.info.line.int
       s = nextIter(it, b.symtab)
   else:
     while s != nil:
-      if b.currentLine+1 != s.info.line:
-        return s.info.line
+      if b.currentLine+1 != s.info.line.int:
+        return s.info.line.int
       s = nextIdentIter(it, b.symtab)
 
 proc populateMinimap*(minimap, buffer: Buffer) =
@@ -85,7 +107,7 @@ proc populateMinimap*(minimap, buffer: Buffer) =
     minimap.filename = buffer.filename
     minimap.lang = buffer.lang
     # XXX make the buffer implement the streams interface
-    let ast = parser.parseString(buffer.fullText, newIdentCache(), buffer.filename, 0,
+    let ast = parser.parseString(buffer.fullText, identCache, gConfig, buffer.filename, 0,
                                  errorHandler)
     minimap.clear()
     allDeclarations(ast, minimap, false)

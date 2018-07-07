@@ -23,18 +23,22 @@ proc getIdent(n: PNode): int =
   elif n.kind == nkSym: n.sym.name.id
   else: -1
 
+var identCache* = newIdentCache()
+var gConfig* = newConfigRef()
+var moduleGraph = newModuleGraph(identCache, gConfig)
+
 var
   actionsModule, colorsModule: PSym
 
-proc getAction(x: string): PSym = strTableGet(actionsModule.tab, getIdent(x))
+proc getAction(x: string): PSym = strTableGet(actionsModule.tab, getIdent(identCache, x))
 
 proc getGlobal(varname, field: string): PNode =
-  let n = vm.globalCtx.getGlobalValue(getNimScriptSymbol varname)
+  let n = PCtx(moduleGraph.vm).getGlobalValue(getNimScriptSymbol(moduleGraph, varname))
   if n.kind != nkObjConstr:
     raiseVariableError(varname, "object")
-  for i in 1..< n.len:
+  for i in 1 ..< n.len:
     let it = n[i]
-    if getIdent(it[0]) == getIdent(field).id: return it[1]
+    if getIdent(it[0]) == getIdent(identCache, field).id: return it[1]
 
 proc getGlobal(varname, field: string; result: var int) =
   let n = getGlobal(varname, field)
@@ -73,10 +77,10 @@ proc getGlobal(varname, field: string; result: var type(parseColor"")) =
 
 proc extractStyles(result: var StyleManager; fm: var FontManager;
                    fontSize: byte; fontName: string) =
-  let n = vm.globalCtx.getGlobalValue(getNimScriptSymbol "tokens")
+  let n = PCtx(moduleGraph.vm).getGlobalValue(getNimScriptSymbol(moduleGraph, "tokens"))
   if n.kind == nkBracket and n.len == int(high(TokenClass))+1:
     for i, x in n.sons:
-      if x.kind == nkPar and x.len == 2 and x[0].isIntLit and x[1].isIntLit:
+      if x.kind in {nkTupleConstr, nkPar} and x.len == 2 and x[0].isIntLit and x[1].isIntLit:
         let style = FontStyle(x[1].intVal)
         result.a[TokenClass(i)] = Style(
             font: fontByName(fm, fontName, fontSize, style),
@@ -107,52 +111,45 @@ proc detectNimLib(): string =
       if not fileExists(result / "system.nim"):
         quit "cannot find Nim's stdlib location"
 
-var identCache = newIdentCache()
-var moduleGraph = newModuleGraph(newConfigRef())
-
 proc setupNimscript*(colorsScript: string): PEvalContext =
-  passes.gIncludeFile = includeModule
-  passes.gImportModule = importModule
+  let config = moduleGraph.config
+  config.libpath = detectNimLib()
+  add(config.searchPaths, config.libpath)
+  add(config.searchPaths, config.libpath / "pure")
 
-  options.libpath = detectNimLib()
-  add(searchPaths, options.libpath)
-  add(searchPaths, options.libpath / "pure")
+  initDefines(config.symbols)
+  defineSymbol(config.symbols, "nimscript")
+  defineSymbol(config.symbols, "nimconfig")
 
-  initDefines()
-  defineSymbol("nimscript")
-  defineSymbol("nimconfig")
-
-  registerPass(semPass)
-  registerPass(evalPass)
+  registerPass(moduleGraph, semPass)
+  registerPass(moduleGraph, evalPass)
 
   colorsModule = makeModule(moduleGraph, colorsScript)
   incl(colorsModule.flags, sfMainModule)
-  vm.globalCtx = setupVM(colorsModule, identCache, colorsScript)
-  compileSystemModule(moduleGraph, identCache)
-  result = vm.globalCtx
+  moduleGraph.vm = setupVM(colorsModule, identCache, colorsScript, moduleGraph)
+  compileSystemModule(moduleGraph)
+  result = PCtx(moduleGraph.vm)
 
 proc compileActions*(actionsScript: string) =
   ## Compiles the actions module for the first time.
   actionsModule = makeModule(moduleGraph, actionsScript)
-  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript, fmRead),
-    nil, identCache)
+  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript, fmRead))
 
 proc reloadActions*(actionsScript: string) =
   #resetModule(actionsModule)
-  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript, fmRead), nil,
-    identCache)
+  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript, fmRead))
 
 proc execProc*(procname: string) =
   let a = getAction(procname)
   if a != nil:
-    discard vm.execProc(vm.globalCtx, a, [])
+    discard vm.execProc(PCtx(moduleGraph.vm), a, [])
 
 proc supportsAction*(procname: string): bool = getAction(procname) != nil
 
 proc runTransformator*(procname, selectedText: string): string =
   let a = getAction(procname)
   if a != nil:
-    let res = vm.execProc(vm.globalCtx, a, [newStrNode(nkStrLit, selectedText)])
+    let res = vm.execProc(PCtx(moduleGraph.vm), a, [newStrNode(nkStrLit, selectedText)])
     if res.isStrLit:
       result = res.strVal
 
@@ -161,8 +158,7 @@ proc loadTheme*(colorsScript: string; result: var InternalTheme;
   let m = colorsModule
   #resetModule(m)
 
-  processModule(moduleGraph, m, llStreamOpen(colorsScript, fmRead),
-      nil, identCache)
+  processModule(moduleGraph, m, llStreamOpen(colorsScript, fmRead))
 
   template trivialField(field) =
     getGlobal("theme", astToStr field, result.field)
