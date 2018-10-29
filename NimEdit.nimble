@@ -8,4 +8,4 @@ license       = "Commercial"
 bin = "nimedit"
 
 [Deps]
-Requires: "nim >= 0.11.3, sdl2#head, dialogs >= 1.0"
+Requires: "nim >= 0.19.0, sdl2#head, dialogs >= 1.0"

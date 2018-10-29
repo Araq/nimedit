@@ -441,16 +441,16 @@ proc loadFromFile*(b: Buffer; filename: string) =
     of '\L':
       b.front.add Cell(c: '\L')
       inc b.numberOfLines
-      if b.lineending.isNil:
+      if b.lineending.len == 0:
         b.lineending = "\L"
       detectTabSize()
     of '\C':
       if i < s.len-1 and s[i+1] != '\L':
         b.front.add Cell(c: '\L')
         inc b.numberOfLines
-        if b.lineending.isNil:
+        if b.lineending.len == 0:
           b.lineending = "\C"
-      elif b.lineending.isNil:
+      elif b.lineending.len == 0:
         b.lineending = "\C\L"
     of '\t':
       if i > 0 and s[i-1] == ' ': b.tabSize = 8'i8
@@ -465,7 +465,7 @@ proc loadFromFile*(b: Buffer; filename: string) =
   b.changed = false
 
 proc saveAsTemp*(b: Buffer; filename: string) =
-  if b.lineending.isNil or b.lineending.len == 0:
+  if b.lineending.len == 0:
     b.lineending = "\L"
   let L = b.len
   var i = 0
@@ -521,7 +521,7 @@ proc rawBackspace(b: Buffer; overrideUtf8=false; undoAction: var string) =
       if L > 1 and isCombining(r): discard
       else: break
   # we need to reverse this string here:
-  if not undoAction.isNil:
+  if not undoAction.len == 0:
     for i in countdown(b.front.len-1, b.front.len-x):
       undoAction.add b.front[i].c
   if not overrideUtf8: updateMarkers(b, -x)
@@ -947,7 +947,7 @@ proc applyUndo(b: Buffer; a: Action) =
     gotoPos(b, a.pos + a.word.len)
     prepareForEdit(b)
     # reverse op of insert is delete:
-    var dummy: string = nil
+    var dummy: string = ""
     for i in 1..a.word.len:
       b.rawBackspace(overrideUtf8=true, dummy)
   else:
@@ -970,7 +970,7 @@ proc applyRedo(b: Buffer; a: Action) =
     gotoPos(b, a.pos + a.word.len)
     prepareForEdit(b)
     # reverse op of insert is delete:
-    var dummy: string = nil
+    var dummy: string = ""
     for i in 1..a.word.len:
       b.rawBackspace(overrideUtf8=true, dummy)
   highlightLine(b, oldCursor)

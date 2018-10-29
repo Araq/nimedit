@@ -84,7 +84,7 @@ proc trackSpot(s: var Spots; b: Buffer) =
   let line = b.getLine
   let col = b.getColumn
   var i = 0
-  while i < s.a.len and not s.a[i].fullpath.isNil:
+  while i < s.a.len and not s.a[i].fullpath.len == 0:
     if b.filename == s.a[i].fullpath:
       # update the existing spot:
       if abs(s.a[i].line - line) < interestingDiff:
@@ -107,7 +107,7 @@ proc newSharedState(): SharedState =
   ed.theme.active[false] = parseColor"#C0C0C0"
   ed.theme.bg = parseColor"#292929"
   ed.theme.fg = parseColor"#fafafa"
-  ed.theme.cursor = ed.theme.fg
+  ed.theme.cursor = parseColor"#fafafa"
   ed.cfgColors = os.getAppDir() / "nimscript" / "colors.nims"
   ed.cfgActions = os.getAppDir() / "nimscript" / "actions.nims"
   ed.searchPath = @[]
@@ -285,7 +285,7 @@ proc gotoNextSpot(ed: Editor; s: var Spots; b: Buffer) =
   var i = s.rd
   var j = 0
   while j < s.a.len:
-    if not s.a[i].fullpath.isNil:
+    if not s.a[i].fullpath.len == 0:
       if b.filename != s.a[i].fullpath or
           abs(s.a[i].line - b.currentLine) >= interestingDiff:
         for it in ed.allBuffers:
@@ -409,7 +409,7 @@ proc loadOpenTabs(ed: Editor) =
           let suggested = parseInt(x[2])
           ed.con.hist[key] = CmdHistory(cmds: @[], suggested: suggested)
         of "histval":
-          doAssert(not key.isNil)
+          doAssert(not key.len == 0)
           ed.con.hist[key].cmds.add x[1]
         else: discard
     else:
@@ -611,7 +611,7 @@ proc eventToKeySet(e: var Event): set[Key] =
 
 proc produceHelp(ed: Editor): string =
   proc getArg(a: Command): string =
-    (if a.arg.isNil or a.arg.len == 0: ""
+    (if a.arg.len == 0: ""
     else: " " & a.arg)
   const width = 24
   result = "\L"

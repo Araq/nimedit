@@ -35,7 +35,7 @@ proc askForQuitTab(ed: Editor) =
   focus = prompt
 
 proc findAll(ed: Editor; searchPhrase: string; searchOptions: SearchOptions;
-             toReplaceWith: string = nil) =
+             toReplaceWith: string = "") =
   for it in allBuffers(ed):
     it.findNext(searchPhrase, searchOptions, toReplaceWith)
     if onlyCurrentFile in searchOptions: break
@@ -119,7 +119,7 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
     if procname.len > 0:
       if supportsAction(procName):
         let x = runTransformator(procName, ed.main.getSelectedText())
-        if not x.isNil:
+        if not x.len == 0:
           inc ed.main.version
           ed.main.removeSelectedText()
           dec ed.main.version
@@ -260,7 +260,7 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
     var p = ""
     i = parseWord(cmd, p, i)
     if not p.isAbsolute:
-      if ed.main.filename.isNil:
+      if ed.main.filename.len == 0:
         p = os.getCurrentDir() / p
       else:
         p = ed.main.filename.splitFile.dir / p

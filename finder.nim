@@ -76,7 +76,7 @@ proc `%`(formatstr: string; a: openArray[string]): string =
       inc i
       case formatstr[i]
       of '#':
-        if num <=% a.high and not a[num].isNil:
+        if num <=% a.high and not a[num].len == 0:
           add result, a[num]
           inc i
           inc num
@@ -85,7 +85,7 @@ proc `%`(formatstr: string; a: openArray[string]): string =
         inc(i)
       of '1'..'9', '-':
         parseDigits()
-        if idx <=% a.high and not a[idx].isNil:
+        if idx <=% a.high and not a[idx].len == 0:
           add result, a[idx]
       of 'a'..'z', 'A'..'Z', '_', '\128'..'\255':
         var procname = ""
@@ -97,12 +97,12 @@ proc `%`(formatstr: string; a: openArray[string]): string =
         inc i
         if formatstr[i] in {'1'..'9', '_'}:
           parseDigits()
-          if idx <=% a.high and not a[idx].isNil:
+          if idx <=% a.high and not a[idx].len == 0:
             let x = runTransformator(procname, a[idx])
             if x.len > 0:
               result.add x
         elif formatstr[i] == '#':
-          if num <=% a.high and not a[num].isNil:
+          if num <=% a.high and not a[num].len == 0:
             add result, a[num]
             inc i
             inc num
@@ -116,7 +116,7 @@ proc `%`(formatstr: string; a: openArray[string]): string =
       inc(i)
 
 proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
-               toReplaceWith: string = nil) =
+               toReplaceWith: string = "") =
   const Letters = {'a'..'z', '_', 'A'..'Z', '\128'..'\255', '0'..'9'}
   let options = options + (if searchTerm.runeLen == 1 and
                               searchTerm[0] in Letters: {wordBoundary} else: {})

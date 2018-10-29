@@ -6,6 +6,7 @@ import
   compiler/msgs, compiler/magicsys, compiler/idents,
   compiler/astalgo, compiler/modulegraphs
 
+from compiler/pathutils import AbsoluteDir
 from compiler/scriptconfig import setupVM
 
 import os, strutils
@@ -64,7 +65,7 @@ proc getGlobal(varname, field: string; result: var bool) =
 proc getGlobal(varname, field: string; result: var string) =
   let n = getGlobal(varname, field)
   if n != nil and n.isStrLit:
-    result = if n.strVal.isNil: "" else: n.strVal
+    result = if n.strVal == "": "" else: n.strVal
   else:
     raiseVariableError(varname & "." & field, "string")
 
@@ -107,15 +108,16 @@ proc detectNimLib(): string =
         try:
           result = nimexe.expandSymlink.splitPath()[0] /../ "lib"
         except OSError:
-          quit "cannot find Nim's stdlib location"
+          result = getHomeDir() / ".choosenim/toolchains/nim-" & NimVersion / "lib"
       if not fileExists(result / "system.nim"):
         quit "cannot find Nim's stdlib location"
+  when not defined(release): echo result
 
 proc setupNimscript*(colorsScript: string): PEvalContext =
   let config = moduleGraph.config
-  config.libpath = detectNimLib()
+  config.libpath = detectNimLib().AbsoluteDir
   add(config.searchPaths, config.libpath)
-  add(config.searchPaths, config.libpath / "pure")
+  add(config.searchPaths, AbsoluteDir(config.libpath.string / "pure"))
 
   initDefines(config.symbols)
   defineSymbol(config.symbols, "nimscript")
@@ -133,11 +135,11 @@ proc setupNimscript*(colorsScript: string): PEvalContext =
 proc compileActions*(actionsScript: string) =
   ## Compiles the actions module for the first time.
   actionsModule = makeModule(moduleGraph, actionsScript)
-  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript, fmRead))
+  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript))
 
 proc reloadActions*(actionsScript: string) =
   #resetModule(actionsModule)
-  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript, fmRead))
+  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript))
 
 proc execProc*(procname: string) =
   let a = getAction(procname)
@@ -158,7 +160,7 @@ proc loadTheme*(colorsScript: string; result: var InternalTheme;
   let m = colorsModule
   #resetModule(m)
 
-  processModule(moduleGraph, m, llStreamOpen(colorsScript, fmRead))
+  processModule(moduleGraph, m, llStreamOpen(colorsScript))
 
   template trivialField(field) =
     getGlobal("theme", astToStr field, result.field)
