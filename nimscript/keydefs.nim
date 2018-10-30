@@ -51,5 +51,5 @@ type
     NimScript,
     DelVerb
 
-proc bindKey*(key: set[Key]; action: Action; arg: string=nil) =
+func bindKey*(key: set[Key]; action: Action; arg: string = "") =
   discard
