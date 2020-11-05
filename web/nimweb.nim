@@ -86,30 +86,26 @@ Compile_options:
   validAnchorCharacters = Letters + Digits
 
 
-macro id(e: expr): expr {.immediate.} =
+macro id(e: varargs[untyped]): untyped =
   ## generates the rss xml ``id`` element.
-  let e = callsite()
   result = xmlCheckedTag(e, "id")
 
-macro updated(e: expr): expr {.immediate.} =
+macro updated(e: varargs[untyped]): untyped =
   ## generates the rss xml ``updated`` element.
-  let e = callsite()
   result = xmlCheckedTag(e, "updated")
 
 proc updatedDate(year, month, day: string): string =
   ## wrapper around the update macro with easy input.
   result = updated("$1-$2-$3T00:00:00Z" % [year,
-    repeat("0", 2 - len(month)) & month,
-    repeat("0", 2 - len(day)) & day])
+    strutils.repeat("0", 2 - len(month)) & month,
+    strutils.repeat("0", 2 - len(day)) & day])
 
-macro entry(e: expr): expr {.immediate.} =
+macro entry(e: varargs[untyped]): untyped =
   ## generates the rss xml ``entry`` element.
-  let e = callsite()
   result = xmlCheckedTag(e, "entry")
 
-macro content(e: expr): expr {.immediate.} =
+macro content(e: varargs[untyped]): untyped =
   ## generates the rss xml ``content`` element.
-  let e = callsite()
   result = xmlCheckedTag(e, "content", reqAttr = "type")
 
 proc parseCmdLine(c: var TConfigData) =
@@ -354,7 +350,7 @@ proc genNewsLink(title: string): string =
   result = title
   result.insert("Z")
   for i in 1..len(result)-1:
-    let letter = result[i].toLower()
+    let letter = result[i].toLowerAscii()
     if letter in validAnchorCharacters:
       result[i] = letter
     else:
@@ -378,7 +374,7 @@ proc generateRss(outputFilename: string, news: seq[TRssItem]) =
   output.write(link(href = rssNewsUrl))
   output.write(id(rssNewsUrl))
 
-  let now = getGMTime(getTime())
+  let now = utc(now()) # getDateTime() # getGMTime(getTime())
   output.write(updatedDate($now.year, $(int(now.month) + 1), $now.monthday))
 
   for rss in news:
