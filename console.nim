@@ -394,7 +394,7 @@ proc sendBreak*(c: Console) =
 proc extractFilePosition*(b: Buffer): (string, int, int) =
   ## Line is -1 if not an interpretable file position.
   template parseNumber(line) =
-    while b[i] in Digits:
+    while i < b.len and b[i] in Digits:
       line = line * 10 + (b[i].ord - '0'.ord)
       inc i
 
@@ -404,32 +404,32 @@ proc extractFilePosition*(b: Buffer): (string, int, int) =
   var i = b.cursor
   while i > 0 and b[i-1] != '\L': dec i
   result = ("", -1, -1)
-  while b[i] == ' ': inc i
+  while i < b.len and b[i] == ' ': inc i
   while i < b.len and b[i] != ' ':
     if b[i] == '(': break
-    elif b[i] == ':' and b[i+1] != '\\': break
+    elif b[i] == ':' and i+1 < b.len and b[i+1] != '\\': break
     result[0].add b[i]
     inc i
   var line, col: int
-  if b[i] == '(' and b[i+1] in Digits:
+  if i+1 < b.len and b[i] == '(' and b[i+1] in Digits:
     inc i
     parseNumber(line)
-    if b[i] == ',':
+    if i < b.len and b[i] == ',':
       inc i
       while b[i] == ' ': inc i
       parseNumber(col)
     else:
       col = -1
-    if b[i] == ')':
+    if i < b.len and b[i] == ')':
       result[1] = line
       result[2] = col
-  elif b[i] == ':' and b[i+1] in Digits:
+  elif i+1 < b.len and b[i] == ':' and b[i+1] in Digits:
     inc i
     parseNumber(line)
-    if b[i] == ':':
+    if i < b.len and b[i] == ':':
       inc i
       parseNumber(col)
-      if b[i] == ':':
+      if i < b.len and b[i] == ':':
         result[1] = line
         result[2] = col
 
