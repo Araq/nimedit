@@ -31,7 +31,10 @@ var moduleGraph = newModuleGraph(identCache, gConfig)
 var
   actionsModule, colorsModule: PSym
 
-proc getAction(x: string): PSym = strTableGet(actionsModule.tab, getIdent(identCache, x))
+proc getAction(x: string): PSym =
+  moduleGraph.someSym actionsModule, getIdent(identCache, x)
+
+proc getIdgen*(): IdGenerator = moduleGraph.idgen
 
 proc getGlobal(varname, field: string): PNode =
   let n = PCtx(moduleGraph.vm).getGlobalValue(getNimScriptSymbol(moduleGraph, varname))
@@ -128,18 +131,18 @@ proc setupNimscript*(colorsScript: string): PEvalContext =
 
   colorsModule = makeModule(moduleGraph, colorsScript)
   incl(colorsModule.flags, sfMainModule)
-  moduleGraph.vm = setupVM(colorsModule, identCache, colorsScript, moduleGraph)
+  moduleGraph.vm = setupVM(colorsModule, identCache, colorsScript, moduleGraph, moduleGraph.idgen)
   compileSystemModule(moduleGraph)
   result = PCtx(moduleGraph.vm)
 
 proc compileActions*(actionsScript: string) =
   ## Compiles the actions module for the first time.
   actionsModule = makeModule(moduleGraph, actionsScript)
-  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript))
+  processModule(moduleGraph, actionsModule, moduleGraph.idgen, llStreamOpen(actionsScript))
 
 proc reloadActions*(actionsScript: string) =
   #resetModule(actionsModule)
-  processModule(moduleGraph, actionsModule, llStreamOpen(actionsScript))
+  processModule(moduleGraph, actionsModule, moduleGraph.idgen, llStreamOpen(actionsScript))
 
 proc execProc*(procname: string) =
   let a = getAction(procname)
@@ -160,7 +163,7 @@ proc loadTheme*(colorsScript: string; result: var InternalTheme;
   let m = colorsModule
   #resetModule(m)
 
-  processModule(moduleGraph, m, llStreamOpen(colorsScript))
+  processModule(moduleGraph, m, moduleGraph.idgen, llStreamOpen(colorsScript))
 
   template trivialField(field) =
     getGlobal("theme", astToStr field, result.field)

@@ -347,7 +347,7 @@ proc execThreadProc() {.thread.} =
             try:
               p = startProcess(bin, os.getCurrentDir(), args,
                         options = {poStdErrToStdOut, poUsePath, poInteractive,
-                                   poDemon})
+                                   poDaemon})
               o = p.outputStream
               started = true
             except:

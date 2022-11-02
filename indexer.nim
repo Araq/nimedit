@@ -84,7 +84,7 @@ proc populateBuffer*(index: var Index; b: Buffer;
   # we of course want to use the database for *fast* term searching:
   var interesting = -1
   if prefix.len > 0:
-    for hit in index.tree.valuesWithPrefix(prefix, longestMatch=true):
+    for hit in index.tree.valuesWithPrefix(prefix):
       interesting = hit
       break
   b.gotoLine(interesting+1, -1)
