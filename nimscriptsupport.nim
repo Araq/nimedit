@@ -37,7 +37,9 @@ proc getAction(x: string): PSym =
 proc getIdgen*(): IdGenerator = moduleGraph.idgen
 
 proc getGlobal(varname, field: string): PNode =
-  let n = PCtx(moduleGraph.vm).getGlobalValue(getNimScriptSymbol(moduleGraph, varname))
+  let s = getNimScriptSymbol(moduleGraph, varname)
+  assert s != nil, "could not load " & field
+  let n = PCtx(moduleGraph.vm).getGlobalValue(s)
   if n.kind != nkObjConstr:
     raiseVariableError(varname, "object")
   for i in 1 ..< n.len:
