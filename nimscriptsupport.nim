@@ -4,9 +4,8 @@ import
   compiler/condsyms, compiler/options, compiler/sem, compiler/semdata,
   compiler/llstream, compiler/vm, compiler/vmdef, compiler/commands,
   compiler/msgs, compiler/magicsys, compiler/idents,
-  compiler/astalgo, compiler/modulegraphs
+  compiler/astalgo, compiler/modulegraphs, compiler/pathutils
 
-from compiler/pathutils import AbsoluteDir
 from compiler/scriptconfig import setupVM
 
 import os, strutils
@@ -70,7 +69,7 @@ proc getGlobal(varname, field: string; result: var bool) =
 proc getGlobal(varname, field: string; result: var string) =
   let n = getGlobal(varname, field)
   if n != nil and n.isStrLit:
-    result = if n.strVal == "": "" else: n.strVal
+    result = n.strVal
   else:
     raiseVariableError(varname & "." & field, "string")
 
@@ -118,7 +117,7 @@ proc detectNimLib(): string =
         quit "cannot find Nim's stdlib location"
   when not defined(release): echo result
 
-proc setupNimscript*(colorsScript: string): PEvalContext =
+proc setupNimscript*(colorsScript: AbsoluteFile): PEvalContext =
   let config = moduleGraph.config
   config.libpath = detectNimLib().AbsoluteDir
   add(config.searchPaths, config.libpath)
@@ -133,18 +132,19 @@ proc setupNimscript*(colorsScript: string): PEvalContext =
 
   colorsModule = makeModule(moduleGraph, colorsScript)
   incl(colorsModule.flags, sfMainModule)
-  moduleGraph.vm = setupVM(colorsModule, identCache, colorsScript, moduleGraph, moduleGraph.idgen)
+  moduleGraph.vm = setupVM(colorsModule, identCache, colorsScript.string, moduleGraph, moduleGraph.idgen)
   compileSystemModule(moduleGraph)
   result = PCtx(moduleGraph.vm)
+  result.mode = emRepl
 
-proc compileActions*(actionsScript: string) =
+proc compileActions*(actionsScript: AbsoluteFile) =
   ## Compiles the actions module for the first time.
   actionsModule = makeModule(moduleGraph, actionsScript)
-  processModule(moduleGraph, actionsModule, moduleGraph.idgen, llStreamOpen(actionsScript))
+  processModule(moduleGraph, actionsModule, moduleGraph.idgen, llStreamOpen(actionsScript, fmRead))
 
-proc reloadActions*(actionsScript: string) =
+proc reloadActions*(actionsScript: AbsoluteFile) =
   #resetModule(actionsModule)
-  processModule(moduleGraph, actionsModule, moduleGraph.idgen, llStreamOpen(actionsScript))
+  processModule(moduleGraph, actionsModule, moduleGraph.idgen, llStreamOpen(actionsScript, fmRead))
 
 proc execProc*(procname: string) =
   let a = getAction(procname)
@@ -160,12 +160,12 @@ proc runTransformator*(procname, selectedText: string): string =
     if res.isStrLit:
       result = res.strVal
 
-proc loadTheme*(colorsScript: string; result: var InternalTheme;
+proc loadTheme*(colorsScript: AbsoluteFile; result: var InternalTheme;
                 sm: var StyleManager; fm: var FontManager) =
   let m = colorsModule
   #resetModule(m)
 
-  processModule(moduleGraph, m, moduleGraph.idgen, llStreamOpen(colorsScript))
+  processModule(moduleGraph, m, moduleGraph.idgen, llStreamOpen(colorsScript, fmRead))
 
   template trivialField(field) =
     getGlobal("theme", astToStr field, result.field)

@@ -296,10 +296,10 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
     highlightEverything(ed.main)
     success()
   of "config", "conf", "cfg", "colors":
-    openTab(ed, sh.cfgColors, true)
+    openTab(ed, sh.cfgColors.string, true)
     success()
   of "script", "scripts", "actions":
-    openTab(ed, sh.cfgActions, true)
+    openTab(ed, sh.cfgActions.string, true)
     success()
   of "cr":
     ed.main.lineending = "\C"

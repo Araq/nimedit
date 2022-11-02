@@ -13,6 +13,8 @@ import nimscript/common, nimscript/keydefs, languages, themes,
   nimscriptsupport, tabbar, finder,
   scrollbar, indexer, overviews, nimsuggestclient, minimap
 
+import compiler / pathutils
+
 when defined(windows):
   import dialogs
 
@@ -57,7 +59,7 @@ type
     theme: InternalTheme
     keymapping: KeyMapping
     fontM: FontManager
-    cfgColors, cfgActions: string
+    cfgColors, cfgActions: AbsoluteFile
     project: string
     nimsuggestDebug, clickOnFilename, windowHasFocus: bool
     state: EditorState
@@ -108,8 +110,8 @@ proc newSharedState(): SharedState =
   ed.theme.bg = parseColor"#292929"
   ed.theme.fg = parseColor"#fafafa"
   ed.theme.cursor = parseColor"#fafafa"
-  ed.cfgColors = os.getAppDir() / "nimscript" / "colors.nims"
-  ed.cfgActions = os.getAppDir() / "nimscript" / "actions.nims"
+  ed.cfgColors = AbsoluteFile(os.getAppDir() / "nimscript" / "colors.nims")
+  ed.cfgActions = AbsoluteFile(os.getAppDir() / "nimscript" / "actions.nims")
   ed.searchPath = @[]
   ed.nimsuggestDebug = true
   ed.keymapping = initTable[set[Key], Command]()
@@ -856,10 +858,10 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
   of Action.SaveTab:
     main.save()
     let sh = ed.sh
-    if cmpPaths(main.filename, sh.cfgColors) == 0:
+    if cmpPaths(main.filename, sh.cfgColors.string) == 0:
       loadTheme(sh)
       layout(ed)
-    elif cmpPaths(main.filename, sh.cfgActions) == 0:
+    elif cmpPaths(main.filename, sh.cfgActions.string) == 0:
       reloadActions(sh.cfgActions)
     sh.statusMsg = readyMsg
 
