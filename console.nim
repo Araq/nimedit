@@ -166,13 +166,14 @@ proc parseWord*(s: string; w: var string;
   template conv(c): untyped = (if convToLower: c.toLowerAscii else: c)
   w.setLen(0)
   var i = start
-  while s[i] in {' ', '\t'}: inc i
+  while i < s.len and s[i] in {' ', '\t'}: inc i
+  if i >= s.len: return i
   case s[i]
   of '\'':
     inc i
     while i < s.len:
       if s[i] == '\'':
-        if s[i+1] == '\'':
+        if i+1 < s.len and s[i+1] == '\'':
           w.add s[i]
           inc i
         else:
@@ -193,7 +194,7 @@ proc parseWord*(s: string; w: var string;
         w.add s[i].conv
         inc i
   else:
-    while s[i] > ' ':
+    while i < s.len and s[i] > ' ':
       w.add s[i].conv
       inc i
   result = i
@@ -201,7 +202,7 @@ proc parseWord*(s: string; w: var string;
 proc startsWithIgnoreCase(s, prefix: string): bool =
   var i = 0
   while true:
-    if prefix[i] == '\0': return true
+    if i >= prefix.len: return true
     if s[i].toLowerAscii != prefix[i].toLowerAscii: return false
     inc(i)
 
