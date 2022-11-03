@@ -6,10 +6,8 @@ switch("path", "$lib/../")
 
 --threads:on
 
---define: booting
---define:useStdoutAsStdmsg
-when defined(windows):
-  --app:gui
+#when defined(windows):
+#  --app:gui
 
 #--noNimblePath
 

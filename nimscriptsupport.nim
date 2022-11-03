@@ -113,8 +113,14 @@ proc detectNimLib(): string =
           result = nimexe.expandSymlink.splitPath()[0] /../ "lib"
         except OSError:
           result = getHomeDir() / ".choosenim/toolchains/nim-" & NimVersion / "lib"
-      if not fileExists(result / "system.nim"):
-        quit "cannot find Nim's stdlib location"
+        if not fileExists(result / "system.nim"):
+          quit "cannot find Nim's stdlib location"
+      elif defined(windows):
+        result = getHomeDir() / ".choosenim/toolchains/nim-" & NimVersion / "lib"
+        if not fileExists(result / "system.nim"):
+          quit "cannot find Nim's stdlib location"
+      else:
+        quit "Stdlib search unimplemented for this OS"
   when not defined(release): echo result
 
 proc setupNimscript*(colorsScript: AbsoluteFile): PEvalContext =
