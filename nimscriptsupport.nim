@@ -128,6 +128,8 @@ proc setupNimscript*(colorsScript: AbsoluteFile): PEvalContext =
   config.libpath = detectNimLib().AbsoluteDir
   add(config.searchPaths, config.libpath)
   add(config.searchPaths, AbsoluteDir(config.libpath.string / "pure"))
+  add(config.searchPaths, AbsoluteDir(config.libpath.string / "core"))
+  add(config.searchPaths, AbsoluteDir(config.libpath.string / "system"))
 
   initDefines(config.symbols)
   defineSymbol(config.symbols, "nimscript")
