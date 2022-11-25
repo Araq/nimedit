@@ -411,7 +411,7 @@ proc loadOpenTabs(ed: Editor) =
           let suggested = parseInt(x[2])
           ed.con.hist[key] = CmdHistory(cmds: @[], suggested: suggested)
         of "histval":
-          if not key.len == 0:
+          if key.len != 0:
             ed.con.hist[key].cmds.add x[1]
         else: discard
     else:
