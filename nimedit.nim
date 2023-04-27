@@ -411,8 +411,8 @@ proc loadOpenTabs(ed: Editor) =
           let suggested = parseInt(x[2])
           ed.con.hist[key] = CmdHistory(cmds: @[], suggested: suggested)
         of "histval":
-          doAssert(not key.len == 0)
-          ed.con.hist[key].cmds.add x[1]
+          if key.len != 0:
+            ed.con.hist[key].cmds.add x[1]
         else: discard
     else:
       ed.sh.statusMsg = "cannot restore session; versions differ"
@@ -1125,7 +1125,7 @@ proc mainProc(ed: Editor) =
   let scriptContext = setupNimscript(sh.cfgColors)
   scriptContext.setupApi(sh)
   compileActions(sh.cfgActions)
-
+  
   loadTheme(sh)
   createSdlWindow(ed, 1u32)
 

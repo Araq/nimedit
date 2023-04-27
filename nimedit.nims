@@ -6,7 +6,7 @@ switch("path", "$lib/../")
 
 --threads:on
 
---define: booting
+--define:booting
 --define:useStdoutAsStdmsg
 when defined(windows):
   --app:gui
