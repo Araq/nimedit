@@ -4,7 +4,8 @@ import
   compiler/condsyms, compiler/options, compiler/sem, compiler/semdata,
   compiler/llstream, compiler/vm, compiler/vmdef, compiler/commands,
   compiler/msgs, compiler/magicsys, compiler/idents,
-  compiler/astalgo, compiler/modulegraphs, compiler/pathutils
+  compiler/astalgo, compiler/modulegraphs, compiler/pathutils,
+  compiler/pipelines
 
 from compiler/scriptconfig import setupVM
 
