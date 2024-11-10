@@ -85,7 +85,7 @@ proc colorFromInt*(x: BiggestInt): Color =
   let x = x.int
   result = color(x shr 16 and 0xff, x shr 8 and 0xff, x and 0xff, 0)
 
-func openFont(p: Path; s: byte): FontPtr {.inline.} =
+proc openFont(p: Path; s: byte): FontPtr {.inline.} =
   ## Wrapper for `sdl2/ttf.openfont` with better typing.
   result = openFont(cstring(p), cint(s))
 
