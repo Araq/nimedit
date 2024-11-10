@@ -4,7 +4,9 @@ when defined(gcc) and defined(windows):
   when defined(x86):
     {.link: "icons/crown.o".}
 
-import strutils, critbits, os, times, browsers, tables, hashes, intsets
+import
+  std/[strutils, critbits, os, times, browsers, tables, hashes, intsets,
+    exitprocs]
 from parseutils import parseInt
 import sdl2, sdl2/ttf
 import buffertype except Action
@@ -1133,7 +1135,7 @@ proc drawAllWindows(sh: SharedState; events: sink seq[Event]) =
     ed = ed.next
 
 proc mainProc(ed: Editor) =
-  addQuitProc nimsuggestclient.shutdown
+  addExitProc nimsuggestclient.shutdown
 
   var sh = newSharedState()
   setDefaults(ed, sh)
