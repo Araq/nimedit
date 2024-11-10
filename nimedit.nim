@@ -836,12 +836,12 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
   of Action.Copy:
     let text = focus.getSelectedText
     if text.len > 0:
-      discard sdl2.setClipboardText(text)
+      discard sdl2.setClipboardText(cstring text)
   of Action.Cut:
     let text = focus.getSelectedText
     if text.len > 0:
       focus.removeSelectedText()
-      discard sdl2.setClipboardText(text)
+      discard sdl2.setClipboardText(cstring text)
   of Action.Paste:
     let text = sdl2.getClipboardText()
     focus.insert($text, smartInsert=true)
