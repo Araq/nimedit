@@ -75,7 +75,10 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.bracketToHighlightA = -1
   result.bracketToHighlightB = -1
   result.activeLines = initIntSet()
-  initStrTable(result.symtab)
+  when (NimMajor, NimMinor) >= (2, 2):
+    result.symtab = initStrTable()
+  else:
+    initStrTable(result.symtab)
   result.breakpoints = initTable[int, TokenClass]()
 
 proc clear*(result: Buffer) =
@@ -102,7 +105,10 @@ proc clear*(result: Buffer) =
   result.activeLines = initIntSet()
   result.filterLines = false
   result.minimapVersion = 0
-  initStrTable(result.symtab)
+  when (NimMajor, NimMinor) >= (2, 2):
+    result.symtab = initStrTable()
+  else:
+    initStrTable(result.symtab)
   result.breakpoints = initTable[int, TokenClass]()
 
 proc fullText*(b: Buffer): string =
