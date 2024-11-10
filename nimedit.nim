@@ -1129,6 +1129,8 @@ proc mainProc(ed: Editor) =
   loadTheme(sh)
   createSdlWindow(ed, 1u32)
 
+  include nimscript/keybindings #XXX TODO: nimscript instead of include
+
   ed.bar.first = ed.main
 
   sh.blink = 1
