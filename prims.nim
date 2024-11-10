@@ -1,7 +1,6 @@
 
 import sdl2
 from math import sin, cos, PI
-import random
 
 type
   Pixel* = object

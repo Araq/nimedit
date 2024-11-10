@@ -2,7 +2,7 @@
 
 # List only the imports that the main file doesn't already import here:
 import
-  compiler/ast, compiler/vm, compiler/vmdef, compiler/msgs,
+  compiler/ast, compiler/vm, compiler/vmdef,
   nimscriptsupport
 
 proc setupApi(result: PEvalContext; sh: SharedState) =
