@@ -129,7 +129,7 @@ proc drawButtonList*(buttons: openArray[string]; t: Internaltheme;
     inc xx, rect.w + t.uiXGap*2
 
 proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
-                 x, screenW: cint; e: var Event;
+                 x, screenW: cint; events: seq[Event];
                  active: Buffer): Buffer =
   var it = tabs.first
   var activeDrawn = false
@@ -146,27 +146,28 @@ proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
         # something else:
         if it.prev != tabs.first:
           tabs.first = it.prev
-          return drawTabBar(tabs, t, x, screenW, e, active)
+          return drawTabBar(tabs, t, x, screenW, events, active)
       break
 
     activeDrawn = activeDrawn or it == active
-    if e.kind == MouseButtonDown:
-      let w = e.button
-      if w.clicks.int >= 1:
-        let p = point(w.x, w.y)
-        if rect.contains(p):
-          result = it
-    elif e.kind == MouseMotion:
-      let w = e.motion
-      if (w.state and BUTTON_LMASK) != 0:
-        let p = point(w.x, w.y)
-        if rect.contains(p):
-          if w.xrel >= 4:
-            if it == tabs.first: tabs.first = it.next
-            swapBuffers(it, it.next)
-          elif w.xrel <= -4:
-            if it == tabs.first: tabs.first = it.prev
-            swapBuffers(it.prev, it)
+    for e in events:
+      if e.kind == MouseButtonDown:
+        let w = e.button
+        if w.clicks.int >= 1:
+          let p = point(w.x, w.y)
+          if rect.contains(p):
+            result = it
+      elif e.kind == MouseMotion:
+        let w = e.motion
+        if (w.state and BUTTON_LMASK) != 0:
+          let p = point(w.x, w.y)
+          if rect.contains(p):
+            if w.xrel >= 4:
+              if it == tabs.first: tabs.first = it.next
+              swapBuffers(it, it.next)
+            elif w.xrel <= -4:
+              if it == tabs.first: tabs.first = it.prev
+              swapBuffers(it.prev, it)
 
     inc xx, rect.w + t.uiXGap*2
     if it == tabs.last: break

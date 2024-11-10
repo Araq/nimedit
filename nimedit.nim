@@ -530,11 +530,26 @@ proc handleEvent(ed: Editor; procname: string) =
     if not ed.hasConsole:
       ed.sh.statusMsg = "Errors! Open console to see them."
 
-proc pollEvent(e: var Event; ed: Editor): auto =
-  if ed.sh.windowHasFocus or ed.con.processRunning:
-    result = pollEvent(e)
-  else:
-    result = waitEvent(e)
+proc pollEvents*(someConsoleRunning, windowHasFocus: bool): seq[Event] =
+  ## Returns all events held by sdl2, blocking to save cycles when possible.
+  # Please note that the last (unsuccessful) call the `sdl2.pollEvent` will
+  # turn the `e` var hidden pointer's value into garbage.
+  # So we have to return some form of copied value, not a pointer.
+  result = @[]
+
+  # Initialize an event of any value.
+  var e = Event()
+
+  # While nimedit doesnt have focus, wait for an event of some kind (usually
+  # a WindowEvent).
+  if not (someConsoleRunning or windowHasFocus):
+    let wasSucessful = waitEvent(e) # halts while theres no input
+    assert wasSucessful
+    result.add e
+
+  # Take note of all the events that sdl2 has registered.
+  while pollEvent(e): # returns true until no events are left to poll
+    result.add e
 
 proc ctrlKeyPressed*(): bool =
   let keys = getKeyboardState()
@@ -553,7 +568,7 @@ proc loadTheme(ed: SharedState) =
   ed.theme.editorFontPtr = ed.fontM.fontByName(ed.theme.editorFont,
                                                ed.theme.editorFontSize)
 
-proc eventToKeySet(e: var Event): set[Key] =
+proc eventToKeySet(e: Event): set[Key] =
   result = {}
   if e.kind == KeyDown: discard
   elif e.kind == KeyUp: result.incl(Key.KeyReleased)
@@ -927,11 +942,14 @@ proc handleQuitEvent(ed: Editor): bool =
     main = b
     ed.askForQuitTab()
 
-proc processEvents(e: var Event; ed: Editor): bool =
+proc processEvents(events: out seq[Event]; ed: Editor): bool =
   template console: untyped = ed.console
 
   let sh = ed.sh
-  while pollEvent(e, ed) == SdlSuccess:
+
+  events = pollEvents(ed.con.processRunning, sh.windowHasFocus)
+
+  for e in events:
     case e.kind
     of QuitEvent:
       if handleQuitEvent(ed):
@@ -1021,12 +1039,12 @@ proc processEvents(e: var Event; ed: Editor): bool =
     sh.blink = 0
     sh.idle = 0
 
-proc draw(e: var Event; ed: Editor) =
+proc draw(events: sink seq[Event]; ed: Editor) =
   let sh = ed.sh
   # position of the tab bar hard coded for now as we don't want to adapt it
   # to the main margin (tried it, is ugly):
   let activeTab = drawTabBar(ed.bar, sh.theme, 47, ed.screenW,
-                             e, ed.main)
+                             events, ed.main)
   if activeTab != nil:
     if (getMouseState(nil, nil) and SDL_BUTTON(BUTTON_RIGHT)) != 0:
       let oldMain = main
@@ -1046,7 +1064,7 @@ proc draw(e: var Event; ed: Editor) =
   sh.theme.draw(main, rawMainRect, (sh.blink==0 and focus==main) or
                                     focus==ed.autocomplete,
                 if sh.theme.showLines: {showLines} else: {})
-  let scrollTo = drawScrollBar(main, sh.theme, e, ed.mainRect)
+  let scrollTo = drawScrollBar(main, sh.theme, events, ed.mainRect)
   if scrollTo >= 0:
     scrollLines(main, scrollTo-main.firstLine)
 
@@ -1102,17 +1120,16 @@ proc draw(e: var Event; ed: Editor) =
 
   present(renderer)
 
-proc drawAllWindows(sh: SharedState; e: var Event) =
+proc drawAllWindows(sh: SharedState; events: sink seq[Event]) =
   var ed = sh.firstWindow
   while ed != nil:
     clear(renderer)
     # little hack so that not everything needs to be rewritten
     ed.sh.theme.renderer = renderer
     if ed == sh.activeWindow:
-      draw(e, ed)
+      draw(events, ed)
     else:
-      var nop = Event(kind: UserEvent5)
-      draw(nop, ed)
+      draw(@[], ed)
     ed = ed.next
 
 proc mainProc(ed: Editor) =
@@ -1157,8 +1174,8 @@ proc mainProc(ed: Editor) =
           gotoLine(main, line, col)
           focus = main
 
-    var e = Event(kind: UserEvent5)
-    if processEvents(e, sh.activeWindow): break
+    var events: seq[Event] = @[]
+    if processEvents(events, sh.activeWindow): break
     if sh.state == requestedShutdownNext:
       sh.state = requestedShutdown
       let b = withUnsavedChanges(main)
@@ -1166,11 +1183,11 @@ proc mainProc(ed: Editor) =
       main = b
       ed.askForQuitTab()
 
-    if e.kind != UserEvent5 or doRedraw:
+    if events.len != 0 or doRedraw:
       doRedraw = false
       update(ed.con)
       nimsuggestclient.update(ed.sug)
-      sh.drawAllWindows(e)
+      sh.drawAllWindows(events)
     # if we have an external process running in the background, we have a
     # much shorter timeout. Nevertheless this should not affect our blinking
     # speed:
