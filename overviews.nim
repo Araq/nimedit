@@ -43,7 +43,10 @@ proc allDeclarations(n: PNode; minimap: Buffer; useActiveLines: bool) =
         if nn.kind == nkPragmaExpr: nn = nn[0]
         if nn.kind == nkPostfix: nn = nn[1]
         let ident = considerQuotedIdent(nn)
-        let s = newSym(skUnknown, ident, nextSymId(getIdgen()), nil, n.info)
+        when NimMajor >= 2:
+          let s = newSym(skUnknown, ident, getIdgen(), nil, n.info)
+        else:
+          let s = newSym(skUnknown, ident, nextSymId(getIdgen()), nil, n.info)
         minimap.symtab.strTableAdd(s)
       else:
         let line = $n.info.line

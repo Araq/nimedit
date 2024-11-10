@@ -1,9 +1,16 @@
 
 # Handling of styles.
 
+import std/[strformat, strutils, decls]
 import sdl2, sdl2/ttf
-from strutils import parseHexInt, toLower
+# from strutils import parseHexInt, toLower
 import languages, nimscript/common
+
+when NimMajor >= 2:
+  import std/[paths, dirs, files]
+else:
+  import std/os
+  type Path = string
 
 type
   MarkerClass* = enum
@@ -28,13 +35,43 @@ type
     a*: array[TokenClass, Style]
     b*: array[MarkerClass, Color]
 
-when defined(linux):
-  const
-    FontStyleToSuffix: array[FontStyle, string] = [
-      "", "-Bold", "-Oblique", "-BoldOblique"]
-else:
-  const
-    FontStyleToSuffix: array[FontStyle, string] = ["", "bd", "i", "bi"]
+proc findFontFile(name: string): Path =
+  ##[Returns the absolute path of the font file named `name`.tff.
+     Otherwise, raises `IOError`.]##
+  const AllFonts = when defined(linux): Path"/usr/share/fonts/truetype/"
+    elif defined(windows): Path r"C:\Windows\Fonts\"
+    elif defined(openIndiana): Path"/usr/share/fonts/TrueType/"
+    else: quit "need to implement"
+  once:
+    if not AllFonts.dirExists:
+      raise newException(IOError,
+        fmt"Could not find system's font folder! '{AllFonts.string}' " &
+          "doesn't exist.")
+
+  let toMatch = name.Path.addFileExt("ttf")
+  for file in AllFonts.walkDirRec():
+    if file.extractFilename == toMatch.extractFilename: return file
+
+  raise newException(IOError, fmt"Could not find font file '{toMatch.string}'!")
+
+proc findStyledFontFile(mainFontFile: Path; style: FontStyle): Path =
+  ##[Searches the directory that `mainFontFile` is in for a file that matches
+     the given style `style`.
+     If one cannot be found, raises an IOError.]##
+  assert mainFontFile.fileExists, fmt"Bad font file '{mainFontFile.string}'"
+
+  const Suffixes = [FontStyle.Normal: @[""], @["Bold"], @["Oblique", "Italic"],
+    @["BoldOblique", "BoldItalic"]]
+
+  let (mainDir, mainName, _) = mainFontFile.splitFile
+  for file in mainDir.walkDirRec():
+    let (_, currentName, _) = file.splitFile
+    if mainName.string in currentName.string:
+      for suffix in Suffixes[style]:
+        if suffix in currentName.string: return file
+
+  raise newException(IOError,
+                     fmt"Could not find font file that matches style {style}!")
 
 proc fatal*(msg: string) {.noReturn.} =
   sdl2.quit()
@@ -48,37 +85,33 @@ proc colorFromInt*(x: BiggestInt): Color =
   let x = x.int
   result = color(x shr 16 and 0xff, x shr 8 and 0xff, x and 0xff, 0)
 
+proc openFont(p: Path; s: byte): FontPtr {.inline.} =
+  ## Wrapper for `sdl2/ttf.openfont` with better typing.
+  result = openFont(cstring(p), cint(s))
+
 proc fontByName*(m: var FontManager; name: string; size: byte;
                  style=FontStyle.Normal): FontPtr =
+
+
   for f in m:
     if f.name == name and f.size == size: return f.fonts[style]
-  var location = "fonts/"
-  result = openFont(location & name & ".ttf", size.cint)
-  if result.isNil:
-    when defined(windows):
-      location = r"C:\Windows\Fonts\"
-      result = openFont(location & name & ".ttf", size.cint)
-    elif defined(macosx):
-      location = r"/Library/Fonts/"
-      result = openFont(location & name & ".ttf", size.cint)
-    elif defined(linux):
-      location = r"/usr/share/fonts/truetype/"
-      result = openFont(location & name & ".ttf", size.cint)
-    else:
-      discard "XXX implement for other OSes"
-  if result.isNil:
-    fatal("cannot load font: " & name)
+
+  let mainFontPath = findFontFile(name)
+
+  result = openFont(mainFontPath, size)
+
   m.setLen m.len+1
-  var p = addr m[^1]
+  var p {.byAddr.} = m[^1]
   p.name = name
   p.size = size
   p.fonts[FontStyle.Normal] = result
   # now try to load the italic, bold etc versions, but if this fails, we
   # map the missing style to the normal style:
-  for i in FontStyle.Bold .. FontStyle.BoldItalic:
-    p.fonts[i] = openFont(location & name & FontStyleToSuffix[i] & ".ttf",
-                          size.cint)
-    if p.fonts[i].isNil: p.fonts[i] = result
+  for s, font in p.fonts.mpairs:
+    try:
+      font = openFont(findStyledFontFile(mainFontPath, s), size)
+    except IOError:
+      font = result
   result = p.fonts[style]
 
 proc freeFonts*(m: FontManager) =

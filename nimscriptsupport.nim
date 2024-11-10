@@ -6,10 +6,14 @@ import
   compiler/msgs, compiler/magicsys, compiler/idents,
   compiler/astalgo, compiler/modulegraphs, compiler/pathutils
 
+when NimMajor >= 2:
+  import compiler/pipelines
+
 from compiler/scriptconfig import setupVM
 
 import os, strutils
 import themes, styles, nimscript/common
+
 
 proc raiseVariableError(ident, typ: string) {.noinline.} =
   raise newException(ValueError,
@@ -118,24 +122,56 @@ proc detectNimLib(): string =
   when not defined(release): echo result
 
 proc setupNimscript*(colorsScript: AbsoluteFile): PEvalContext =
-  let config = moduleGraph.config
-  config.libpath = detectNimLib().AbsoluteDir
-  add(config.searchPaths, config.libpath)
-  add(config.searchPaths, AbsoluteDir(config.libpath.string / "pure"))
+  # This is ripped from compiler/scriptconfig's runNimScript.
+  when NimMajor >= 2:
+    let libraryPath = AbsoluteDir detectNimLib()
+    gConfig.libpath = libraryPath
+    connectPipelineCallbacks moduleGraph
+    initDefines gConfig.symbols
 
-  initDefines(config.symbols)
-  defineSymbol(config.symbols, "nimscript")
-  defineSymbol(config.symbols, "nimconfig")
+    defineSymbol(gConfig.symbols, "nimscript")
+    defineSymbol(gConfig.symbols, "nimconfig")
 
-  registerPass(moduleGraph, semPass)
-  registerPass(moduleGraph, evalPass)
+    gConfig.searchPaths.add(gConfig.libpath)
+    unregisterArcOrc(gConfig)
+    gConfig.globalOptions.excl optOwnedRefs
+    gConfig.selectedGC = gcUnselected
 
-  colorsModule = makeModule(moduleGraph, colorsScript)
-  incl(colorsModule.flags, sfMainModule)
-  moduleGraph.vm = setupVM(colorsModule, identCache, colorsScript.string, moduleGraph, moduleGraph.idgen)
-  compileSystemModule(moduleGraph)
-  result = PCtx(moduleGraph.vm)
-  result.mode = emRepl
+    colorsModule = makeModule(moduleGraph, colorsScript)
+    colorsModule.flags.incl sfMainModule
+
+    var vm = setupVM(colorsModule, identCache, colorsScript.string,
+                            moduleGraph, moduleGraph.idgen)
+    moduleGraph.vm = vm
+    moduleGraph.setPipeLinePass(EvalPass)
+    moduleGraph.compilePipelineSystemModule()
+    discard moduleGraph.processPipelineModule(colorsModule, vm.idgen,
+      llStreamOpen(colorsScript, fmRead))
+
+
+    result = PCtx(moduleGraph.vm)
+    result.mode = emRepl
+  else:
+
+    let config = moduleGraph.config
+    config.libpath = detectNimLib().AbsoluteDir
+    add(config.searchPaths, config.libpath)
+    add(config.searchPaths, AbsoluteDir(config.libpath.string / "pure"))
+
+    initDefines(config.symbols)
+    defineSymbol(config.symbols, "nimscript")
+    defineSymbol(config.symbols, "nimconfig")
+
+    registerPass(moduleGraph, semPass)
+    registerPass(moduleGraph, evalPass)
+
+    colorsModule = makeModule(moduleGraph, colorsScript)
+    incl(colorsModule.flags, sfMainModule)
+    moduleGraph.vm = setupVM(colorsModule, identCache, colorsScript.string, moduleGraph, moduleGraph.idgen)
+    compileSystemModule(moduleGraph)
+    result = PCtx(moduleGraph.vm)
+    result.mode = emRepl
+
 
 proc compileActions*(actionsScript: AbsoluteFile) =
   ## Compiles the actions module for the first time.

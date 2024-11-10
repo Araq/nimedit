@@ -1,8 +1,8 @@
 
-when defined(nimscript):
-  {.pragma: mypure.}
-else:
-  {.pragma: mypure, pure.}
+# when defined(nimscript):
+#   {.pragma: mypure.}
+# else:
+{.pragma: mypure.}
 
 type
   Key* {.mypure.} = enum

@@ -1,5 +1,23 @@
 
-import keydefs
+#import keydefs
+#[This module should be a nimscript file that is read and interpretted at
+  runtime by the main module.
+  The user would be able to make edits on the fly.
+  As a quick fix, we're hard coding it instead to achieve basic functionality.
+
+  Really, we need to fix the nimscript integration.
+  This will require a lot of intimate knowledge of the nim compiler.
+  Not to mention the fact that its interface with nimscript changes every
+  major version.]##
+
+proc bindKey(keyCombination: set[Key]; toDo: Action) {.closure.} =
+  sh.keymapping[keyCombination] = Command(action: toDo)
+
+proc bindKey(
+    keyCombination: set[Key]; toDo: Action; argument: string
+  ) {.closure.}=
+  sh.keymapping[keyCombination] = Command(action: toDo, arg: argument)
+
 
 const Control = when defined(macosx): Apple else: Ctrl
 

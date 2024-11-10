@@ -364,7 +364,7 @@ proc displayNL(s: string): string =
 
 proc filelistFile(): string =
   const dot = when defined(windows): "" else: "."
-  os.getConfigDir() / dot & "nimedit_filelist.txt"
+  os.getConfigDir() / (dot & "nimedit_filelist.txt")
 
 proc saveOpenTabs(ed: Editor) =
   var f: File
@@ -384,7 +384,8 @@ proc saveOpenTabs(ed: Editor) =
         f.writeline("histval\t", v)
     f.close()
 
-proc loadOpenTabs(ed: Editor) =
+proc loadOpenTabs(ed: Editor) {.error: "This proc disabled until the " &
+    "fileListFile writing proc is fixed".} =
   var oldRoot = ed.main
   var f: File
   var key: string
@@ -1129,12 +1130,14 @@ proc mainProc(ed: Editor) =
   loadTheme(sh)
   createSdlWindow(ed, 1u32)
 
+  include nimscript/keybindings #XXX TODO: nimscript instead of include
+
   ed.bar.first = ed.main
 
   sh.blink = 1
   sh.clickOnFilename = false
   layout(ed)
-  loadOpenTabs(ed)
+  # XXX TODO: fix this proc: loadOpenTabs(ed)
   if sh.project.len > 0:
     sh.setTitle(windowTitle & " - " & sh.project.extractFilename)
   ed.con.insertPrompt()
