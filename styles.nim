@@ -1,10 +1,16 @@
 
 # Handling of styles.
 
-import std/[paths, dirs, files, strformat, strutils, decls]
+import std/[strformat, strutils, decls]
 import sdl2, sdl2/ttf
 # from strutils import parseHexInt, toLower
 import languages, nimscript/common
+
+when NimMajor >= 2:
+  import std/[paths, dirs, files]
+else:
+  import std/os
+  type Path = string
 
 type
   MarkerClass* = enum
@@ -43,7 +49,7 @@ proc findFontFile(name: string): Path =
           "doesn't exist.")
 
   let toMatch = name.Path.addFileExt("ttf")
-  for file in AllFonts.walkDirRec(skipSpecial=true):
+  for file in AllFonts.walkDirRec():
     if file.extractFilename == toMatch.extractFilename: return file
 
   raise newException(IOError, fmt"Could not find font file '{toMatch.string}'!")
@@ -58,7 +64,7 @@ proc findStyledFontFile(mainFontFile: Path; style: FontStyle): Path =
     @["BoldOblique", "BoldItalic"]]
 
   let (mainDir, mainName, _) = mainFontFile.splitFile
-  for file in mainDir.walkDirRec(skipSpecial=true):
+  for file in mainDir.walkDirRec():
     let (_, currentName, _) = file.splitFile
     if mainName.string in currentName.string:
       for suffix in Suffixes[style]:
