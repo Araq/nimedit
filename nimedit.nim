@@ -1003,14 +1003,14 @@ proc processEvents(e: var Event; ed: Editor): bool =
       if not surpress:
         if focus==ed.autocomplete or focus==ed.sug:
           # delegate to main, but keep the focus on the autocomplete!
-          main.insertSingleKey($(addr w.text))
+          main.insertSingleKey($cast[cstring](addr w.text))
           if focus==ed.autocomplete:
             populateBuffer(ed.sh.indexer, ed.autocomplete, main.getWordPrefix())
           else:
             gotoPrefix(ed.sug, main.getWordPrefix())
           trackSpot(ed.sh.hotspots, main)
         else:
-          focus.insertSingleKey($(addr w.text))
+          focus.insertSingleKey($cast[cstring](addr w.text))
           if focus==main: trackSpot(ed.sh.hotspots, main)
     of KeyDown, KeyUp:
       let ks = eventToKeySet(e)
