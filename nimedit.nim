@@ -384,7 +384,8 @@ proc saveOpenTabs(ed: Editor) =
         f.writeline("histval\t", v)
     f.close()
 
-proc loadOpenTabs(ed: Editor) =
+proc loadOpenTabs(ed: Editor) {.error: "This proc disabled until the " &
+    "fileListFile writing proc is fixed".} =
   var oldRoot = ed.main
   var f: File
   var key: string
@@ -1136,7 +1137,7 @@ proc mainProc(ed: Editor) =
   sh.blink = 1
   sh.clickOnFilename = false
   layout(ed)
-  loadOpenTabs(ed)
+  # XXX TODO: fix this proc: loadOpenTabs(ed)
   if sh.project.len > 0:
     sh.setTitle(windowTitle & " - " & sh.project.extractFilename)
   ed.con.insertPrompt()
