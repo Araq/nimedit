@@ -6,7 +6,7 @@ when defined(gcc) and defined(windows):
 
 import strutils, critbits, os, times, browsers, tables, hashes, intsets
 from parseutils import parseInt
-import sdl2, sdl2/ttf, prims
+import sdl2, sdl2/ttf
 import buffertype except Action
 import buffer, styles, unicode, highlighters, console
 import nimscript/common, nimscript/keydefs, languages, themes,

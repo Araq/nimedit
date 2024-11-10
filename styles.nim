@@ -4,7 +4,7 @@
 import std/[strformat, strutils, decls]
 import sdl2, sdl2/ttf
 # from strutils import parseHexInt, toLower
-import languages, nimscript/common
+import nimscript/common
 
 when NimMajor >= 2:
   import std/[paths, dirs, files]

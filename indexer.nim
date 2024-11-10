@@ -1,7 +1,6 @@
 
 
 import critbits, buffertype, buffer
-import strutils except Letters
 
 type
   Index* = object

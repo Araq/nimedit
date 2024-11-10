@@ -1,13 +1,18 @@
 
 import
-  compiler/ast, compiler/modules, compiler/passes, compiler/passaux,
-  compiler/condsyms, compiler/options, compiler/sem, compiler/semdata,
-  compiler/llstream, compiler/vm, compiler/vmdef, compiler/commands,
-  compiler/msgs, compiler/magicsys, compiler/idents,
-  compiler/astalgo, compiler/modulegraphs, compiler/pathutils
+  compiler/ast, compiler/modules, compiler/passes,
+  compiler/condsyms, compiler/options,
+  compiler/llstream, compiler/vm, compiler/vmdef,
+  compiler/magicsys, compiler/idents,
+  compiler/modulegraphs, compiler/pathutils
 
 when NimMajor >= 2:
-  import compiler/pipelines
+  import
+    compiler/pipelines, compiler/commands
+else:
+  import
+    compiler/sem
+
 
 from compiler/scriptconfig import setupVM
 
