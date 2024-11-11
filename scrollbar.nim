@@ -9,7 +9,7 @@ proc scrollBarWidth*(b: Buffer): cint =
   if b.span >= b.numberOfLines: return 0
   return width
 
-proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
+proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
                     bufferRect: Rect): int =
   ## returns -1 if no scrolling was requested.
   # if the whole screen fits, do not show a scrollbar:
@@ -65,34 +65,36 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; e: var Event;
   grip.y = clamp(gripPositionOnTrack.cint + bufferRect.y, bufferRect.y,
                  bufferRect.y + bufferRect.h - grip.h)
 
-  if e.kind == MouseMotion:
-    let w = e.motion
-    let p = point(w.x, w.y)
-    if rect.contains(p):
-      active = true
-    #if grip.contains(p):
-    if (w.state and BUTTON_LMASK) != 0:
-      let mousePositionDelta = w.yrel.float
+  for e in events:
+    if e.kind == MouseMotion:
+      let w = e.motion
+      let p = point(w.x, w.y)
+      if rect.contains(p):
+        active = true
+      #if grip.contains(p):
+      if (w.state and BUTTON_LMASK) != 0:
+        let mousePositionDelta = w.yrel.float
 
-      # Determine the new location of the grip
-      let newGripPosition = clamp(gripPositionOnTrack + mousePositionDelta,
-                                  0.0, trackScrollAreaSize)
-      let newGripPositionRatio = newGripPosition / trackScrollAreaSize
-      result = clamp((newGripPositionRatio * windowScrollAreaSize /
-         fontSize.float).int, 0, b.numberOfLines)
-      #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
-      #               0, b.numberOfLines)
-  elif e.kind == MouseButtonDown:
-    let w = e.button
-    let p = point(w.x, w.y)
-    if rect.contains(p):
-      active = true
-      let linesInWindow = max(bufferRect.h div fontSize, 1)
-      if w.y < grip.y:
-        result = clamp(b.firstLine - linesInWindow, 0, b.numberOfLines)
-      elif w.y > grip.y + grip.h:
-        result = clamp(b.firstLine + linesInWindow, 0, b.numberOfLines)
-  else:
+        # Determine the new location of the grip
+        let newGripPosition = clamp(gripPositionOnTrack + mousePositionDelta,
+                                    0.0, trackScrollAreaSize)
+        let newGripPositionRatio = newGripPosition / trackScrollAreaSize
+        result = clamp((newGripPositionRatio * windowScrollAreaSize /
+          fontSize.float).int, 0, b.numberOfLines)
+        #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
+        #               0, b.numberOfLines)
+    elif e.kind == MouseButtonDown:
+      let w = e.button
+      let p = point(w.x, w.y)
+      if rect.contains(p):
+        active = true
+        let linesInWindow = max(bufferRect.h div fontSize, 1)
+        if w.y < grip.y:
+          result = clamp(b.firstLine - linesInWindow, 0, b.numberOfLines)
+        elif w.y > grip.y + grip.h:
+          result = clamp(b.firstLine + linesInWindow, 0, b.numberOfLines)
+
+  if not active:
     var p: Point
     discard getMouseState(p.x, p.y)
     if rect.contains(p):
