@@ -985,10 +985,10 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
       if w.clicks == 0 or w.clicks > 5u8: w.clicks = 1
       if ctrlKeyPressed(): inc(w.clicks)
       let p = point(w.x, w.y)
-      if ed.mainRect.contains(p):
+      if ed.mainRect.contains(p) and ed.main.scrollingEnabled:
         # XXX extract to a proc
         var rawMainRect = ed.mainRect
-        rawMainRect.w -= scrollBarWidth(main)
+        rawMainRect.w -= scrollBarWidth
         if focus == main and rawMainRect.contains(p):
           main.setCursorFromMouse(ed.mainRect, p, w.clicks.int)
         else:
@@ -1062,7 +1062,8 @@ proc draw(events: sink seq[Event]; ed: Editor) =
     focus = main
 
   var rawMainRect = ed.mainRect
-  rawMainRect.w -= scrollBarWidth(main)
+  if main.scrollingEnabled:
+    rawMainRect.w -= scrollBarWidth
   sh.theme.draw(main, rawMainRect, (sh.blink==0 and focus==main) or
                                     focus==ed.autocomplete,
                 if sh.theme.showLines: {showLines} else: {})

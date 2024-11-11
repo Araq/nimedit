@@ -3,19 +3,20 @@
 import buffertype, themes
 import sdl2, sdl2/ttf, tabbar
 
-const width = 15
+const scrollBarWidth* = 15
 
-proc scrollBarWidth*(b: Buffer): cint =
-  if b.span >= b.numberOfLines: return 0
-  return width
+func scrollingEnabled*(b: Buffer): bool =
+  result = b.span <= b.numberOfLines
 
 proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
                     bufferRect: Rect): int =
   ## returns -1 if no scrolling was requested.
-  # if the whole screen fits, do not show a scrollbar:
   result = -1
-  let width = scrollBarWidth(b)
-  if width == 0: return
+
+  # if the whole screen fits, do not show a scrollbar:
+  if not b.scrollingEnabled: return
+
+  const width = scrollBarWidth
 
   var rect = bufferRect
   rect.w = width
