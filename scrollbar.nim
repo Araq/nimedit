@@ -6,28 +6,27 @@ import sdl2, sdl2/ttf, prims, tabbar
 const scrollBarWidth* = 15
 
 func scrollingEnabled*(b: Buffer): bool =
+  ## Returns true if a scrollbar should be displayed in the input buffer.
   result = b.span <= b.numberOfLines
 
 proc mouseInsideRect(r: Rect): bool =
+  ## Returns true if the mouse is currently inside the input rectangle.
   var p: Point
   discard getMouseState(p.x, p.y)
   result = r.contains(p)
 
 proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
                     bufferRect: Rect): int =
-  ## returns -1 if no scrolling was requested.
+  ## Draws a scrollbar inside the buffer, if it is needed.
+  ## Returns the new position that the buffer should scroll to, or
+  ## `-1` if no scrolling was requested.
   result = -1
 
   # if the whole screen fits, do not show a scrollbar:
   if not b.scrollingEnabled: return
 
-  const width = scrollBarWidth
 
-  var rect = bufferRect
-  rect.w = width
-  rect.x = bufferRect.x + bufferRect.w - width
   let fontSize = fontLineSkip(t.editorFontPtr)
-  #let span = bufferRect.h div fontSize
   # This is surprisingly difficult to get right. Look at
   # http://csdgn.org/inform/scrollbar-mechanics for a detailed description of
   # the algorithm.
@@ -43,7 +42,7 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
 
   # the `- 2` is for aesthetic purposes.
   # without it, the track area extends slightly further down than at the top,
-  # making it noticable unsymmetrical.
+  # making it noticably unsymmetrical.
   let trackSize = windowSize - 2
 
   # Divide the window size by the content size to get a ratio
@@ -67,24 +66,31 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
   # Determine the location by multiplying the ratio
   let gripPositionOnTrack = trackScrollAreaSize * windowPositionRatio
 
-  var grip = rect
-  grip.x -= 1
-  grip.w -= 2
+  const width = scrollBarWidth
+
+  var grip: Rect # the area of the scroll bar
+  grip.x = bufferRect.x + bufferRect.w - width - 1
+  grip.w = width - 2
   grip.h = gripSize.cint
   grip.y = clamp(gripPositionOnTrack.cint + bufferRect.y, bufferRect.y,
                  bufferRect.y + bufferRect.h - grip.h)
 
   template state: var ScrollBarState =
-      b.scrollState
+    b.scrollState
 
+  # this variable represents whether something is happening with the bar.
+  # if something is, we'll change the bars color.
   var active = false
-
-  let mouseOverGrip = mouseInsideRect(grip)
-  if mouseOverGrip or state.usingScrollbar:
+  if mouseInsideRect(grip) or state.usingScrollbar: #cmove
     active = true
 
-
+  # handle events:
   for e in events:
+    #[we'll have to handle:
+        - user clicking the bar, initiating a state of scrolling
+        - user moving the mouse during a state of scrolling
+        - user letting go of the bar, leaving the state of scrolling
+      ]##
     case state.usingScrollbar
     of false:
       # check if we need to change state to being used
@@ -92,7 +98,6 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
         let w = e.button
         let p = point(w.x, w.y)
         if grip.contains(p):
-          # active = true
           state = ScrollBarState(usingScrollbar: true,
             initiallyGrippedAt: w.y - grip.y)
     of true:
