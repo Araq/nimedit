@@ -67,15 +67,10 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
   # Determine the location by multiplying the ratio
   let gripPositionOnTrack = trackScrollAreaSize * windowPositionRatio
 
-  #let pixelsPerLine = b.numberOfLines.cint / bufferRect.h
-  #let screens = b.numberOfLines.cint / span
-  #let pixelsPerScreen = bufferRect.h.float / screens
-
   var grip = rect
   grip.x -= 1
   grip.w -= 2
-  grip.h = gripSize.cint #max(8, pixelsPerScreen.cint)
-  #let yy = b.firstLine.float * pixelsPerLine + bufferRect.y.float
+  grip.h = gripSize.cint
   grip.y = clamp(gripPositionOnTrack.cint + bufferRect.y, bufferRect.y,
                  bufferRect.y + bufferRect.h - grip.h)
 
@@ -108,10 +103,6 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
       elif e.kind == MouseMotion:
         # move scrollbar and buffer position
         let w = e.motion
-        let p = point(w.x, w.y)
-        # if grip.contains(p):
-        #   active = true
-        #if grip.contains(p):
         if (w.state and BUTTON_LMASK) != 0:
           let
             mousePosRelativeToScrollbar = w.y - grip.y
@@ -123,11 +114,9 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
           let newGripPositionRatio = newGripPosition / trackScrollAreaSize
           result = clamp((newGripPositionRatio * windowScrollAreaSize /
             fontSize.float).int, 0, b.numberOfLines)
-          #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
-          #               0, b.numberOfLines)
 
   # draw the bar:
-  #drawBorder(t, rect, active)
+  # drawBorder(t, rect, active)
 
   # draw the grip:
   drawBox(t, grip, active, 4)
