@@ -35,7 +35,11 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
 
   let contentSize = float(numberOfViewableLines) * fontSize.float
   let windowSize = bufferRect.h.float
-  let trackSize = windowSize
+
+  # the `- 2` is for aesthetic purposes.
+  # without it, the track area extends slightly further down than at the top,
+  # making it noticable unsymmetrical.
+  let trackSize = windowSize - 2
 
   # Divide the window size by the content size to get a ratio
   let windowContentRatio = windowSize / contentSize
@@ -78,15 +82,15 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
       if rect.contains(p):
         active = true
       #if grip.contains(p):
-      if (w.state and BUTTON_LMASK) != 0:
-        let mousePositionDelta = w.yrel.float
+        if (w.state and BUTTON_LMASK) != 0:
+          let mousePositionDelta = w.yrel.float
 
-        # Determine the new location of the grip
-        let newGripPosition = clamp(gripPositionOnTrack + mousePositionDelta,
-                                    0.0, trackScrollAreaSize)
-        let newGripPositionRatio = newGripPosition / trackScrollAreaSize
-        result = clamp((newGripPositionRatio * windowScrollAreaSize /
-          fontSize.float).int, 0, b.numberOfLines)
+          # Determine the new location of the grip
+          let newGripPosition = clamp(gripPositionOnTrack + mousePositionDelta,
+                                      0.0, trackScrollAreaSize)
+          let newGripPositionRatio = newGripPosition / trackScrollAreaSize
+          result = clamp((newGripPositionRatio * windowScrollAreaSize /
+            fontSize.float).int, 0, b.numberOfLines)
         #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
         #               0, b.numberOfLines)
     elif e.kind == MouseButtonDown:
