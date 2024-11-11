@@ -27,6 +27,14 @@ type
                             # between.
     position*: int  # the position where it left off
 
+  ScrollBarState* = object
+    case usingScrollbar*: bool ## if the user is dragging the scrollbar or not
+    of true:
+      initiallyGrippedAt*: cint ##[the relative y position from the top of the
+        scrollbar that the user first clicked on.]##
+    of false:
+      discard
+
   Buffer* = ref object
     cursor*: Natural
     firstLine*, currentLine*, desiredCol*, numberOfLines*, runningLine*: Natural
@@ -60,6 +68,7 @@ type
     symtab*: TStrTable
     offsetToLineCache*: array[20, tuple[version, offset, line: int]]
     breakpoints*: Table[int, TokenClass]
+    scrollState*: ScrollBarState
 
 proc getCell*(b: Buffer; i: Natural): Cell =
   if i < b.front.len:

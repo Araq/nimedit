@@ -75,39 +75,51 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
   grip.y = clamp(gripPositionOnTrack.cint + bufferRect.y, bufferRect.y,
                  bufferRect.y + bufferRect.h - grip.h)
 
+  template state: var ScrollBarState =
+      b.scrollState
+
   for e in events:
-    if e.kind == MouseMotion:
-      let w = e.motion
-      let p = point(w.x, w.y)
-      if rect.contains(p):
-        active = true
-      #if grip.contains(p):
+    case state.usingScrollbar
+    of false:
+      # check if we need to change state to being used
+      if e.kind == MouseButtonDown:
+        let w = e.button
+        let p = point(w.x, w.y)
+        if grip.contains(p):
+          active = true
+          state = ScrollBarState(usingScrollbar: true,
+            initiallyGrippedAt: w.y - grip.y)
+    of true:
+      # check if we need to change state to not being used
+      if e.kind == MouseButtonUp:
+        state = ScrollBarState(usingScrollbar: false)
+
+      elif e.kind == MouseMotion:
+        # move scrollbar and buffer position
+        let w = e.motion
+        let p = point(w.x, w.y)
+        if grip.contains(p):
+          active = true
+        #if grip.contains(p):
         if (w.state and BUTTON_LMASK) != 0:
-          let mousePositionDelta = w.yrel.float
+          let
+            mousePosRelativeToScrollbar = w.y - grip.y
+            yMovement = mousePosRelativeToScrollbar - state.initiallyGrippedAt
 
           # Determine the new location of the grip
-          let newGripPosition = clamp(gripPositionOnTrack + mousePositionDelta,
+          let newGripPosition = clamp(gripPositionOnTrack + float(yMovement),
                                       0.0, trackScrollAreaSize)
           let newGripPositionRatio = newGripPosition / trackScrollAreaSize
           result = clamp((newGripPositionRatio * windowScrollAreaSize /
             fontSize.float).int, 0, b.numberOfLines)
-        #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
-        #               0, b.numberOfLines)
-    elif e.kind == MouseButtonDown:
-      let w = e.button
-      let p = point(w.x, w.y)
-      if rect.contains(p):
-        active = true
-        let linesInWindow = max(bufferRect.h div fontSize, 1)
-        if w.y < grip.y:
-          result = clamp(b.firstLine - linesInWindow, 0, b.numberOfLines)
-        elif w.y > grip.y + grip.h:
-          result = clamp(b.firstLine + linesInWindow, 0, b.numberOfLines)
+          #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
+          #               0, b.numberOfLines)
+
 
   if not active:
     var p: Point
     discard getMouseState(p.x, p.y)
-    if rect.contains(p):
+    if grip.contains(p) or state.usingScrollbar:
       active = true
 
   # draw the bar:
