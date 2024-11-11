@@ -28,7 +28,12 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
   # the algorithm.
 
   # Determine how large the content is, and how big our window is
-  let contentSize = float(b.numberOfLines) * fontSize.float
+  let
+    # we allow for scrolling past the end of the document whenever scrolling is
+    # enabled, so we have to account for this extra length:
+    numberOfViewableLines = b.numberOfLines + b.span
+
+  let contentSize = float(numberOfViewableLines) * fontSize.float
   let windowSize = bufferRect.h.float
   let trackSize = windowSize
 
