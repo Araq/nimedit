@@ -8,6 +8,11 @@ const scrollBarWidth* = 15
 func scrollingEnabled*(b: Buffer): bool =
   result = b.span <= b.numberOfLines
 
+proc mouseInsideRect(r: Rect): bool =
+  var p: Point
+  discard getMouseState(p.x, p.y)
+  result = r.contains(p)
+
 proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
                     bufferRect: Rect): int =
   ## returns -1 if no scrolling was requested.
@@ -65,7 +70,6 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
   #let pixelsPerLine = b.numberOfLines.cint / bufferRect.h
   #let screens = b.numberOfLines.cint / span
   #let pixelsPerScreen = bufferRect.h.float / screens
-  var active = false
 
   var grip = rect
   grip.x -= 1
@@ -78,6 +82,13 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
   template state: var ScrollBarState =
       b.scrollState
 
+  var active = false
+
+  let mouseOverGrip = mouseInsideRect(grip)
+  if mouseOverGrip or state.usingScrollbar:
+    active = true
+
+
   for e in events:
     case state.usingScrollbar
     of false:
@@ -86,7 +97,7 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
         let w = e.button
         let p = point(w.x, w.y)
         if grip.contains(p):
-          active = true
+          # active = true
           state = ScrollBarState(usingScrollbar: true,
             initiallyGrippedAt: w.y - grip.y)
     of true:
@@ -98,8 +109,8 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
         # move scrollbar and buffer position
         let w = e.motion
         let p = point(w.x, w.y)
-        if grip.contains(p):
-          active = true
+        # if grip.contains(p):
+        #   active = true
         #if grip.contains(p):
         if (w.state and BUTTON_LMASK) != 0:
           let
@@ -114,13 +125,6 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
             fontSize.float).int, 0, b.numberOfLines)
           #result = clamp(cint((p.y-rect.y).float * pixelsPerLine),
           #               0, b.numberOfLines)
-
-
-  if not active:
-    var p: Point
-    discard getMouseState(p.x, p.y)
-    if grip.contains(p) or state.usingScrollbar:
-      active = true
 
   # draw the bar:
   #drawBorder(t, rect, active)
