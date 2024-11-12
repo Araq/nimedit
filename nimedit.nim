@@ -4,9 +4,11 @@ when defined(gcc) and defined(windows):
   when defined(x86):
     {.link: "icons/crown.o".}
 
-import strutils, critbits, os, times, browsers, tables, hashes, intsets
+import
+  std/[strutils, critbits, os, times, browsers, tables, hashes, intsets,
+    exitprocs]
 from parseutils import parseInt
-import sdl2, sdl2/ttf, prims
+import sdl2, sdl2/ttf
 import buffertype except Action
 import buffer, styles, unicode, highlighters, console
 import nimscript/common, nimscript/keydefs, languages, themes,
@@ -834,12 +836,12 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
   of Action.Copy:
     let text = focus.getSelectedText
     if text.len > 0:
-      discard sdl2.setClipboardText(text)
+      discard sdl2.setClipboardText(cstring text)
   of Action.Cut:
     let text = focus.getSelectedText
     if text.len > 0:
       focus.removeSelectedText()
-      discard sdl2.setClipboardText(text)
+      discard sdl2.setClipboardText(cstring text)
   of Action.Paste:
     let text = sdl2.getClipboardText()
     focus.insert($text, smartInsert=true)
@@ -1019,14 +1021,14 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
       if not surpress:
         if focus==ed.autocomplete or focus==ed.sug:
           # delegate to main, but keep the focus on the autocomplete!
-          main.insertSingleKey($(addr w.text))
+          main.insertSingleKey($cast[cstring](addr w.text))
           if focus==ed.autocomplete:
             populateBuffer(ed.sh.indexer, ed.autocomplete, main.getWordPrefix())
           else:
             gotoPrefix(ed.sug, main.getWordPrefix())
           trackSpot(ed.sh.hotspots, main)
         else:
-          focus.insertSingleKey($(addr w.text))
+          focus.insertSingleKey($cast[cstring](addr w.text))
           if focus==main: trackSpot(ed.sh.hotspots, main)
     of KeyDown, KeyUp:
       let ks = eventToKeySet(e)
@@ -1134,7 +1136,7 @@ proc drawAllWindows(sh: SharedState; events: sink seq[Event]) =
     ed = ed.next
 
 proc mainProc(ed: Editor) =
-  addQuitProc nimsuggestclient.shutdown
+  addExitProc nimsuggestclient.shutdown
 
   var sh = newSharedState()
   setDefaults(ed, sh)

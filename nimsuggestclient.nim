@@ -1,5 +1,5 @@
 
-import osproc, streams, os, net, strutils, buffertype, buffer
+import osproc, os, net, strutils, buffertype, buffer
 
 const
   endToken = "\e"
