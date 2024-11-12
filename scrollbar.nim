@@ -1,7 +1,7 @@
 ## Draws a vertical scrollbar for a buffer.
 
-import buffertype, themes, intsets
-import sdl2, sdl2/ttf, prims, tabbar
+import buffertype, themes
+import sdl2, sdl2/ttf, tabbar
 
 const scrollBarWidth* = 15
 
