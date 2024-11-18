@@ -1,5 +1,5 @@
 
-import styles, nimscript/common, intsets, compiler/ast, tables
+import styles, nimscript/common, intsets, std/../../compiler/ast, tables
 from times import Time
 from sdl2 import Rect
 
