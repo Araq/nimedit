@@ -122,7 +122,13 @@ proc detectNimLib(): string =
           result = nimexe.expandSymlink.splitPath()[0] /../ "lib"
         except OSError:
           result = getHomeDir() / ".choosenim/toolchains/nim-" & NimVersion / "lib"
+      elif defined(windows):
+        result = getHomeDir() / ".choosenim/toolchains/nim-" & NimVersion / "lib"
+      else:
+        # TODO
+        {.error: "not implemented".}
       if not fileExists(result / "system.nim"):
+        echo result
         quit "cannot find Nim's stdlib location"
   when not defined(release): echo result
 
