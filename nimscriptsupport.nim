@@ -1,20 +1,20 @@
 
 import
-  compiler/ast, compiler/modules, compiler/passes,
-  compiler/condsyms, compiler/options,
-  compiler/llstream, compiler/vm, compiler/vmdef,
-  compiler/magicsys, compiler/idents,
-  compiler/modulegraphs, compiler/pathutils
+  std/../../compiler/[ast, modules, passes,
+  condsyms, options,
+  llstream, vm, vmdef,
+  magicsys, idents,
+  modulegraphs, pathutils]
 
 when NimMajor >= 2:
   import
-    compiler/pipelines, compiler/commands
+    std/../../compiler/[pipelines, commands]
 else:
   import
-    compiler/sem
+    std/../../compiler/sem
 
 
-from compiler/scriptconfig import setupVM
+from std/../../compiler//scriptconfig import setupVM
 
 import os, strutils
 import themes, styles, nimscript/common
