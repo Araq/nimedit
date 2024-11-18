@@ -1220,13 +1220,12 @@ proc mainProc(ed: Editor) =
   destroy ed
 
 
-echo 2222
+
 if sdl2.init(INIT_VIDEO) != SdlSuccess:
   echo "SDL_Init"
 elif ttfInit() != SdlSuccess:
   echo "TTF_Init"
 else:
-  echo 1
   startTextInput()
   mainProc(Editor())
 sdl2.quit()
