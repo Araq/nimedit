@@ -15,7 +15,7 @@ import nimscript/common, nimscript/keydefs, languages, themes,
   nimscriptsupport, tabbar, finder,
   scrollbar, indexer, overviews, nimsuggestclient, minimap
 
-import std/../../compiler / pathutils
+import compiler / pathutils
 
 when defined(windows):
   import dialogs

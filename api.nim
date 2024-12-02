@@ -2,7 +2,7 @@
 
 # List only the imports that the main file doesn't already import here:
 import
-  std/../../compiler/[ast, vm, vmdef],
+  compiler/[ast, vm, vmdef],
   nimscriptsupport
 
 proc setupApi(result: PEvalContext; sh: SharedState) =

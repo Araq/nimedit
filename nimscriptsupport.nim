@@ -1,6 +1,6 @@
 
 import
-  std/../../compiler/[ast, modules, passes,
+  compiler/[ast, modules, passes,
   condsyms, options,
   llstream, vm, vmdef,
   magicsys, idents,
@@ -8,13 +8,13 @@ import
 
 when NimMajor >= 2:
   import
-    std/../../compiler/[pipelines, commands]
+    compiler/[pipelines, commands]
 else:
   import
-    std/../../compiler/sem
+    compiler/sem
 
 
-from std/../../compiler//scriptconfig import setupVM
+from compiler/scriptconfig import setupVM
 
 import os, strutils
 import themes, styles, nimscript/common
