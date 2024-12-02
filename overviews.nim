@@ -4,7 +4,7 @@ import buffertype, buffer
 
 import
   parseutils, strutils, intsets, nimscriptsupport,
-  std/../../compiler / [ast, idents, parser, astalgo, renderer,
+  compiler / [ast, idents, parser, astalgo, renderer,
     lineinfos, options]
 
 proc errorHandler(conf: ConfigRef; info: TLineInfo; msg: TMsgKind; arg: string) =
