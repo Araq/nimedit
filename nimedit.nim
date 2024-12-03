@@ -678,7 +678,7 @@ proc createSdlWindow(ed: Editor; maximize: range[0u32 .. 1u32]) =
     let maximized = SDL_WINDOW_MAXIMIZED * maximize
 
   ed.window = createWindow(windowTitle, 10, 30, ed.screenW, ed.screenH,
-    SDL_WINDOW_RESIZABLE or maximized or SDL_WINDOW_ALLOW_HIGHDPI)
+                            SDL_WINDOW_RESIZABLE or maximized)
   ed.window.getSize(ed.screenW, ed.screenH)
   ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
 
@@ -1220,10 +1220,8 @@ proc mainProc(ed: Editor) =
   destroy ed
 
 
-# no sdl2 hints defined? we'll just do them verbatim then
-if setHint("SDL_WINDOWS_DPI_AWARENESS", "permonitorv2") != SdlSuccess:
-  echo "dpi failure"
-elif sdl2.init(INIT_VIDEO) != SdlSuccess:
+
+if sdl2.init(INIT_VIDEO) != SdlSuccess:
   echo "SDL_Init"
 elif ttfInit() != SdlSuccess:
   echo "TTF_Init"
