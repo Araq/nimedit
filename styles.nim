@@ -41,6 +41,7 @@ proc findFontFile(name: string): Path =
   const AllFonts = when defined(linux): Path"/usr/share/fonts/truetype/"
     elif defined(windows): Path r"C:\Windows\Fonts\"
     elif defined(openIndiana): Path"/usr/share/fonts/TrueType/"
+    elif defined(macosx): Path"/Library/Fonts/"
     else: quit "need to implement"
   once:
     if not AllFonts.dirExists:
@@ -49,7 +50,7 @@ proc findFontFile(name: string): Path =
           "doesn't exist.")
 
   let toMatch = name.Path.addFileExt("ttf")
-  for file in AllFonts.walkDirRec():
+  for file in AllFonts.walkDirRec({pcFile, pcLinkToFile}):
     if file.extractFilename == toMatch.extractFilename: return file
 
   raise newException(IOError, fmt"Could not find font file '{toMatch.string}'!")
