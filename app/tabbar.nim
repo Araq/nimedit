@@ -109,9 +109,15 @@ proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
           if rect.contains(p):
             result = it
       elif e.kind == evMouseMove:
-        # check for drag (button held)
-        if modShift in getModState() or e.clicks > 0:
-          discard # TODO: tab reorder via drag
+        if mbLeft in e.buttons:
+          let p = point(e.x.cint, e.y.cint)
+          if rect.contains(p):
+            if e.xrel >= 4:
+              if it == tabs.first: tabs.first = it.next
+              swapBuffers(it, it.next)
+            elif e.xrel <= -4:
+              if it == tabs.first: tabs.first = it.prev
+              swapBuffers(it.prev, it)
 
     inc xx, rect.w + t.uiXGap.cint*2
     if it == tabs.last: break

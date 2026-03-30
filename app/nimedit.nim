@@ -578,6 +578,8 @@ proc eventToKeySet(e: input.Event): set[Key] =
   of keyRight: result.incl Key.Right
   of keyUp: result.incl Key.Up
   of keyDown: result.incl Key.Down
+  of keyComma: result.incl Key.Comma
+  of keyPeriod: result.incl Key.Period
   else: discard
   when defined(macosx):
     if modGui in e.mods: result.incl Key.Apple
