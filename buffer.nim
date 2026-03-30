@@ -57,6 +57,100 @@ proc cursorMoved(b: Buffer) =
     of '}': backwards(b, '{', '}')
     else: discard
 
+proc getLineFromOffset(b: Buffer; pos: int): Natural =
+  # example:
+  #   0: offset:  45   line 3
+  #   1: offset:  66   line 4
+  #   2: offset:  99   line 8
+  # question: which line at offset 77?
+  # The best entry is 1 because 66 is the *biggest* offset that is still < pos!
+  result = 0
+  var p = pos
+  var e = 0
+
+  # check cache:
+  for ce in mitems(b.offsetToLineCache):
+    if ce.version == b.version:
+      if ce.offset == pos:
+        return ce.line
+      if ce.offset < pos and ce.offset > e:
+        e = ce.offset
+        result = ce.line
+
+  # do not count the newline at the very end at b[pos]:
+  if p >= 0 and b[p] == '\L': dec p
+  while p >= e:
+    if b[p] == '\L': inc result
+    dec p
+
+  # we need to store the start of the line:
+  p = pos
+  while p > 0 and b[p-1] != '\L': dec p
+
+  # find best cache entry to replace:
+  var idx = 0
+  for ce in mitems(b.offsetToLineCache):
+    if ce.version != b.version or idx == high(b.offsetToLineCache) or
+       ce.offset >= pos:
+      ce = (version: b.version, offset: p, line: result)
+      break
+    inc idx
+
+proc getLineOffset(b: Buffer; lines: Natural): int =
+  var y = lines
+  if y == 0: return 0
+
+  # check cache:
+  for ce in mitems(b.offsetToLineCache):
+    if ce.version == b.version:
+      if ce.line == lines:
+        return ce.offset
+
+  while true:
+    if b[result] == '\L':
+      dec y
+      if y == 0:
+        inc result
+        break
+    inc result
+
+  # find best cache entry to replace:
+  var idx = 0
+  for ce in mitems(b.offsetToLineCache):
+    if ce.version != b.version or idx == high(b.offsetToLineCache) or
+       ce.offset >= result:
+      ce = (version: b.version, offset: result, line: lines)
+      break
+    inc idx
+
+proc mouseSelectWholeLine(b: Buffer) =
+  var first = b.cursor
+  while first > 0 and b[first-1] != '\L': dec first
+  b.selected = (first, b.cursor)
+
+proc mouseSelectCurrentToken(b: Buffer) =
+  var first = b.cursor
+  var last = b.cursor
+  if b[b.cursor] in Letters:
+    while first > 0 and b[first-1] in Letters: dec first
+    while last < b.len and b[last+1] in Letters: inc last
+  else:
+    while first > 0 and b.getCell(first-1).s == b.getCell(b.cursor).s and
+                        b.getCell(first-1).c != '\L':
+      dec first
+    while last < b.len and b.getCell(last+1).s == b.getCell(b.cursor).s:
+      inc last
+  b.cursor = first
+  b.selected = (first, last)
+  cursorMoved(b)
+
+proc setCurrentLine(b: Buffer) =
+  #if b.filterLines:
+  b.currentLine = getLineFromOffset(b, b.cursor)
+  #else:
+  #  b.currentLine = max(b.firstLine + b.span, 0)
+  b.currentLine = clamp(b.currentLine, 0, b.numberOfLines)
+
 include drawbuffer
 
 proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
