@@ -1,6 +1,5 @@
 
-from sdl2 import Color, RendererPtr
-from sdl2/ttf import FontPtr
+import screen
 
 type
   InternalTheme* = object
@@ -16,9 +15,8 @@ type
     tabWidth*: Natural
     consoleAfter*: Natural
     consoleWidth*: Natural
-    renderer*: RendererPtr
-    uiFontPtr*: FontPtr
-    editorFontPtr*: FontPtr
+    uiFontHandle*: Font
+    editorFontHandle*: Font
     showLines*: bool
     bracket*: Color
     showBracket*, showIndentation*: bool

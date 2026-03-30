@@ -8,7 +8,8 @@ import
   std/[strutils, critbits, os, times, browsers, tables, hashes, intsets,
     exitprocs]
 from parseutils import parseInt
-import sdl2, sdl2/ttf
+import basetypes, screen, input
+import sdl2_driver
 import buffertype except Action
 import buffer, styles, unicode, highlighters, console
 import nimscript/common, nimscript/keydefs, languages, themes,
@@ -51,7 +52,7 @@ type
     firstWindow, activeWindow: Editor
     mgr: StyleManager
     statusMsg: string
-    uiFont: FontPtr
+    uiFont: Font
     ticker, idle, blink: int
     indexer: Index
     hotspots: Spots
@@ -72,8 +73,6 @@ type
     main, prompt, console, autocomplete, minimap, sug: Buffer
     mainRect, promptRect, consoleRect: Rect
 
-    renderer: RendererPtr
-    window: WindowPtr
     screenW, screenH: cint
     buffersCounter: int
     con, promptCon: Console
@@ -150,8 +149,7 @@ proc createUnknownTab(ed: Editor; sh: SharedState) =
   sh.focus = ed.main
 
 proc destroy(ed: Editor) =
-  destroyRenderer ed.renderer
-  destroy ed.window
+  discard
 
 template insertBuffer(head, n) =
   n.next = head
@@ -308,8 +306,6 @@ proc gotoNextSpot(ed: Editor; s: var Spots; b: Buffer) =
 template prompt: untyped = ed.prompt
 template focus: untyped = ed.sh.focus
 template main: untyped = ed.main
-template renderer: untyped = ed.renderer
-
 iterator allWindows(sh: SharedState): Editor =
   var it = sh.firstWindow
   while it != nil:
@@ -317,8 +313,7 @@ iterator allWindows(sh: SharedState): Editor =
     it = it.next
 
 proc setTitle(sh: SharedState; title: string) =
-  for w in allWindows(sh):
-    w.window.setTitle title
+  screen.setWindowTitle(title)
 
 include prompt
 
@@ -532,102 +527,63 @@ proc handleEvent(ed: Editor; procname: string) =
     if not ed.hasConsole:
       ed.sh.statusMsg = "Errors! Open console to see them."
 
-proc pollEvents*(someConsoleRunning, windowHasFocus: bool): seq[Event] =
-  ## Returns all events held by sdl2, blocking to save cycles when possible.
-  # Please note that the last (unsuccessful) call the `sdl2.pollEvent` will
-  # turn the `e` var hidden pointer's value into garbage.
-  # So we have to return some form of copied value, not a pointer.
+proc pollEvents*(someConsoleRunning, windowHasFocus: bool): seq[input.Event] =
   result = @[]
+  var e: input.Event
 
-  # Initialize an event of any value.
-  var e = Event()
-
-  # While nimedit doesnt have focus, wait for an event of some kind (usually
-  # a WindowEvent).
   if not (someConsoleRunning or windowHasFocus):
-    let wasSucessful = waitEvent(e) # halts while theres no input
-    assert wasSucessful
-    result.add e
+    if input.waitEvent(e):
+      result.add e
 
-  # Take note of all the events that sdl2 has registered.
-  while pollEvent(e): # returns true until no events are left to poll
+  while input.pollEvent(e):
     result.add e
 
 proc ctrlKeyPressed*(): bool =
-  let keys = getKeyboardState()
-  result = keys[SDL_SCANCODE_LCTRL.int] == 1 or
-           keys[SDL_SCANCODE_RCTRL.int] == 1
+  modCtrl in input.getModState()
 
 proc shiftKeyPressed*(): bool =
-  let keys = getKeyboardState()
-  result = keys[SDL_SCANCODE_LSHIFT.int] == 1 or
-           keys[SDL_SCANCODE_RSHIFT.int] == 1
+  modShift in input.getModState()
 
 proc loadTheme(ed: SharedState) =
   loadTheme(ed.cfgColors, ed.theme, ed.mgr, ed.fontM)
   ed.uiFont = ed.fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)
-  ed.theme.uiFontPtr = ed.uiFont
-  ed.theme.editorFontPtr = ed.fontM.fontByName(ed.theme.editorFont,
-                                               ed.theme.editorFontSize)
+  ed.theme.uiFontHandle = ed.uiFont
+  ed.theme.editorFontHandle = ed.fontM.fontByName(ed.theme.editorFont,
+                                                   ed.theme.editorFontSize)
 
-proc eventToKeySet(e: Event): set[Key] =
+proc eventToKeySet(e: input.Event): set[Key] =
   result = {}
-  if e.kind == KeyDown: discard
-  elif e.kind == KeyUp: result.incl(Key.KeyReleased)
+  if e.kind == evKeyDown: discard
+  elif e.kind == evKeyUp: result.incl(Key.KeyReleased)
   else: return
-  let w = e.key
-  let ch = char(w.keysym.sym and 0xff)
-  case ch
-  of 'a'..'z':
-    result.incl(Key(ord(ch) - 'a'.ord + Key.A.ord))
-  of '0'..'9':
-    result.incl(Key(ord(ch) - '0'.ord + Key.N0.ord))
-  else: discard
-  case w.keysym.scancode
-  of SDL_SCANCODE_F1..SDL_SCANCODE_F12:
-    result.incl(Key(ord(Key.F1) + ord(w.keysym.scancode) - SDL_SCANCODE_F1.ord))
-  of SDL_SCANCODE_RETURN:
-    result.incl(Key.Enter)
-  of SDL_SCANCODE_SPACE:
-    result.incl(Key.Space)
-  of SDL_SCANCODE_ESCAPE:
-    result.incl(Key.Esc)
-  of SDL_SCANCODE_DELETE:
-    result.incl(Key.Del)
-  of SDL_SCANCODE_BACKSPACE:
-    result.incl Key.Backspace
-  of SDL_SCANCODE_INSERT:
-    result.incl Key.Ins
-  of SDL_SCANCODE_PAGEUP:
-    result.incl Key.PageUp
-  of SDL_SCANCODE_PAGEDOWN:
-    result.incl Key.PageDown
-  of SDL_SCANCODE_CAPSLOCK:
-    result.incl Key.Capslock
-  of SDL_SCANCODE_TAB:
-    result.incl Key.Tab
-  of SDL_SCANCODE_COMMA:
-    result.incl Key.Comma
-  of SDL_SCANCODE_PERIOD:
-    result.incl Key.Period
-  of SDL_SCANCODE_LEFT:
-    result.incl Key.Left
-  of SDL_SCANCODE_RIGHT:
-    result.incl Key.Right
-  of SDL_SCANCODE_UP:
-    result.incl Key.Up
-  of SDL_SCANCODE_DOWN:
-    result.incl Key.Down
+  # Map KeyCode to Key enum for the keybinding system
+  case e.key
+  of keyA..keyZ:
+    result.incl(Key(ord(Key.A) + ord(e.key) - ord(keyA)))
+  of key0..key9:
+    result.incl(Key(ord(Key.N0) + ord(e.key) - ord(key0)))
+  of keyF1..keyF12:
+    result.incl(Key(ord(Key.F1) + ord(e.key) - ord(keyF1)))
+  of keyEnter: result.incl Key.Enter
+  of keySpace: result.incl Key.Space
+  of keyEsc: result.incl Key.Esc
+  of keyDelete: result.incl Key.Del
+  of keyBackspace: result.incl Key.Backspace
+  of keyInsert: result.incl Key.Ins
+  of keyPageUp: result.incl Key.PageUp
+  of keyPageDown: result.incl Key.PageDown
+  of keyCapslock: result.incl Key.Capslock
+  of keyTab: result.incl Key.Tab
+  of keyLeft: result.incl Key.Left
+  of keyRight: result.incl Key.Right
+  of keyUp: result.incl Key.Up
+  of keyDown: result.incl Key.Down
   else: discard
   when defined(macosx):
-    if (w.keysym.modstate and KMOD_GUI()) != 0:
-      result.incl Key.Apple
-  if (w.keysym.modstate and KMOD_CTRL()) != 0:
-    result.incl Key.Ctrl
-  if (w.keysym.modstate and KMOD_SHIFT()) != 0:
-    result.incl Key.Shift
-  if (w.keysym.modstate and KMOD_ALT()) != 0:
-    result.incl Key.Alt
+    if modGui in e.mods: result.incl Key.Apple
+  if modCtrl in e.mods: result.incl Key.Ctrl
+  if modShift in e.mods: result.incl Key.Shift
+  if modAlt in e.mods: result.incl Key.Alt
 
 proc produceHelp(ed: Editor): string =
   proc getArg(a: Command): string =
@@ -663,24 +619,12 @@ proc closeTab(ed: Editor) =
     ed.askForQuitTab()
 
 proc setActiveWindow(sh: SharedState; wid: uint32): Editor =
-  if sh.activeWindow.window.getId() != wid:
-    for it in sh.allWindows:
-      if it.window.getId() == wid:
-        sh.activeWindow = it
-        break
   return sh.activeWindow
 
 proc createSdlWindow(ed: Editor; maximize: range[0u32 .. 1u32]) =
-  # Doesn't work on Linux. Yay.
-  when defined(linux):
-    const maximized = 0'u32
-  else:
-    let maximized = SDL_WINDOW_MAXIMIZED * maximize
-
-  ed.window = createWindow(windowTitle, 10, 30, ed.screenW, ed.screenH,
-                            SDL_WINDOW_RESIZABLE or maximized)
-  ed.window.getSize(ed.screenW, ed.screenH)
-  ed.renderer = createRenderer(ed.window, -1, Renderer_Software)
+  let layout = screen.createWindow(ed.screenW, ed.screenH)
+  ed.screenW = layout.width.cint
+  ed.screenH = layout.height.cint
 
 
 proc moveTabToRightWindow(ed: Editor) =
@@ -836,16 +780,15 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
   of Action.Copy:
     let text = focus.getSelectedText
     if text.len > 0:
-      discard sdl2.setClipboardText(cstring text)
+      input.putClipboardText(text)
   of Action.Cut:
     let text = focus.getSelectedText
     if text.len > 0:
       focus.removeSelectedText()
-      discard sdl2.setClipboardText(cstring text)
+      input.putClipboardText(text)
   of Action.Paste:
-    let text = sdl2.getClipboardText()
-    focus.insert($text, smartInsert=true)
-    freeClipboardText(text)
+    let text = input.getClipboardText()
+    focus.insert(text, smartInsert=true)
 
   of Action.AutoComplete:
     let prefix = main.getWordPrefix()
@@ -898,7 +841,7 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
     if ed.buffersCounter >= 2:
       moveTabToRightWindow(ed)
 
-  of Action.QuitApplication: sdl2.quit()
+  of Action.QuitApplication: input.quitRequest()
   of Action.Declarations:
     if main.lang == langNim:
       main.filterLines = not main.filterLines
@@ -953,102 +896,91 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
 
   for e in events:
     case e.kind
-    of QuitEvent:
+    of evQuit:
       if handleQuitEvent(ed):
         result = true
         break
-    of WindowEvent:
-      let w = e.window
-      let ed = ed.sh.setActiveWindow(w.windowId)
-      case w.event
-      of WindowEvent_Resized:
-        ed.screenW = w.data1
-        ed.screenH = w.data2
-        layout(ed)
-      of WindowEvent_FocusLost:
-        sh.windowHasFocus = false
-      of WindowEvent_FocusGained:
-        sh.windowHasFocus = true
-      of WindowEvent_Close:
-        if sh.firstWindow.next.isNil:
-          if handleQuitEvent(ed):
-            result = true
-            break
-        else:
-          closeWindow(sh.activeWindow)
-      else: discard
-    of MouseButtonDown:
-      let w = e.button
-      # This mitigates problems with older SDL 2 versions. Prior to 2.0.3
-      # there was no 'clicks' field. Yeah introduce major features in
-      # a bugfix release, why not...
-      if w.clicks == 0 or w.clicks > 5u8: w.clicks = 1
-      if ctrlKeyPressed(): inc(w.clicks)
-      let p = point(w.x, w.y)
+    of evWindowResize:
+      ed.screenW = e.x.cint
+      ed.screenH = e.y.cint
+      layout(ed)
+    of evWindowFocusLost:
+      sh.windowHasFocus = false
+    of evWindowFocusGained:
+      sh.windowHasFocus = true
+    of evWindowClose:
+      if sh.firstWindow.next.isNil:
+        if handleQuitEvent(ed):
+          result = true
+          break
+      else:
+        closeWindow(sh.activeWindow)
+    of evMouseDown:
+      var clicks = e.clicks
+      if clicks == 0 or clicks > 5: clicks = 1
+      if ctrlKeyPressed(): inc(clicks)
+      let p = point(e.x, e.y)
       if ed.mainRect.contains(p) and ed.main.scrollingEnabled:
-        # XXX extract to a proc
         var rawMainRect = ed.mainRect
         rawMainRect.w -= scrollBarWidth
         if focus == main and rawMainRect.contains(p):
-          main.setCursorFromMouse(ed.mainRect, p, w.clicks.int)
+          main.setCursorFromMouse(ed.mainRect, p, clicks)
         else:
           focus = main
       elif ed.promptRect.contains(p):
         if focus == prompt:
-          prompt.setCursorFromMouse(ed.promptRect, p, w.clicks.int)
+          prompt.setCursorFromMouse(ed.promptRect, p, clicks)
         else:
           focus = prompt
       elif hasConsole(ed) and ed.consoleRect.contains(p):
         if focus == console:
-          console.setCursorFromMouse(ed.consoleRect, p, w.clicks.int)
-          ed.sh.clickOnFilename = w.clicks.int >= 2
+          console.setCursorFromMouse(ed.consoleRect, p, clicks)
+          ed.sh.clickOnFilename = clicks >= 2
         else:
           focus = console
-    of MouseWheel:
-      let w = e.wheel
-      var p: Point
-      discard getMouseState(p.x, p.y)
-      let a = if hasConsole(ed) and ed.consoleRect.contains(p): console
-              else: focus
-      a.scrollLines(-w.y*3)
-    of TextInput:
-      let w = e.text
-      # surpress CTRL+Space:
+    of evMouseWheel:
+      # use last known mouse position for target determination
+      focus.scrollLines(-e.y*3)
+    of evTextInput:
       var surpress = false
-      if w.text[0] == ' ' and w.text[1] == '\0':
+      if e.text[0] == ' ' and e.text[1] == '\0':
         if ctrlKeyPressed():
           surpress = true
       if not surpress:
+        let textStr = $cast[cstring](unsafeAddr e.text[0])
         if focus==ed.autocomplete or focus==ed.sug:
-          # delegate to main, but keep the focus on the autocomplete!
-          main.insertSingleKey($cast[cstring](addr w.text))
+          main.insertSingleKey(textStr)
           if focus==ed.autocomplete:
             populateBuffer(ed.sh.indexer, ed.autocomplete, main.getWordPrefix())
           else:
             gotoPrefix(ed.sug, main.getWordPrefix())
           trackSpot(ed.sh.hotspots, main)
         else:
-          focus.insertSingleKey($cast[cstring](addr w.text))
+          focus.insertSingleKey(textStr)
           if focus==main: trackSpot(ed.sh.hotspots, main)
-    of KeyDown, KeyUp:
+    of evKeyDown, evKeyUp:
       let ks = eventToKeySet(e)
       let cmd = sh.keymapping.getOrDefault(ks)
       if ed.runAction(cmd.action, cmd.arg):
         result = true
         break
     else: discard
-    # keydown means show the cursor:
     sh.blink = 0
     sh.idle = 0
 
-proc draw(events: sink seq[Event]; ed: Editor) =
+proc draw(events: sink seq[input.Event]; ed: Editor) =
   let sh = ed.sh
-  # position of the tab bar hard coded for now as we don't want to adapt it
-  # to the main margin (tried it, is ugly):
+  # Fill entire screen with theme background
+  screen.fillRect(rect(0, 0, ed.screenW, ed.screenH), sh.theme.bg)
   let activeTab = drawTabBar(ed.bar, sh.theme, 47, ed.screenW,
                              events, ed.main)
   if activeTab != nil:
-    if (getMouseState(nil, nil) and SDL_BUTTON(BUTTON_RIGHT)) != 0:
+    var rightClick = false
+    for e in events:
+      if e.kind == evMouseDown and e.button == mbRight:
+        rightClick = true
+        break
+    if rightClick:
       let oldMain = main
       if not activeTab.changed:
         ed.removeBuffer(activeTab)
@@ -1059,7 +991,7 @@ proc draw(events: sink seq[Event]; ed: Editor) =
         ed.askForQuitTab()
     else:
       main = activeTab
-    focus = main
+      focus = main
 
   var rawMainRect = ed.mainRect
   if main.scrollingEnabled:
@@ -1107,28 +1039,25 @@ proc draw(events: sink seq[Event]; ed: Editor) =
   sh.theme.draw(prompt, ed.promptRect, sh.blink==0 and focus==prompt)
   sh.theme.drawBorder(ed.promptRect, focus==prompt)
 
-  let statusBar = sh.theme.renderText(ed.sh.statusMsg & "     " & main.filename,
-                      sh.uiFont,
-    if ed.sh.statusMsg == readyMsg: sh.theme.fg else: color(0xff, 0x44, 0x44, 0))
-  let bottom = ed.screenH - sh.theme.editorFontSize.cint - sh.theme.uiYGap*2
+  let bottom = ed.screenH - sh.theme.editorFontSize.cint - sh.theme.uiYGap.cint*2
+  let statusColor = if ed.sh.statusMsg == readyMsg: sh.theme.fg
+                    else: screen.color(0xff, 0x44, 0x44, 0)
+  discard drawTextShaded(sh.uiFont, 15, bottom,
+    cstring(ed.sh.statusMsg & "     " & main.filename), statusColor, sh.theme.bg)
 
-  let position = sh.theme.renderText("Ln: " & $(getLine(main)+1) &
-                                     " Col: " & $(getColumn(main)+1) &
-                                     " \\t: " & $main.tabSize &
-                                     " " & main.lineending.displayNL,
-                                     sh.uiFont, sh.theme.fg)
-  renderer.draw(statusBar, 15, bottom)
-  renderer.draw(position,
-    ed.mainRect.x + ed.mainRect.w - 14*sh.theme.uiFontSize.int, bottom)
+  let posText = "Ln: " & $(getLine(main)+1) &
+                " Col: " & $(getColumn(main)+1) &
+                " \\t: " & $main.tabSize &
+                " " & main.lineending.displayNL
+  discard drawTextShaded(sh.uiFont,
+    cint(ed.mainRect.x + ed.mainRect.w - 14*sh.theme.uiFontSize.int), bottom,
+    cstring(posText), sh.theme.fg, sh.theme.bg)
 
-  present(renderer)
+  screen.refresh()
 
-proc drawAllWindows(sh: SharedState; events: sink seq[Event]) =
+proc drawAllWindows(sh: SharedState; events: sink seq[input.Event]) =
   var ed = sh.firstWindow
   while ed != nil:
-    clear(renderer)
-    # little hack so that not everything needs to be rewritten
-    ed.sh.theme.renderer = renderer
     if ed == sh.activeWindow:
       draw(events, ed)
     else:
@@ -1221,11 +1150,7 @@ proc mainProc(ed: Editor) =
 
 
 
-if sdl2.init(INIT_VIDEO) != SdlSuccess:
-  echo "SDL_Init"
-elif ttfInit() != SdlSuccess:
-  echo "TTF_Init"
-else:
-  startTextInput()
-  mainProc(Editor())
-sdl2.quit()
+initSdl2Driver()
+input.startTextInput()
+mainProc(Editor())
+input.quitRequest()

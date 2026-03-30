@@ -2,8 +2,7 @@
 # Handling of styles.
 
 import std/[strformat, strutils, decls]
-import sdl2, sdl2/ttf
-# from strutils import parseHexInt, toLower
+import screen, input
 import nimscript/common
 
 when NimMajor >= 2:
@@ -19,7 +18,7 @@ type
   AFont = object
     name: string
     size: byte
-    fonts: array[FontStyle, FontPtr]
+    fonts: array[FontStyle, Font]
   FontManager* = seq[AFont]
 
   FontAttr* = object
@@ -28,7 +27,7 @@ type
     size*: byte
 
   Style* = object
-    font*: FontPtr
+    font*: Font
     attr*: FontAttr
 
   StyleManager* = object
@@ -75,31 +74,28 @@ proc findStyledFontFile(mainFontFile: Path; style: FontStyle): Path =
                      fmt"Could not find font file that matches style {style}!")
 
 proc fatal*(msg: string) {.noReturn.} =
-  sdl2.quit()
+  quitRequest()
   quit(msg)
 
 proc parseColor*(hex: string): Color =
   let x = parseHexInt(hex)
-  result = color(x shr 16 and 0xff, x shr 8 and 0xff, x and 0xff, 0)
+  color(uint8(x shr 16 and 0xff), uint8(x shr 8 and 0xff), uint8(x and 0xff), 0)
 
 proc colorFromInt*(x: BiggestInt): Color =
   let x = x.int
-  result = color(x shr 16 and 0xff, x shr 8 and 0xff, x and 0xff, 0)
+  color(uint8(x shr 16 and 0xff), uint8(x shr 8 and 0xff), uint8(x and 0xff), 0)
 
-proc openFont(p: Path; s: byte): FontPtr {.inline.} =
-  ## Wrapper for `sdl2/ttf.openfont` with better typing.
-  result = openFont(cstring(p), cint(s))
+proc openFontFromPath(p: Path; s: byte): Font {.inline.} =
+  var metrics: FontMetrics
+  screen.openFont(string(p), s.int, metrics)
 
 proc fontByName*(m: var FontManager; name: string; size: byte;
-                 style=FontStyle.Normal): FontPtr =
-
-
+                 style=FontStyle.Normal): Font =
   for f in m:
     if f.name == name and f.size == size: return f.fonts[style]
 
   let mainFontPath = findFontFile(name)
-
-  result = openFont(mainFontPath, size)
+  result = openFontFromPath(mainFontPath, size)
 
   m.setLen m.len+1
   var p {.byAddr.} = m[^1]
@@ -110,7 +106,7 @@ proc fontByName*(m: var FontManager; name: string; size: byte;
   # map the missing style to the normal style:
   for s, font in p.fonts.mpairs:
     try:
-      font = openFont(findStyledFontFile(mainFontPath, s), size)
+      font = openFontFromPath(findStyledFontFile(mainFontPath, s), size)
     except IOError:
       font = result
   result = p.fonts[style]
@@ -118,17 +114,8 @@ proc fontByName*(m: var FontManager; name: string; size: byte;
 proc freeFonts*(m: FontManager) =
   for f in m:
     for i in FontStyle.Bold .. FontStyle.BoldItalic:
-      # if italic etc is not simply mapped to normal, free it
-      if f.fonts[i] != f.fonts[FontStyle.Normal]: close(f.fonts[i])
-    close(f.fonts[FontStyle.Normal])
-
-when false:
-  proc findFont*(m: var FontManager; size: byte; style=FontStyle.Normal): FontPtr =
-    fontByName(m, "DejaVuSansMono", size, style)
-
-  proc setStyle*(s: var StyleManager; m: var FontManager;
-                 idx: TokenClass; attr: FontAttr) =
-    s.a[idx] = Style(font: findFont(m, attr.size, attr.style), attr: attr)
+      if f.fonts[i] != f.fonts[FontStyle.Normal]: closeFont(f.fonts[i])
+    closeFont(f.fonts[FontStyle.Normal])
 
 proc getStyle*(s: StyleManager; i: TokenClass): Style {.inline.} =
   result = s.a[i]

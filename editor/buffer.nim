@@ -2,7 +2,7 @@
 
 import strutils, unicode, intsets, compiler/ast, tables
 import styles, highlighters, nimscript/common, themes
-import sdl2, sdl2/ttf, prims
+import basetypes, screen, prims
 import buffertype, unihelp, languages
 from os import splitFile
 
@@ -664,6 +664,7 @@ proc setCaret*(b: Buffer; pos: int) =
 
 proc removeSelectedText*(b: Buffer; selectedA, selectedB: int) =
   if selectedB < 0: return
+  if selectedA < 0 or selectedB >= b.len: return
   b.setCaret(selectedB+1)
   let oldCursor = b.cursor
   setLen(b.actions, clamp(b.undoIdx+1, 0, b.actions.len))

@@ -21,7 +21,9 @@ type
     evNone,
     evKeyDown, evKeyUp, evTextInput,
     evMouseDown, evMouseUp, evMouseMove, evMouseWheel,
-    evWindowResize, evWindowClose
+    evWindowResize, evWindowClose,
+    evWindowFocusGained, evWindowFocusLost,
+    evQuit
 
   Modifier* = enum
     modShift, modCtrl, modAlt, modGui
@@ -45,6 +47,25 @@ var getClipboardTextHook*: proc (): string {.nimcall.} =
 var putClipboardTextHook*: proc (text: string) {.nimcall.} =
   proc (text: string) = discard
 
+var waitEventHook*: proc (e: var Event; timeoutMs: int): bool {.nimcall.} =
+  proc (e: var Event; timeoutMs: int): bool = false
+var getModStateHook*: proc (): set[Modifier] {.nimcall.} =
+  proc (): set[Modifier] = {}
+var getTicksHook*: proc (): uint32 {.nimcall.} =
+  proc (): uint32 = 0
+var delayHook*: proc (ms: uint32) {.nimcall.} =
+  proc (ms: uint32) = discard
+var startTextInputHook*: proc () {.nimcall.} =
+  proc () = discard
+var quitRequestHook*: proc () {.nimcall.} =
+  proc () = discard
+
 proc pollEvent*(e: var Event): bool = pollEventHook(e)
+proc waitEvent*(e: var Event; timeoutMs: int = -1): bool = waitEventHook(e, timeoutMs)
 proc getClipboardText*(): string = getClipboardTextHook()
 proc putClipboardText*(text: string) = putClipboardTextHook(text)
+proc getModState*(): set[Modifier] = getModStateHook()
+proc getTicks*(): uint32 = getTicksHook()
+proc delay*(ms: uint32) = delayHook(ms)
+proc startTextInput*() = startTextInputHook()
+proc quitRequest*() = quitRequestHook()

@@ -51,18 +51,22 @@ var closeFontHook*: proc (f: Font) {.nimcall.} =
   proc (f: Font) = discard
 
 # Text
-var measureTextHook*: proc (f: Font; text: string): TextExtent {.nimcall.} =
-  proc (f: Font; text: string): TextExtent = TextExtent()
-var drawTextHook*: proc (f: Font; x, y: cint; text: string;
-                         color: Color): TextExtent {.nimcall.} =
-  proc (f: Font; x, y: cint; text: string; color: Color): TextExtent =
+var measureTextHook*: proc (f: Font; text: cstring): TextExtent {.nimcall.} =
+  proc (f: Font; text: cstring): TextExtent = TextExtent()
+var drawTextShadedHook*: proc (f: Font; x, y: cint; text: cstring;
+                               fg, bg: Color): TextExtent {.nimcall.} =
+  proc (f: Font; x, y: cint; text: cstring; fg, bg: Color): TextExtent =
     TextExtent()
+var getFontMetricsHook*: proc (f: Font): FontMetrics {.nimcall.} =
+  proc (f: Font): FontMetrics = FontMetrics()
 
 # Drawing primitives
 var fillRectHook*: proc (r: Rect; color: Color) {.nimcall.} =
   proc (r: Rect; color: Color) = discard
 var drawLineHook*: proc (x1, y1, x2, y2: cint; color: Color) {.nimcall.} =
   proc (x1, y1, x2, y2: cint; color: Color) = discard
+var drawPointHook*: proc (x, y: cint; color: Color) {.nimcall.} =
+  proc (x, y: cint; color: Color) = discard
 
 # Images
 var loadImageHook*: proc (path: string): Image {.nimcall.} =
@@ -90,12 +94,16 @@ proc setClipRect*(r: Rect) = setClipRectHook(r)
 proc openFont*(path: string; size: int; metrics: var FontMetrics): Font =
   openFontHook(path, size, metrics)
 proc closeFont*(f: Font) = closeFontHook(f)
-proc measureText*(f: Font; text: string): TextExtent = measureTextHook(f, text)
-proc drawText*(f: Font; x, y: cint; text: string; color: Color): TextExtent =
-  drawTextHook(f, x, y, text, color)
+proc measureText*(f: Font; text: cstring): TextExtent = measureTextHook(f, text)
+proc drawTextShaded*(f: Font; x, y: cint; text: cstring;
+                     fg, bg: Color): TextExtent =
+  drawTextShadedHook(f, x, y, text, fg, bg)
+proc getFontMetrics*(f: Font): FontMetrics = getFontMetricsHook(f)
+proc fontLineSkip*(f: Font): cint = getFontMetricsHook(f).lineHeight.cint
 proc fillRect*(r: Rect; color: Color) = fillRectHook(r, color)
 proc drawLine*(x1, y1, x2, y2: cint; color: Color) =
   drawLineHook(x1, y1, x2, y2, color)
+proc drawPoint*(x, y: cint; color: Color) = drawPointHook(x, y, color)
 proc loadImage*(path: string): Image = loadImageHook(path)
 proc freeImage*(img: Image) = freeImageHook(img)
 proc drawImage*(img: Image; src, dst: Rect) = drawImageHook(img, src, dst)
@@ -106,16 +114,3 @@ proc setWindowTitle*(title: string) = setWindowTitleHook(title)
 proc color*(r, g, b: uint8; a: uint8 = 255): Color =
   Color(r: r, g: g, b: b, a: a)
 
-proc parseColor*(s: string): Color =
-  ## Parse "#RRGGBB" hex color string.
-  if s.len == 7 and s[0] == '#':
-    proc hexVal(c: char): uint8 =
-      case c
-      of '0'..'9': uint8(ord(c) - ord('0'))
-      of 'a'..'f': uint8(ord(c) - ord('a') + 10)
-      of 'A'..'F': uint8(ord(c) - ord('A') + 10)
-      else: 0
-    result.r = hexVal(s[1]) shl 4 or hexVal(s[2])
-    result.g = hexVal(s[3]) shl 4 or hexVal(s[4])
-    result.b = hexVal(s[5]) shl 4 or hexVal(s[6])
-    result.a = 255

@@ -10,8 +10,7 @@ import basetypes, input, screen
 type
   FontSlot = object
     sdlFont: FontPtr
-    path: string
-    size: int
+    metrics: FontMetrics
 
 var fonts: seq[FontSlot]
 
@@ -21,33 +20,28 @@ proc toSdlColor(c: screen.Color): sdl2.Color =
   result.b = c.b
   result.a = c.a
 
-proc fromSdlColor*(c: sdl2.Color): screen.Color =
-  screen.Color(r: c.r, g: c.g, b: c.b, a: c.a)
-
-proc toSdlRect(r: Rect): sdl2.Rect =
+proc toSdlRect(r: basetypes.Rect): sdl2.Rect {.inline.} =
   (r.x, r.y, r.w, r.h)
+
+proc getFontPtr(f: Font): FontPtr {.inline.} =
+  let idx = f.int - 1
+  if idx >= 0 and idx < fonts.len: fonts[idx].sdlFont
+  else: nil
 
 # --- SDL driver state ---
 
 var
   window: WindowPtr
-  renderer: RendererPtr
+  renderer*: RendererPtr
 
-# --- Hook implementations ---
+# --- Screen hook implementations ---
 
 proc sdlCreateWindow(layout: var ScreenLayout) =
-  if sdl2.init(INIT_VIDEO or INIT_EVENTS) != SdlSuccess:
-    quit("SDL init failed")
-  if ttfInit() != SdlSuccess:
-    quit("TTF init failed")
-
   let flags = SDL_WINDOW_RESIZABLE or SDL_WINDOW_SHOWN
   window = createWindow("NimEdit",
     SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
     layout.width.cint, layout.height.cint, flags)
-  renderer = createRenderer(window, -1,
-    Renderer_Accelerated or Renderer_PresentVsync)
-
+  renderer = createRenderer(window, -1, Renderer_Software)
   var w, h: cint
   window.getSize(w, h)
   layout.width = w
@@ -66,7 +60,7 @@ proc sdlSaveState() =
 proc sdlRestoreState() =
   discard # TODO: pop clip rect stack
 
-proc sdlSetClipRect(r: Rect) =
+proc sdlSetClipRect(r: basetypes.Rect) =
   var sdlRect = toSdlRect(r)
   discard renderer.setClipRect(addr sdlRect)
 
@@ -77,8 +71,8 @@ proc sdlOpenFont(path: string; size: int;
   metrics.ascent = fontAscent(f)
   metrics.descent = fontDescent(f)
   metrics.lineHeight = fontLineSkip(f)
-  fonts.add FontSlot(sdlFont: f, path: path, size: size)
-  result = Font(fonts.len)  # 1-based index
+  fonts.add FontSlot(sdlFont: f, metrics: metrics)
+  result = Font(fonts.len)  # 1-based
 
 proc sdlCloseFont(f: Font) =
   let idx = f.int - 1
@@ -86,34 +80,36 @@ proc sdlCloseFont(f: Font) =
     close(fonts[idx].sdlFont)
     fonts[idx].sdlFont = nil
 
-proc sdlMeasureText(f: Font; text: string): TextExtent =
-  let idx = f.int - 1
-  if idx >= 0 and idx < fonts.len and fonts[idx].sdlFont != nil:
+proc sdlMeasureText(f: Font; text: cstring): TextExtent =
+  let fp = getFontPtr(f)
+  if fp != nil and text[0] != '\0':
     var w, h: cint
-    discard sizeUtf8(fonts[idx].sdlFont, cstring(text), addr w, addr h)
+    discard sizeUtf8(fp, text, addr w, addr h)
     result = TextExtent(w: w, h: h)
 
-proc sdlDrawText(f: Font; x, y: cint; text: string;
-                 color: screen.Color): TextExtent =
-  let idx = f.int - 1
-  if idx < 0 or idx >= fonts.len or fonts[idx].sdlFont == nil:
-    return
-  if text.len == 0: return
-  let surf = renderUtf8Blended(fonts[idx].sdlFont, cstring(text),
-                                toSdlColor(color))
+proc sdlDrawTextShaded(f: Font; x, y: cint; text: cstring;
+                       fg, bg: screen.Color): TextExtent =
+  let fp = getFontPtr(f)
+  if fp == nil or text[0] == '\0': return
+  let surf = renderUtf8Shaded(fp, text, toSdlColor(fg), toSdlColor(bg))
   if surf == nil: return
   let tex = renderer.createTextureFromSurface(surf)
   if tex == nil:
     freeSurface(surf)
     return
-  var src = (0.cint, 0.cint, surf.w, surf.h)
-  var dst = (x, y, surf.w, surf.h)
+  var src: sdl2.Rect = (0.cint, 0.cint, surf.w, surf.h)
+  var dst: sdl2.Rect = (x, y, surf.w, surf.h)
   renderer.copy(tex, addr src, addr dst)
   result = TextExtent(w: surf.w, h: surf.h)
   freeSurface(surf)
   destroy(tex)
 
-proc sdlFillRect(r: Rect; color: screen.Color) =
+proc sdlGetFontMetrics(f: Font): FontMetrics =
+  let idx = f.int - 1
+  if idx >= 0 and idx < fonts.len: fonts[idx].metrics
+  else: FontMetrics()
+
+proc sdlFillRect(r: basetypes.Rect; color: screen.Color) =
   renderer.setDrawColor(color.r, color.g, color.b, color.a)
   var sdlRect = toSdlRect(r)
   discard renderer.fillRect(sdlRect)
@@ -121,6 +117,10 @@ proc sdlFillRect(r: Rect; color: screen.Color) =
 proc sdlDrawLine(x1, y1, x2, y2: cint; color: screen.Color) =
   renderer.setDrawColor(color.r, color.g, color.b, color.a)
   renderer.drawLine(x1, y1, x2, y2)
+
+proc sdlDrawPoint(x, y: cint; color: screen.Color) =
+  renderer.setDrawColor(color.r, color.g, color.b, color.a)
+  renderer.drawPoint(x, y)
 
 proc sdlSetCursor(c: CursorKind) =
   let sdlCursor = case c
@@ -138,6 +138,8 @@ proc sdlSetWindowTitle(title: string) =
   if window != nil:
     window.setTitle(cstring(title))
 
+# --- Input hook implementations ---
+
 proc sdlGetClipboardText(): string =
   let t = sdl2.getClipboardText()
   result = $t
@@ -146,18 +148,182 @@ proc sdlGetClipboardText(): string =
 proc sdlPutClipboardText(text: string) =
   discard sdl2.setClipboardText(cstring(text))
 
-# --- Expose SDL-specific state for legacy code ---
+proc translateScancode(sc: Scancode): KeyCode =
+  case sc
+  of SDL_SCANCODE_A: keyA
+  of SDL_SCANCODE_B: keyB
+  of SDL_SCANCODE_C: keyC
+  of SDL_SCANCODE_D: keyD
+  of SDL_SCANCODE_E: keyE
+  of SDL_SCANCODE_F: keyF
+  of SDL_SCANCODE_G: keyG
+  of SDL_SCANCODE_H: keyH
+  of SDL_SCANCODE_I: keyI
+  of SDL_SCANCODE_J: keyJ
+  of SDL_SCANCODE_K: keyK
+  of SDL_SCANCODE_L: keyL
+  of SDL_SCANCODE_M: keyM
+  of SDL_SCANCODE_N: keyN
+  of SDL_SCANCODE_O: keyO
+  of SDL_SCANCODE_P: keyP
+  of SDL_SCANCODE_Q: keyQ
+  of SDL_SCANCODE_R: keyR
+  of SDL_SCANCODE_S: keyS
+  of SDL_SCANCODE_T: keyT
+  of SDL_SCANCODE_U: keyU
+  of SDL_SCANCODE_V: keyV
+  of SDL_SCANCODE_W: keyW
+  of SDL_SCANCODE_X: keyX
+  of SDL_SCANCODE_Y: keyY
+  of SDL_SCANCODE_Z: keyZ
+  of SDL_SCANCODE_1: key1
+  of SDL_SCANCODE_2: key2
+  of SDL_SCANCODE_3: key3
+  of SDL_SCANCODE_4: key4
+  of SDL_SCANCODE_5: key5
+  of SDL_SCANCODE_6: key6
+  of SDL_SCANCODE_7: key7
+  of SDL_SCANCODE_8: key8
+  of SDL_SCANCODE_9: key9
+  of SDL_SCANCODE_0: key0
+  of SDL_SCANCODE_F1: keyF1
+  of SDL_SCANCODE_F2: keyF2
+  of SDL_SCANCODE_F3: keyF3
+  of SDL_SCANCODE_F4: keyF4
+  of SDL_SCANCODE_F5: keyF5
+  of SDL_SCANCODE_F6: keyF6
+  of SDL_SCANCODE_F7: keyF7
+  of SDL_SCANCODE_F8: keyF8
+  of SDL_SCANCODE_F9: keyF9
+  of SDL_SCANCODE_F10: keyF10
+  of SDL_SCANCODE_F11: keyF11
+  of SDL_SCANCODE_F12: keyF12
+  of SDL_SCANCODE_RETURN: keyEnter
+  of SDL_SCANCODE_SPACE: keySpace
+  of SDL_SCANCODE_ESCAPE: keyEsc
+  of SDL_SCANCODE_TAB: keyTab
+  of SDL_SCANCODE_BACKSPACE: keyBackspace
+  of SDL_SCANCODE_DELETE: keyDelete
+  of SDL_SCANCODE_INSERT: keyInsert
+  of SDL_SCANCODE_LEFT: keyLeft
+  of SDL_SCANCODE_RIGHT: keyRight
+  of SDL_SCANCODE_UP: keyUp
+  of SDL_SCANCODE_DOWN: keyDown
+  of SDL_SCANCODE_PAGEUP: keyPageUp
+  of SDL_SCANCODE_PAGEDOWN: keyPageDown
+  of SDL_SCANCODE_HOME: keyHome
+  of SDL_SCANCODE_END: keyEnd
+  of SDL_SCANCODE_CAPSLOCK: keyCapslock
+  else: keyNone
 
-proc getRenderer*(): RendererPtr = renderer
-proc getWindow*(): WindowPtr = window
-proc getSdlFont*(f: Font): FontPtr =
-  let idx = f.int - 1
-  if idx >= 0 and idx < fonts.len: fonts[idx].sdlFont
-  else: nil
+proc translateMods(m: int16): set[Modifier] =
+  let m = m.int32
+  if (m and KMOD_SHIFT) != 0: result.incl modShift
+  if (m and KMOD_CTRL) != 0: result.incl modCtrl
+  if (m and KMOD_ALT) != 0: result.incl modAlt
+  if (m and KMOD_GUI) != 0: result.incl modGui
+
+proc sdlPollEvent(e: var input.Event): bool =
+  var sdlEvent: sdl2.Event
+  if not sdl2.pollEvent(sdlEvent):
+    return false
+  result = true
+  e = input.Event(kind: evNone)
+  case sdlEvent.kind
+  of QuitEvent:
+    e.kind = evQuit
+  of WindowEvent:
+    let wev = sdlEvent.window
+    case wev.event
+    of WindowEvent_Resized, WindowEvent_SizeChanged:
+      e.kind = evWindowResize
+      e.x = wev.data1
+      e.y = wev.data2
+    of WindowEvent_Close:
+      e.kind = evWindowClose
+    of WindowEvent_FocusGained:
+      e.kind = evWindowFocusGained
+    of WindowEvent_FocusLost:
+      e.kind = evWindowFocusLost
+    else:
+      e.kind = evNone
+  of KeyDown:
+    e.kind = evKeyDown
+    e.key = translateScancode(sdlEvent.key.keysym.scancode)
+    e.mods = translateMods(sdlEvent.key.keysym.modstate)
+  of KeyUp:
+    e.kind = evKeyUp
+    e.key = translateScancode(sdlEvent.key.keysym.scancode)
+    e.mods = translateMods(sdlEvent.key.keysym.modstate)
+  of TextInput:
+    e.kind = evTextInput
+    for i in 0..3:
+      e.text[i] = sdlEvent.text.text[i]
+  of MouseButtonDown:
+    e.kind = evMouseDown
+    e.x = sdlEvent.button.x
+    e.y = sdlEvent.button.y
+    e.clicks = sdlEvent.button.clicks.int
+    case sdlEvent.button.button
+    of BUTTON_LEFT: e.button = mbLeft
+    of BUTTON_RIGHT: e.button = mbRight
+    of BUTTON_MIDDLE: e.button = mbMiddle
+    else: e.button = mbLeft
+  of MouseButtonUp:
+    e.kind = evMouseUp
+    e.x = sdlEvent.button.x
+    e.y = sdlEvent.button.y
+    case sdlEvent.button.button
+    of BUTTON_LEFT: e.button = mbLeft
+    of BUTTON_RIGHT: e.button = mbRight
+    of BUTTON_MIDDLE: e.button = mbMiddle
+    else: e.button = mbLeft
+  of MouseMotion:
+    e.kind = evMouseMove
+    e.x = sdlEvent.motion.x
+    e.y = sdlEvent.motion.y
+  of MouseWheel:
+    e.kind = evMouseWheel
+    e.x = sdlEvent.wheel.x
+    e.y = sdlEvent.wheel.y
+  else:
+    e.kind = evNone
+
+proc sdlWaitEvent(e: var input.Event; timeoutMs: int): bool =
+  # Use pollEvent with delay for timeout behavior
+  if timeoutMs < 0:
+    # Block until event
+    while true:
+      if sdlPollEvent(e): return true
+      sdl2.delay(10)
+  elif timeoutMs == 0:
+    return sdlPollEvent(e)
+  else:
+    let start = sdl2.getTicks()
+    while sdl2.getTicks() - start < timeoutMs.uint32:
+      if sdlPollEvent(e): return true
+      sdl2.delay(10)
+    return false
+
+proc sdlGetModState(): set[Modifier] =
+  translateMods(sdl2.getModState().int16)
+
+proc sdlGetTicks(): uint32 = sdl2.getTicks()
+
+proc sdlDelay(ms: uint32) = sdl2.delay(ms)
+
+proc sdlStartTextInput() = sdl2.startTextInput()
+
+proc sdlQuitRequest() = sdl2.quit()
 
 # --- Init ---
 
 proc initSdl2Driver*() =
+  if sdl2.init(INIT_VIDEO or INIT_EVENTS) != SdlSuccess:
+    quit("SDL init failed")
+  if ttfInit() != SdlSuccess:
+    quit("TTF init failed")
+  # Screen hooks
   createWindowHook = sdlCreateWindow
   refreshHook = sdlRefresh
   saveStateHook = sdlSaveState
@@ -166,10 +332,20 @@ proc initSdl2Driver*() =
   openFontHook = sdlOpenFont
   closeFontHook = sdlCloseFont
   measureTextHook = sdlMeasureText
-  drawTextHook = sdlDrawText
+  drawTextShadedHook = sdlDrawTextShaded
+  getFontMetricsHook = sdlGetFontMetrics
   fillRectHook = sdlFillRect
   drawLineHook = sdlDrawLine
+  drawPointHook = sdlDrawPoint
   setCursorHook = sdlSetCursor
   setWindowTitleHook = sdlSetWindowTitle
+  # Input hooks
+  pollEventHook = sdlPollEvent
+  waitEventHook = sdlWaitEvent
   getClipboardTextHook = sdlGetClipboardText
   putClipboardTextHook = sdlPutClipboardText
+  getModStateHook = sdlGetModState
+  getTicksHook = sdlGetTicks
+  delayHook = sdlDelay
+  startTextInputHook = sdlStartTextInput
+  quitRequestHook = sdlQuitRequest
