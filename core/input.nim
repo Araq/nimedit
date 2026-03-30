@@ -15,7 +15,7 @@ type
     keyBackspace, keyDelete, keyInsert,
     keyLeft, keyRight, keyUp, keyDown,
     keyPageUp, keyPageDown, keyHome, keyEnd,
-    keyCapslock,
+    keyCapslock, keyComma, keyPeriod,
 
   EventKind* = enum
     evNone,
@@ -37,7 +37,9 @@ type
     mods*: set[Modifier]
     text*: array[4, char]  ## evTextInput: one UTF-8 codepoint, no alloc
     x*, y*: int            ## mouse position, scroll delta, or new window size
+    xrel*, yrel*: int      ## evMouseMove: relative motion
     button*: MouseButton
+    buttons*: set[MouseButton]  ## evMouseMove: which buttons are held
     clicks*: int           ## number of consecutive clicks (double-click = 2)
 
 var pollEventHook*: proc (e: var Event): bool {.nimcall.} =

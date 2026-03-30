@@ -32,7 +32,7 @@ proc getFontPtr(f: Font): FontPtr {.inline.} =
 
 var
   window: WindowPtr
-  renderer*: RendererPtr
+  renderer: RendererPtr
 
 # --- Screen hook implementations ---
 
@@ -51,8 +51,6 @@ proc sdlCreateWindow(layout: var ScreenLayout) =
 
 proc sdlRefresh() =
   renderer.present()
-  renderer.setDrawColor(0, 0, 0, 255)
-  renderer.clear()
 
 proc sdlSaveState() =
   discard # TODO: push clip rect stack
@@ -214,6 +212,8 @@ proc translateScancode(sc: Scancode): KeyCode =
   of SDL_SCANCODE_HOME: keyHome
   of SDL_SCANCODE_END: keyEnd
   of SDL_SCANCODE_CAPSLOCK: keyCapslock
+  of SDL_SCANCODE_COMMA: keyComma
+  of SDL_SCANCODE_PERIOD: keyPeriod
   else: keyNone
 
 proc translateMods(m: int16): set[Modifier] =
@@ -282,6 +282,12 @@ proc sdlPollEvent(e: var input.Event): bool =
     e.kind = evMouseMove
     e.x = sdlEvent.motion.x
     e.y = sdlEvent.motion.y
+    e.xrel = sdlEvent.motion.xrel
+    e.yrel = sdlEvent.motion.yrel
+    if (sdlEvent.motion.state and BUTTON_LMASK) != 0:
+      e.buttons.incl mbLeft
+    if (sdlEvent.motion.state and BUTTON_RMASK) != 0:
+      e.buttons.incl mbRight
   of MouseWheel:
     e.kind = evMouseWheel
     e.x = sdlEvent.wheel.x
