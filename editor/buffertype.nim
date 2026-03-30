@@ -1,8 +1,7 @@
 
 import styles, nimscript/common, intsets, compiler/ast, tables
 from times import Time
-from core/basetypes import Point, Pixel, GlobalPos
-from sdl2 import Rect
+import core/basetypes
 
 type
   ActionKind* = enum

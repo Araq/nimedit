@@ -5,18 +5,8 @@ const
   CharBufSize = 80
   RoomForMargin = 8'i32
 
-proc drawTexture(r: RendererPtr; font: FontPtr; msg: cstring;
-                 fg, bg: Color): TexturePtr =
-  assert font != nil
-  assert msg[0] != '\0'
-  var surf: SurfacePtr = renderUtf8Shaded(font, msg, fg, bg)
-  if surf == nil:
-    echo("TTF_RenderText failed")
-    return
-  result = createTextureFromSurface(r, surf)
-  if result == nil:
-    echo("CreateTexture failed")
-  freeSurface(surf)
+proc textSize*(font: Font; buffer: cstring): cint =
+  measureText(font, buffer).w.cint
 
 proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: cint) =
   proc sprintf(buf, frmt: cstring) {.header: "<stdio.h>",
@@ -29,44 +19,31 @@ proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: c
             elif br != TokenClass.None: b.mgr[].getStyle(br).attr.color
             elif number == current: t.fg
             else: t.lines
-  let tex = drawTexture(t.renderer, t.editorFontPtr, cast[cstring](addr buf),
-    col, t.bg)
-  var d: Rect
-  d.x = 1
-  d.y = y
-  queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
+  let ext = drawTextShaded(t.editorFontHandle, 1, y, cast[cstring](addr buf), col, t.bg)
 
   # requested breakpoint update?
   if b.clicks > 0:
-    let p = point(b.mouseX, b.mouseY)
-    if (x: 1.cint, y: y, w: w, h: d.h).contains(p):
+    let p = point(b.mouseX.cint, b.mouseY.cint)
+    if Rect(x: 1.cint, y: y, w: w, h: ext.h.cint).contains(p):
       b.clicks = 0
       let nextState = case br
                       of TokenClass.None: TokenClass.Breakpoint1
                       of TokenClass.Breakpoint1: TokenClass.Breakpoint2
                       else: TokenClass.None
       b.breakpoints[number] = nextState
-  t.renderer.copy(tex, nil, addr d)
-  destroy tex
   if number == current or br != TokenClass.None or number == b.runningLine:
-    t.renderer.setDrawColor(col)
-    t.renderer.drawLine(1, y-1, 1+w, y-1)
+    screen.drawLine(1, y-1, 1+w, y-1, col)
 
 proc drawNumberEnd*(t: InternalTheme; b: Buffer; number, current: int; w, y: cint) =
   if number == b.runningLine:
-    t.renderer.setDrawColor(b.mgr[].getStyle(TokenClass.LineActive).attr.color)
-    t.renderer.drawLine(1, y-1, 1+w, y-1)
+    screen.drawLine(1, y-1, 1+w, y-1,
+      b.mgr[].getStyle(TokenClass.LineActive).attr.color)
   else:
     let br = b.breakpoints.getOrDefault(number)
     if br != TokenClass.None:
-      t.renderer.setDrawColor(b.mgr[].getStyle(br).attr.color)
-      t.renderer.drawLine(1, y-1, 1+w, y-1)
+      screen.drawLine(1, y-1, 1+w, y-1, b.mgr[].getStyle(br).attr.color)
     elif number == current:
-      t.renderer.setDrawColor(t.fg)
-      t.renderer.drawLine(1, y-1, 1+w, y-1)
-
-proc textSize*(font: FontPtr; buffer: cstring): cint =
-  discard sizeUtf8(font, buffer, addr result, nil)
+      screen.drawLine(1, y-1, 1+w, y-1, t.fg)
 
 proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: cint) =
   # requested cursor update?
@@ -83,43 +60,32 @@ type
     b: Buffer
     dim, cursorDim: Rect
     i, charsLen: int
-    font: FontPtr
+    font: Font
     oldX, maxY, lineH, spaceWidth: cint
     ra, rb, startedWith: int
     chars: array[CharBufSize, char]
     toCursor: array[CharBufSize, int]
 
-proc minimapCandidate(r: RendererPtr; db: DrawBuffer; minimapDim: var Rect) =
-  # we like a strike of 4 lines where a third of the allowed width
-  # was not used. This rect is then later used to draw a minimap.
+proc minimapCandidate(db: DrawBuffer; minimapDim: var Rect) =
   let w = db.dim.w - db.oldX
-  #r.pixel(db.dim.x, db.dim.y, color(0x00, 0xff, 0xff, 0xff))
-  #r.pixel(db.oldX + w - (w div 3), db.dim.y, color(0xff, 0x00, 0x00, 0xff))
   if db.dim.x <= db.oldX + w - (w div 3):
     if minimapDim.w == 0:
       minimapDim.w = w div 3
       minimapDim.x = db.oldX + w - (w div 3)
       minimapDim.y = db.dim.y
-      minimapDim.h = fontLineSkip(db.font)
+      minimapDim.h = screen.fontLineSkip(db.font)
     elif minimapDim.y > 0:
-      minimapDim.h += fontLineSkip(db.font)
-  elif minimapDim.h < fontLineSkip(db.font)*4:
-    # latest candidate was not long enough :-(, reset:
+      minimapDim.h += screen.fontLineSkip(db.font)
+  elif minimapDim.h < screen.fontLineSkip(db.font)*4:
     minimapDim.w = 0
   else:
-    # mark as finished:
     minimapDim.y = -abs(minimapDim.y)
-
-proc blit(r: RendererPtr; tex: TexturePtr; dim: Rect) =
-  var d = dim
-  queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
-  r.copy(tex, nil, addr d)
 
 proc whichColumn(db: var DrawBuffer; ra, rb: int): int =
   var buffer: array[CharBufSize, char]
-  var j = db.toCursor[ra] # db.i - db.charsLen + ra
+  var j = db.toCursor[ra]
   var r = 0
-  let ending = db.toCursor[rb] # j+(rb-ra+1)
+  let ending = db.toCursor[rb]
   while j < ending:
     var L = graphemeLen(db.b, j)
     for k in 0..<int(L):
@@ -131,17 +97,23 @@ proc whichColumn(db: var DrawBuffer; ra, rb: int): int =
       return r
     inc j, L
 
-proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
-                  ra, rb: int) =
+proc drawSubtoken(db: var DrawBuffer; ra, rb: int; fg, bg: Color) =
   # Draws the part of the token that actually still fits in the line. Also
   # does the click checking and the cursor tracking.
+  let text = cast[cstring](addr db.chars[ra])
+  let savedCh = db.chars[rb+1]
+  db.chars[rb+1] = '\0'
+  let ext = measureText(db.font, text)
+  db.chars[rb+1] = savedCh
+
   var d = db.dim
-  queryTexture(tex, nil, nil, addr(d.w), addr(d.h))
+  d.w = ext.w.cint
+  d.h = ext.h.cint
 
   # requested cursor update?
-  let i = db.toCursor[ra] # db.i - db.charsLen
+  let i = db.toCursor[ra]
   if db.b.clicks > 0:
-    let p = point(db.b.mouseX, db.b.mouseY)
+    let p = point(db.b.mouseX.cint, db.b.mouseY.cint)
     if d.contains(p):
       db.b.cursor = i + whichColumn(db, ra, rb)
       setCurrentLine(db.b)
@@ -151,20 +123,22 @@ proc drawSubtoken(r: RendererPtr; db: var DrawBuffer; tex: TexturePtr;
   # track where to draw the cursor:
   if db.cursorDim.h == 0 and
       db.toCursor[ra] <= db.b.cursor and db.b.cursor <= db.toCursor[rb+1]:
-    #  ra+i <= db.b.cursor and db.b.cursor <= rb+i+1:
     var i = ra
     if db.toCursor[i] == db.b.cursor:
       db.cursorDim = d
     else:
       while db.toCursor[i] != db.b.cursor: inc i
-      #while i <= rb and db.toCursor[i+1] == db.b.cursor: inc i
       let j = i
       let ch = db.chars[j]
       db.chars[j] = '\0'
       db.cursorDim = d
       db.cursorDim.x += textSize(db.font, cast[cstring](addr db.chars[ra]))
       db.chars[j] = ch
-  r.copy(tex, nil, addr d)
+
+  # Actually draw
+  db.chars[rb+1] = '\0'
+  discard drawTextShaded(db.font, d.x, d.y, text, fg, bg)
+  db.chars[rb+1] = savedCh
 
 proc indWidth(db: DrawBuffer): cint =
   var
@@ -188,20 +162,15 @@ proc indWidth(db: DrawBuffer): cint =
   result = textSize(db.font, " ").cint * r
 
 proc smartWrap(db: DrawBuffer; origP: int; critical: bool): int =
-  # search for a nice split position, but don't go back too much:
   var p = origP
-  var broke = false
   while p > db.ra+1:
     if (db.chars[p] in Letters) != (db.chars[p-1] in Letters):
       return p
     dec p
-  # cannot find a good positions, give up: We could also return -1 but this
-  # risks endless loops for pathological cases (full buffer consists of Letters)
   return if critical: origP else: -1
 
 proc translateToken(db: var DrawBuffer) =
   if db.chars[0] == '{' and db.chars[1] == '.' and db.chars[2] == '\0':
-    # left curly bracket middle piece
     db.chars[0] = '\xE2'
     db.chars[1] = '\x8E'
     db.chars[2] = '\xA8'
@@ -210,7 +179,6 @@ proc translateToken(db: var DrawBuffer) =
     db.toCursor[3] = db.toCursor[1]
     db.charsLen = 3
   elif db.chars[0] == '.' and db.chars[1] == '}' and db.chars[2] == '\0':
-    # right curly bracket middle piece
     db.chars[0] = '\xE2'
     db.chars[1] = '\x8E'
     db.chars[2] = '\xAC'
@@ -219,54 +187,42 @@ proc translateToken(db: var DrawBuffer) =
     db.toCursor[3] = db.toCursor[1]
     db.charsLen = 3
   elif db.chars[0] == '[' and db.chars[1] == '.' and db.chars[2] == '\0':
-    # LEFT WHITE SQUARE BRACKET
-    # left square bracket with quill
-    db.chars[0] = '\xE2'  #'\xE3'
-    db.chars[1] = '\x81' #'\x80'
-    db.chars[2] = '\x85' #'\x9A'
+    db.chars[0] = '\xE2'
+    db.chars[1] = '\x81'
+    db.chars[2] = '\x85'
     db.chars[3] = '\0'
     db.toCursor[2] = db.toCursor[1]
     db.toCursor[3] = db.toCursor[1]
     db.charsLen = 3
   elif db.chars[0] == '.' and db.chars[1] == ']' and db.chars[2] == '\0':
-    # MATHEMATICAL RIGHT WHITE SQUARE BRACKET
-    # right square bracket with quill
     db.chars[0] = '\xE2'
-    db.chars[1] = '\x81' #'\x9F'
-    db.chars[2] = '\x86' #'\xA7'
+    db.chars[1] = '\x81'
+    db.chars[2] = '\x86'
     db.chars[3] = '\0'
     db.toCursor[2] = db.toCursor[1]
     db.toCursor[3] = db.toCursor[1]
     db.charsLen = 3
 
 proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
-  # Draws a single token, potentially splitting it up over multiple lines.
   if t.showLigatures:
     translateToken(db)
-  assert db.font != nil
   if db.dim.y+db.lineH > db.maxY: return
-  let r = t.renderer
-  let text = r.drawTexture(db.font, cast[cstring](addr db.chars), fg, bg)
-  var w, h: cint
-  queryTexture(text, nil, nil, addr(w), addr(h))
+  let text = cast[cstring](addr db.chars)
+  let ext = measureText(db.font, text)
+  let w = ext.w.cint
 
-  #r.pixel(db.dim.w, db.dim.y, color(0x00, 0xff, 0xff, 0xff))
   if db.dim.x + w + db.spaceWidth <= db.dim.w:
     # fast common case: the token still fits:
-    r.drawSubtoken(db, text, 0, db.charsLen-1)
+    drawSubtoken(db, 0, db.charsLen-1, fg, bg)
     db.dim.x += w
   else:
     # slow uncommon case: we have to wrap the line.
-    # * split the buffer and see how many still fit into the current line.
-    # * don't draw over the valid rectangle
-    # * consider the current cursor just like in the main loop
-    # * XXX Unicode support!
     db.ra = 0
     db.rb = 0
     var iters = 0
     while db.ra < db.charsLen:
       inc iters
-      var start = cstring(cast[cstring](addr db.chars[db.ra]))
+      var start = cast[cstring](addr db.chars[db.ra])
       assert start[0] != '\0'
 
       var probe = db.ra
@@ -274,7 +230,7 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
       while probe < db.charsLen:
         let ch = db.chars[probe]
         db.chars[probe] = '\0'
-        let w2 = db.font.textSize(start)
+        let w2 = textSize(db.font, start)
         db.chars[probe] = ch
         if db.dim.x + db.spaceWidth + w2 > db.dim.w:
           dec probe
@@ -283,45 +239,31 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
           break
         inc probe
       if probe <= 0:
-        # not successful, try the next line:
         discard
       else:
-        # draw until we still have room:
         let ch = db.chars[probe]
         db.chars[probe] = '\0'
         assert start[0] != '\0'
-        let text = r.drawTexture(db.font, start, fg, bg)
+        let ext2 = measureText(db.font, start)
         db.rb = probe-1
         db.chars[probe] = ch
-        var w, h: cint
-        queryTexture(text, nil, nil, addr(w), addr(h))
-        r.drawSubtoken(db, text, db.ra, db.rb)
+        drawSubtoken(db, db.ra, db.rb, fg, bg)
         db.ra = probe
-        db.dim.x += w
-        destroy text
+        db.dim.x += ext2.w.cint
       if not dotsRequired: break
       # draw line continuation and continue in the next line:
-      let cont = r.drawTexture(db.font, Ellipsis, fg, bg)
-      r.blit(cont, db.dim)
-      destroy cont
+      let dotsExt = drawTextShaded(db.font, db.dim.x, db.dim.y,
+                                    Ellipsis, fg, bg)
       db.dim.x = db.oldX
       db.dim.y += db.lineH
       if db.dim.y+db.lineH > db.maxY: break
-      # indent the wrapped line properly, but don't overdo it:
       db.dim.x += min(indWidth(db), (db.dim.w - db.oldX) div 2)
-      let dots = r.drawTexture(db.font, Ellipsis, fg, bg)
-      var dotsW: cint
-      queryTexture(dots, nil, nil, addr(dotsW), nil)
-      r.blit(dots, db.dim)
-      destroy dots
-      db.dim.x += dotsW
-  destroy text
+      let dotsExt2 = drawTextShaded(db.font, db.dim.x, db.dim.y,
+                                     Ellipsis, fg, bg)
+      db.dim.x += dotsExt2.w.cint
 
 proc drawCursor(t: InternalTheme; dim: Rect; h: cint) =
-  t.renderer.setDrawColor(t.cursor)
-  var d = rect(dim.x, dim.y, t.cursorWidth, h)
-  t.renderer.fillRect(d)
-  t.renderer.setDrawColor(t.bg)
+  screen.fillRect(Rect(x: dim.x, y: dim.y, w: t.cursorWidth.cint, h: h), t.cursor)
 
 proc tabFill(db: var DrawBuffer; j: int) {.noinline.} =
   var i = j
@@ -366,7 +308,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
   db.b = b
   db.i = i
   db.startedWith = i
-  db.lineH = fontLineSkip(db.font)
+  db.lineH = screen.fontLineSkip(db.font)
   db.spaceWidth = textSize(db.font, " ")
 
   block outerLoop:
@@ -383,7 +325,7 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
           elif db.i == b.cursor:
             db.cursorDim = db.dim
           mouseAfterNewLine(b, db.i, dim, db.lineH)
-          minimapCandidate(t.renderer, db, b.posHint)
+          minimapCandidate(db, b.posHint)
           break outerLoop
 
         if cell.s != tokenClass or getBg(b, db.i, t) != styleBg:
@@ -415,14 +357,13 @@ proc drawTextLine(t: InternalTheme; b: Buffer; i: int; dim: var Rect;
       r = 0
     while b[i] in {'\t', ' '}:
       if r mod b.tabSize == 0 and r > 1:
-        vlineDotted(t.renderer, w*r+db.oldX, dim.y, dim.y+db.lineH,
-                    t.indentation)
+        vlineDotted(w*r+db.oldX, dim.y, dim.y+db.lineH, t.indentation)
       if b[i] == '\t': inc r, b.tabsize
       else: inc r
       inc i
 
   dim = db.dim
-  dim.y += fontLineSkip(t.editorFontPtr)
+  dim.y += screen.fontLineSkip(t.editorFontHandle)
   dim.x = db.oldX
   if db.cursorDim.h > 0:
     if blink: t.drawCursor(db.cursorDim, db.lineH)
@@ -433,7 +374,6 @@ proc setCursorFromMouse*(b: Buffer; dim: Rect; mouse: Point; clicks: int) =
   b.mouseX = mouse.x
   b.mouseY = mouse.y
   b.clicks = clicks
-  # unselect on single mouse click:
   if clicks < 2:
     b.selected.b = -1
 
@@ -446,7 +386,7 @@ proc log10(x: int): int =
 
 proc spaceForLines*(b: Buffer; t: InternalTheme): Natural =
   if t.showLines:
-    result = (b.numberOfLines+1).log10 * textSize(t.editorFontPtr, " ")
+    result = (b.numberOfLines+1).log10 * textSize(t.editorFontHandle, " ")
 
 proc nextLineOffset(b: Buffer; line: var int; start: int): int =
   result = start
@@ -468,7 +408,6 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   b.cursorDim.h = 0
   let realOffset = getLineOffset(b, b.firstLine)
   if b.firstLineOffset != realOffset:
-    # XXX make this a real assertion when tested well
     echo "real offset ", realOffset, " wrong ", b.firstLineOffset
     echo "char at real offset ", b[realOffset].ord, " wrong ",
       b[b.firstLineOffset]
@@ -494,28 +433,23 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   drawCurrent()
   inc b.span
   let fontSize = t.editorFontSize.cint
-  let lineH = fontLineSkip(t.editorFontPtr)
+  let lineH = screen.fontLineSkip(t.editorFontHandle)
   while dim.y+fontSize < endY and i <= len(b):
     inc renderLine
     let expectedLine = renderLine
     i = nextLineOffset(b, renderLine, i)
     if expectedLine != renderLine or showGaps in options:
-      # show the gap:
-      hlineDotted(t.renderer, dim.x, endX, dim.y+lineH div 4, t.indentation)
+      hlineDotted(dim.x, endX, dim.y+lineH div 4, t.indentation)
       dim.y += lineH div 2
 
     drawCurrent()
     inc b.span
   result = dim.y
-  # we need to tell the buffer how many lines *can* be shown to prevent
-  # that scrolling is triggered way too early:
   while dim.y+fontSize < endY:
     inc dim.y, lineH
     inc b.span
-  # if not found, set the cursor to the last possible position (this is
-  # required when the screen is not completely filled with text lines):
   mouseAfterNewLine(b, min(i, b.len),
-    (x: dim.x, y: 100_000i32, w: 0'i32, h: 0'i32), lineH)
+    Rect(x: dim.x, y: 100_000i32, w: 0'i32, h: 0'i32), lineH)
   if b.posHint.h < lineH*4:
     b.posHint.w = 0
     b.posHint.h = 0
@@ -525,7 +459,6 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
 proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
   let realOffset = getLineOffset(b, b.firstLine)
   if b.firstLineOffset != realOffset:
-    # XXX make this a real assertion when tested well
     echo "real offset ", realOffset, " wrong ", b.firstLineOffset
     assert false
   var i = b.firstLineOffset
@@ -542,8 +475,7 @@ proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
     i = t.drawTextLine(b, i, dim, false)
     if  b.firstline+b.span == b.currentLine or
         b.firstline+b.span == b.currentLine+1:
-      t.renderer.setDrawColor(t.fg)
-      t.renderer.drawLine(originalX, y, endX, y)
+      screen.drawLine(originalX, y, endX, y, t.fg)
 
   drawCurrent()
   inc b.span
@@ -551,11 +483,8 @@ proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
   while dim.y+fontSize < endY and i <= len(b):
     drawCurrent()
     inc b.span
-  # we need to tell the buffer how many lines *can* be shown to prevent
-  # that scrolling is triggered way too early:
-  let lineH = fontLineSkip(t.editorFontPtr)
+  let lineH = screen.fontLineSkip(t.editorFontHandle)
   while dim.y+fontSize < endY:
     inc dim.y, lineH
     inc b.span
-  # if not found, ignore mouse request anyway:
   b.clicks = 0
