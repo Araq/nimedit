@@ -105,6 +105,7 @@ proc fontByName*(m: var FontManager; name: string; size: byte;
   # now try to load the italic, bold etc versions, but if this fails, we
   # map the missing style to the normal style:
   for s, font in p.fonts.mpairs:
+    if s == FontStyle.Normal: continue  # already loaded above
     try:
       font = openFontFromPath(findStyledFontFile(mainFontPath, s), size)
     except IOError:
