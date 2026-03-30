@@ -1,5 +1,5 @@
 
-import buffertype, buffer, re, nimscriptsupport
+import buffertype, buffer, nimscriptsupport
 import strutils except `%`
 from unicode import runeLen
 
@@ -125,7 +125,7 @@ proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
     (i == 0 or b[i-1] notin Letters) and
       (last+1 >= b.len or b[last+1] notin Letters)
   b.markers.setLen 0
-  if searchRe in options:
+  when false: # if searchRe in options:
     let buf = b.fullText
     var flags = {reMultiline}
     if ignoreCase in options: flags.incl reIgnoreCase
@@ -153,12 +153,12 @@ proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
         b.markers.add(Marker(a: i, b: last, replacement: toReplaceWith))
       i = last+1
   # first match is the one *after* the cursor:
-  var i = 1
-  while i < b.markers.len:
-    if b.markers[i].a >= b.cursor:
-      b.activeMarker = i-1
+  var j = 1
+  while j < b.markers.len:
+    if b.markers[j].a >= b.cursor:
+      b.activeMarker = j-1
       break
-    inc i
+    inc j
 
 proc doReplace*(b: Buffer): bool =
   if b.activeMarker < b.markers.len:
