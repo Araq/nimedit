@@ -13,3 +13,4 @@ bin = @["app/nimedit"]
 
 # [Deps]
 requires: "nim >= 0.19.0, sdl2#head, dialogs >= 1.0"
+requires: "https://github.com/nim-lang/sdl3"
