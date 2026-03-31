@@ -9,7 +9,10 @@ import
     exitprocs]
 from parseutils import parseInt
 import basetypes, screen, input
-import sdl2_driver
+when defined(sdl2):
+  import sdl2_driver
+else:
+  import sdl3_driver
 import buffertype except Action
 import buffer, styles, unicode, highlighters, console
 import nimscript/common, nimscript/keydefs, languages, themes,
@@ -1080,6 +1083,7 @@ proc mainProc(ed: Editor) =
 
   loadTheme(sh)
   createSdlWindow(ed, 1u32)
+  input.startTextInput()
 
   include nimscript/keybindings #XXX TODO: nimscript instead of include
 
@@ -1152,7 +1156,9 @@ proc mainProc(ed: Editor) =
 
 
 
-initSdl2Driver()
-input.startTextInput()
+when defined(sdl2):
+  initSdl2Driver()
+else:
+  initSdl3Driver()
 mainProc(Editor())
 input.quitRequest()
