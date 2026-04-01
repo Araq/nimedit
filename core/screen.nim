@@ -51,11 +51,11 @@ var closeFontHook*: proc (f: Font) {.nimcall.} =
   proc (f: Font) = discard
 
 # Text
-var measureTextHook*: proc (f: Font; text: cstring): TextExtent {.nimcall.} =
-  proc (f: Font; text: cstring): TextExtent = TextExtent()
-var drawTextShadedHook*: proc (f: Font; x, y: int; text: cstring;
+var measureTextHook*: proc (f: Font; text: string): TextExtent {.nimcall.} =
+  proc (f: Font; text: string): TextExtent = TextExtent()
+var drawTextHook*: proc (f: Font; x, y: int; text: string;
                                fg, bg: Color): TextExtent {.nimcall.} =
-  proc (f: Font; x, y: int; text: cstring; fg, bg: Color): TextExtent =
+  proc (f: Font; x, y: int; text: string; fg, bg: Color): TextExtent =
     TextExtent()
 var getFontMetricsHook*: proc (f: Font): FontMetrics {.nimcall.} =
   proc (f: Font): FontMetrics = FontMetrics()
@@ -94,10 +94,9 @@ proc setClipRect*(r: Rect) = setClipRectHook(r)
 proc openFont*(path: string; size: int; metrics: var FontMetrics): Font =
   openFontHook(path, size, metrics)
 proc closeFont*(f: Font) = closeFontHook(f)
-proc measureText*(f: Font; text: cstring): TextExtent = measureTextHook(f, text)
-proc drawTextShaded*(f: Font; x, y: int; text: cstring;
-                     fg, bg: Color): TextExtent =
-  drawTextShadedHook(f, x, y, text, fg, bg)
+proc measureText*(f: Font; text: string): TextExtent = measureTextHook(f, text)
+proc drawText*(f: Font; x, y: int; text: string; fg, bg: Color): TextExtent =
+  drawTextHook(f, x, y, text, fg, bg)
 proc getFontMetrics*(f: Font): FontMetrics = getFontMetricsHook(f)
 proc fontLineSkip*(f: Font): int = getFontMetricsHook(f).lineHeight
 proc fillRect*(r: Rect; color: Color) = fillRectHook(r, color)

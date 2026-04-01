@@ -5,21 +5,18 @@ const
   CharBufSize = 80
   RoomForMargin = 8'i32
 
-proc textSize*(font: Font; buffer: cstring): int =
+proc textSize*(font: Font; buffer: string): int =
   measureText(font, buffer).w
 
 proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: int) =
-  proc sprintf(buf, frmt: cstring) {.header: "<stdio.h>",
-    importc: "sprintf", varargs, noSideEffect.}
-  var buf {.noinit.}: array[25, char]
-  sprintf(cast[cstring](addr buf), "%ld", number)
+  let buf = $number
 
   let br = b.breakpoints.getOrDefault(number)
   let col = if number == b.runningLine: b.mgr[].getStyle(TokenClass.LineActive).attr.color
             elif br != TokenClass.None: b.mgr[].getStyle(br).attr.color
             elif number == current: t.fg
             else: t.lines
-  let ext = drawTextShaded(t.editorFontHandle, 1, y, cast[cstring](addr buf), col, t.bg)
+  let ext = drawText(t.editorFontHandle, 1, y, buf, col, t.bg)
 
   # requested breakpoint update?
   if b.clicks > 0:
@@ -58,6 +55,7 @@ proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: int) =
 type
   DrawBuffer = object
     b: Buffer
+    tempStr: string # so that we don't need to allocate a string for each token
     dim, cursorDim: Rect
     i, charsLen: int
     font: Font
@@ -82,29 +80,29 @@ proc minimapCandidate(db: DrawBuffer; minimapDim: var Rect) =
     minimapDim.y = -abs(minimapDim.y)
 
 proc whichColumn(db: var DrawBuffer; ra, rb: int): int =
-  var buffer: array[CharBufSize, char]
+  setLen db.tempStr, 0
   var j = db.toCursor[ra]
   var r = 0
   let ending = db.toCursor[rb]
   while j < ending:
     var L = graphemeLen(db.b, j)
     for k in 0..<int(L):
-      buffer[r] = db.b[k+j]
+      db.tempStr.add db.b[k+j]
       inc r
-    buffer[r] = '\0'
-    let w = textSize(db.font, cast[cstring](addr buffer))
+    let w = textSize(db.font, db.tempStr)
     if db.dim.x+w >= db.b.mouseX-1:
       return r
     inc j, L
+  return 0
 
 proc drawSubtoken(db: var DrawBuffer; ra, rb: int; fg, bg: Color) =
   # Draws the part of the token that actually still fits in the line. Also
   # does the click checking and the cursor tracking.
-  let text = cast[cstring](addr db.chars[ra])
-  let savedCh = db.chars[rb+1]
-  db.chars[rb+1] = '\0'
-  let ext = measureText(db.font, text)
-  db.chars[rb+1] = savedCh
+  setLen db.tempStr, 0
+  for k in ra..rb:
+    db.tempStr.add db.chars[k]
+
+  let ext = measureText(db.font, db.tempStr)
 
   var d = db.dim
   d.w = ext.w
@@ -128,17 +126,14 @@ proc drawSubtoken(db: var DrawBuffer; ra, rb: int; fg, bg: Color) =
       db.cursorDim = d
     else:
       while db.toCursor[i] != db.b.cursor: inc i
-      let j = i
-      let ch = db.chars[j]
-      db.chars[j] = '\0'
+      var other = ""
+      for k in ra..<i:
+        other.add db.chars[k]
       db.cursorDim = d
-      db.cursorDim.x += textSize(db.font, cast[cstring](addr db.chars[ra]))
-      db.chars[j] = ch
+      db.cursorDim.x += textSize(db.font, other)
 
   # Actually draw
-  db.chars[rb+1] = '\0'
-  discard drawTextShaded(db.font, d.x, d.y, text, fg, bg)
-  db.chars[rb+1] = savedCh
+  discard drawText(db.font, d.x, d.y, db.tempStr, fg, bg)
 
 proc indWidth(db: DrawBuffer): int =
   var
@@ -203,12 +198,22 @@ proc translateToken(db: var DrawBuffer) =
     db.toCursor[3] = db.toCursor[1]
     db.charsLen = 3
 
+proc textSize(db: var DrawBuffer; start, limit: int): int =
+  setLen db.tempStr, 0
+  var k = start
+  while k < limit:
+    db.tempStr.add db.chars[k]
+    inc k
+  result = textSize(db.font, db.tempStr)
+
 proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
   if t.showLigatures:
     translateToken(db)
   if db.dim.y+db.lineH > db.maxY: return
-  let text = cast[cstring](addr db.chars)
-  let ext = measureText(db.font, text)
+  setLen db.tempStr, 0
+  for k in 0..<db.charsLen:
+    db.tempStr.add db.chars[k]
+  let ext = measureText(db.font, db.tempStr)
   let w = ext.w
 
   if db.dim.x + w + db.spaceWidth <= db.dim.w:
@@ -222,16 +227,12 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
     var iters = 0
     while db.ra < db.charsLen:
       inc iters
-      var start = cast[cstring](addr db.chars[db.ra])
-      assert start[0] != '\0'
+      var start = db.ra
 
       var probe = db.ra
       var dotsrequired = false
       while probe < db.charsLen:
-        let ch = db.chars[probe]
-        db.chars[probe] = '\0'
-        let w2 = textSize(db.font, start)
-        db.chars[probe] = ch
+        let w2 = textSize(db, start, probe)
         if db.dim.x + db.spaceWidth + w2 > db.dim.w:
           dec probe
           probe = smartWrap(db, probe, iters > db.b.span)
@@ -241,24 +242,20 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
       if probe <= 0:
         discard
       else:
-        let ch = db.chars[probe]
-        db.chars[probe] = '\0'
-        assert start[0] != '\0'
-        let ext2 = measureText(db.font, start)
+        let ext2 = textSize(db, start, probe)
         db.rb = probe-1
-        db.chars[probe] = ch
         drawSubtoken(db, db.ra, db.rb, fg, bg)
         db.ra = probe
-        db.dim.x += ext2.w
+        db.dim.x += ext2
       if not dotsRequired: break
       # draw line continuation and continue in the next line:
-      let dotsExt = drawTextShaded(db.font, db.dim.x, db.dim.y,
+      let dotsExt = drawText(db.font, db.dim.x, db.dim.y,
                                     Ellipsis, fg, bg)
       db.dim.x = db.oldX
       db.dim.y += db.lineH
       if db.dim.y+db.lineH > db.maxY: break
       db.dim.x += min(indWidth(db), (db.dim.w - db.oldX) div 2)
-      let dotsExt2 = drawTextShaded(db.font, db.dim.x, db.dim.y,
+      let dotsExt2 = drawText(db.font, db.dim.x, db.dim.y,
                                      Ellipsis, fg, bg)
       db.dim.x += dotsExt2.w
 
@@ -459,7 +456,6 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
 proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
   let realOffset = getLineOffset(b, b.firstLine)
   if b.firstLineOffset != realOffset:
-    echo "real offset ", realOffset, " wrong ", b.firstLineOffset
     assert false
   var i = b.firstLineOffset
   let originalX = dim.x

@@ -1047,16 +1047,16 @@ proc draw(events: sink seq[input.Event]; ed: Editor) =
   let bottom = ed.screenH - sh.theme.editorFontSize.int - sh.theme.uiYGap*2
   let statusColor = if ed.sh.statusMsg == readyMsg: sh.theme.fg
                     else: screen.color(0xff, 0x44, 0x44, 0)
-  discard drawTextShaded(sh.uiFont, 15, bottom,
-    cstring(ed.sh.statusMsg & "     " & main.filename), statusColor, sh.theme.bg)
+  discard drawText(sh.uiFont, 15, bottom,
+    ed.sh.statusMsg & "     " & main.filename, statusColor, sh.theme.bg)
 
   let posText = "Ln: " & $(getLine(main)+1) &
                 " Col: " & $(getColumn(main)+1) &
                 " \\t: " & $main.tabSize &
                 " " & main.lineending.displayNL
-  discard drawTextShaded(sh.uiFont,
+  discard drawText(sh.uiFont,
     ed.mainRect.x + ed.mainRect.w - 14*sh.theme.uiFontSize.int, bottom,
-    cstring(posText), sh.theme.fg, sh.theme.bg)
+    posText, sh.theme.fg, sh.theme.bg)
 
   screen.refresh()
 
