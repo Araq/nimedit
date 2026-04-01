@@ -5,10 +5,10 @@ const
   CharBufSize = 80
   RoomForMargin = 8'i32
 
-proc textSize*(font: Font; buffer: cstring): cint =
-  measureText(font, buffer).w.cint
+proc textSize*(font: Font; buffer: cstring): int =
+  measureText(font, buffer).w
 
-proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: cint) =
+proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: int) =
   proc sprintf(buf, frmt: cstring) {.header: "<stdio.h>",
     importc: "sprintf", varargs, noSideEffect.}
   var buf {.noinit.}: array[25, char]
@@ -23,8 +23,8 @@ proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: c
 
   # requested breakpoint update?
   if b.clicks > 0:
-    let p = point(b.mouseX.cint, b.mouseY.cint)
-    if Rect(x: 1.cint, y: y, w: w, h: ext.h.cint).contains(p):
+    let p = point(b.mouseX, b.mouseY)
+    if Rect(x: 1, y: y, w: w, h: ext.h).contains(p):
       b.clicks = 0
       let nextState = case br
                       of TokenClass.None: TokenClass.Breakpoint1
@@ -34,7 +34,7 @@ proc drawNumberBegin*(t: InternalTheme; b: Buffer; number, current: int; w, y: c
   if number == current or br != TokenClass.None or number == b.runningLine:
     screen.drawLine(1, y-1, 1+w, y-1, col)
 
-proc drawNumberEnd*(t: InternalTheme; b: Buffer; number, current: int; w, y: cint) =
+proc drawNumberEnd*(t: InternalTheme; b: Buffer; number, current: int; w, y: int) =
   if number == b.runningLine:
     screen.drawLine(1, y-1, 1+w, y-1,
       b.mgr[].getStyle(TokenClass.LineActive).attr.color)
@@ -45,7 +45,7 @@ proc drawNumberEnd*(t: InternalTheme; b: Buffer; number, current: int; w, y: cin
     elif number == current:
       screen.drawLine(1, y-1, 1+w, y-1, t.fg)
 
-proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: cint) =
+proc mouseAfterNewLine(b: Buffer; i: int; dim: Rect; maxh: int) =
   # requested cursor update?
   if b.clicks > 0:
     if b.mouseX > dim.x and dim.y+maxh > b.mouseY:
@@ -61,7 +61,7 @@ type
     dim, cursorDim: Rect
     i, charsLen: int
     font: Font
-    oldX, maxY, lineH, spaceWidth: cint
+    oldX, maxY, lineH, spaceWidth: int
     ra, rb, startedWith: int
     chars: array[CharBufSize, char]
     toCursor: array[CharBufSize, int]
@@ -107,13 +107,13 @@ proc drawSubtoken(db: var DrawBuffer; ra, rb: int; fg, bg: Color) =
   db.chars[rb+1] = savedCh
 
   var d = db.dim
-  d.w = ext.w.cint
-  d.h = ext.h.cint
+  d.w = ext.w
+  d.h = ext.h
 
   # requested cursor update?
   let i = db.toCursor[ra]
   if db.b.clicks > 0:
-    let p = point(db.b.mouseX.cint, db.b.mouseY.cint)
+    let p = point(db.b.mouseX, db.b.mouseY)
     if d.contains(p):
       db.b.cursor = i + whichColumn(db, ra, rb)
       setCurrentLine(db.b)
@@ -140,10 +140,10 @@ proc drawSubtoken(db: var DrawBuffer; ra, rb: int; fg, bg: Color) =
   discard drawTextShaded(db.font, d.x, d.y, text, fg, bg)
   db.chars[rb+1] = savedCh
 
-proc indWidth(db: DrawBuffer): cint =
+proc indWidth(db: DrawBuffer): int =
   var
     i = db.startedWith
-    r = 0.cint
+    r = 0
     b = db.b
   while b[i] in {'\t', ' '}:
     if b[i] == '\t': inc r, b.tabsize
@@ -155,11 +155,11 @@ proc indWidth(db: DrawBuffer): cint =
     while true:
       case b[i]
       of '(', '{', '[', ',', ';':
-        r = cint(i - db.startedWith)
+        r = i - db.startedWith
         break
       of '\L': break
       else: inc i
-  result = textSize(db.font, " ").cint * r
+  result = textSize(db.font, " ") * r
 
 proc smartWrap(db: DrawBuffer; origP: int; critical: bool): int =
   var p = origP
@@ -209,7 +209,7 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
   if db.dim.y+db.lineH > db.maxY: return
   let text = cast[cstring](addr db.chars)
   let ext = measureText(db.font, text)
-  let w = ext.w.cint
+  let w = ext.w
 
   if db.dim.x + w + db.spaceWidth <= db.dim.w:
     # fast common case: the token still fits:
@@ -249,7 +249,7 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
         db.chars[probe] = ch
         drawSubtoken(db, db.ra, db.rb, fg, bg)
         db.ra = probe
-        db.dim.x += ext2.w.cint
+        db.dim.x += ext2.w
       if not dotsRequired: break
       # draw line continuation and continue in the next line:
       let dotsExt = drawTextShaded(db.font, db.dim.x, db.dim.y,
@@ -260,10 +260,10 @@ proc drawToken(t: InternalTheme; db: var DrawBuffer; fg, bg: Color) =
       db.dim.x += min(indWidth(db), (db.dim.w - db.oldX) div 2)
       let dotsExt2 = drawTextShaded(db.font, db.dim.x, db.dim.y,
                                      Ellipsis, fg, bg)
-      db.dim.x += dotsExt2.w.cint
+      db.dim.x += dotsExt2.w
 
-proc drawCursor(t: InternalTheme; dim: Rect; h: cint) =
-  screen.fillRect(Rect(x: dim.x, y: dim.y, w: t.cursorWidth.cint, h: h), t.cursor)
+proc drawCursor(t: InternalTheme; dim: Rect; h: int) =
+  screen.fillRect(Rect(x: dim.x, y: dim.y, w: t.cursorWidth, h: h), t.cursor)
 
 proc tabFill(db: var DrawBuffer; j: int) {.noinline.} =
   var i = j
@@ -402,7 +402,7 @@ type
     showGaps
 
 proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
-           options: set[DrawOption] = {}): cint {.discardable.} =
+           options: set[DrawOption] = {}): int {.discardable.} =
   b.posHint.w = 0
   b.posHint.h = 0
   b.cursorDim.h = 0
@@ -419,7 +419,7 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   var dim = dim
   dim.w = endX
   dim.h = endY
-  let spl = cint(spaceForLines(b, t))
+  let spl = spaceForLines(b, t)
 
   template drawCurrent() =
     if showLines in options:
@@ -432,7 +432,7 @@ proc draw*(t: InternalTheme; b: Buffer; dim: Rect; blink: bool;
   b.span = 0
   drawCurrent()
   inc b.span
-  let fontSize = t.editorFontSize.cint
+  let fontSize = t.editorFontSize.int
   let lineH = screen.fontLineSkip(t.editorFontHandle)
   while dim.y+fontSize < endY and i <= len(b):
     inc renderLine
@@ -479,7 +479,7 @@ proc drawAutoComplete*(t: InternalTheme; b: Buffer; dim: Rect) =
 
   drawCurrent()
   inc b.span
-  let fontSize = t.editorFontSize.cint
+  let fontSize = t.editorFontSize.int
   while dim.y+fontSize < endY and i <= len(b):
     drawCurrent()
     inc b.span

@@ -46,7 +46,7 @@ proc sdlSaveState() = discard
 proc sdlRestoreState() = discard
 
 proc sdlSetClipRect(r: basetypes.Rect) =
-  var sr = sdl3.Rect(x: r.x, y: r.y, w: r.w, h: r.h)
+  var sr = sdl3.Rect(x: r.x.cint, y: r.y.cint, w: r.w.cint, h: r.h.cint)
   discard setRenderClipRect(ren, addr sr)
 
 proc sdlOpenFont(path: string; size: int;
@@ -73,7 +73,7 @@ proc sdlMeasureText(f: screen.Font; text: cstring): TextExtent =
     discard sdl3_ttf.getStringSize(fp, text, 0, w, h)
     result = TextExtent(w: w, h: h)
 
-proc sdlDrawTextShaded(f: screen.Font; x, y: cint; text: cstring;
+proc sdlDrawTextShaded(f: screen.Font; x, y: int; text: cstring;
                        fg, bg: screen.Color): TextExtent =
   let fp = getFontPtr(f)
   if fp == nil or text[0] == '\0': return
@@ -110,11 +110,11 @@ proc sdlFillRect(r: basetypes.Rect; color: screen.Color) =
                  w: r.w.cfloat, h: r.h.cfloat)
   discard renderFillRect(ren, addr fr)
 
-proc sdlDrawLine(x1, y1, x2, y2: cint; color: screen.Color) =
+proc sdlDrawLine(x1, y1, x2, y2: int; color: screen.Color) =
   discard setRenderDrawColor(ren, color.r, color.g, color.b, color.a)
   discard renderLine(ren, x1.cfloat, y1.cfloat, x2.cfloat, y2.cfloat)
 
-proc sdlDrawPoint(x, y: cint; color: screen.Color) =
+proc sdlDrawPoint(x, y: int; color: screen.Color) =
   discard setRenderDrawColor(ren, color.r, color.g, color.b, color.a)
   discard renderPoint(ren, x.cfloat, y.cfloat)
 

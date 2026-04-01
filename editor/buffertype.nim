@@ -30,7 +30,7 @@ type
   ScrollBarState* = object
     case usingScrollbar*: bool ## if the user is dragging the scrollbar or not
     of true:
-      initiallyGrippedAt*: cint ##[the relative y position from the top of the
+      initiallyGrippedAt*: int ##[the relative y position from the top of the
         scrollbar that the user first clicked on.]##
     of false:
       discard

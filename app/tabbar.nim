@@ -41,10 +41,10 @@ proc drawBorderBox*(t: InternalTheme; rect: Rect; active: bool; arc=8) =
                rect.w.int + xGap, rect.h.int + yGap, active, arc)
 
 proc drawTextWithBorder*(t: InternalTheme; text: string; active: bool;
-                         x, y, screenW: cint): Rect =
+                         x, y, screenW: int): Rect =
   let ext = drawTextShaded(t.uiFontHandle, x, y, cstring(text), t.fg, t.bg)
-  let iW = ext.w.cint
-  let iH = ext.h.cint
+  let iW = ext.w
+  let iH = ext.h
   if iW+x < screenW:
     result = Rect(x: x + 3, y: y + 3, w: iW + 3, h: iH + 2)
     drawBorder(t, result, active, 4)
@@ -71,25 +71,25 @@ proc swapBuffers(a, b: Buffer) =
     b.next.prev = b
 
 proc drawButtonList*(buttons: openArray[string]; t: Internaltheme;
-                     x, y, screenW: cint; e: var Event; active = -1): int =
+                     x, y, screenW: int; e: var Event; active = -1): int =
   var xx = x
   for i in 0..buttons.high:
     let b = buttons[i]
     let rect = drawTextWithBorder(t, b, i == active, xx, y, screenW)
     if e.kind == evMouseDown:
       if e.clicks >= 1:
-        let p = point(e.x.cint, e.y.cint)
+        let p = point(e.x, e.y)
         if rect.contains(p):
           result = i
-    inc xx, rect.w + t.uiXGap.cint*2
+    inc xx, rect.w + t.uiXGap*2
 
 proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
-                 x, screenW: cint; events: seq[Event];
+                 x, screenW: int; events: seq[Event];
                  active: Buffer): Buffer =
   var it = tabs.first
   var activeDrawn = false
   var xx = x
-  let yy = t.uiYGap.cint
+  let yy = t.uiYGap
   while true:
     let header = it.heading & (if it.changed: "*" else: "")
     let rect = drawTextWithBorder(t, header,
@@ -105,12 +105,12 @@ proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
     for e in events:
       if e.kind == evMouseDown:
         if e.clicks >= 1:
-          let p = point(e.x.cint, e.y.cint)
+          let p = point(e.x, e.y)
           if rect.contains(p):
             result = it
       elif e.kind == evMouseMove:
         if mbLeft in e.buttons:
-          let p = point(e.x.cint, e.y.cint)
+          let p = point(e.x, e.y)
           if rect.contains(p):
             if e.xrel >= 4:
               if it == tabs.first: tabs.first = it.next
@@ -119,7 +119,7 @@ proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
               if it == tabs.first: tabs.first = it.prev
               swapBuffers(it.prev, it)
 
-    inc xx, rect.w + t.uiXGap.cint*2
+    inc xx, rect.w + t.uiXGap*2
     if it == tabs.last: break
     it = it.next
     if it == tabs.first: break

@@ -34,8 +34,8 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
   var grip: Rect
   grip.x = bufferRect.x + bufferRect.w - width - 1
   grip.w = width - 2
-  grip.h = gripSize.cint
-  grip.y = clamp(gripPositionOnTrack.cint + bufferRect.y, bufferRect.y,
+  grip.h = gripSize.int
+  grip.y = clamp(gripPositionOnTrack.int + bufferRect.y, bufferRect.y,
                  bufferRect.y + bufferRect.h - grip.h)
 
   template state: var ScrollBarState =
@@ -49,16 +49,16 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
     case state.usingScrollbar
     of false:
       if e.kind == evMouseDown:
-        let p = point(e.x.cint, e.y.cint)
+        let p = point(e.x, e.y)
         if grip.contains(p):
           state = ScrollBarState(usingScrollbar: true,
-            initiallyGrippedAt: e.y.cint - grip.y)
+            initiallyGrippedAt: e.y.int - grip.y)
     of true:
       if e.kind == evMouseUp:
         state = ScrollBarState(usingScrollbar: false)
       elif e.kind == evMouseMove:
         let
-          mousePosRelativeToScrollbar = e.y.cint - grip.y
+          mousePosRelativeToScrollbar = e.y - grip.y
           yMovement = mousePosRelativeToScrollbar - state.initiallyGrippedAt
 
         let newGripPosition = clamp(gripPositionOnTrack + float(yMovement),

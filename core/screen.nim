@@ -53,9 +53,9 @@ var closeFontHook*: proc (f: Font) {.nimcall.} =
 # Text
 var measureTextHook*: proc (f: Font; text: cstring): TextExtent {.nimcall.} =
   proc (f: Font; text: cstring): TextExtent = TextExtent()
-var drawTextShadedHook*: proc (f: Font; x, y: cint; text: cstring;
+var drawTextShadedHook*: proc (f: Font; x, y: int; text: cstring;
                                fg, bg: Color): TextExtent {.nimcall.} =
-  proc (f: Font; x, y: cint; text: cstring; fg, bg: Color): TextExtent =
+  proc (f: Font; x, y: int; text: cstring; fg, bg: Color): TextExtent =
     TextExtent()
 var getFontMetricsHook*: proc (f: Font): FontMetrics {.nimcall.} =
   proc (f: Font): FontMetrics = FontMetrics()
@@ -63,10 +63,10 @@ var getFontMetricsHook*: proc (f: Font): FontMetrics {.nimcall.} =
 # Drawing primitives
 var fillRectHook*: proc (r: Rect; color: Color) {.nimcall.} =
   proc (r: Rect; color: Color) = discard
-var drawLineHook*: proc (x1, y1, x2, y2: cint; color: Color) {.nimcall.} =
-  proc (x1, y1, x2, y2: cint; color: Color) = discard
-var drawPointHook*: proc (x, y: cint; color: Color) {.nimcall.} =
-  proc (x, y: cint; color: Color) = discard
+var drawLineHook*: proc (x1, y1, x2, y2: int; color: Color) {.nimcall.} =
+  proc (x1, y1, x2, y2: int; color: Color) = discard
+var drawPointHook*: proc (x, y: int; color: Color) {.nimcall.} =
+  proc (x, y: int; color: Color) = discard
 
 # Images
 var loadImageHook*: proc (path: string): Image {.nimcall.} =
@@ -95,15 +95,15 @@ proc openFont*(path: string; size: int; metrics: var FontMetrics): Font =
   openFontHook(path, size, metrics)
 proc closeFont*(f: Font) = closeFontHook(f)
 proc measureText*(f: Font; text: cstring): TextExtent = measureTextHook(f, text)
-proc drawTextShaded*(f: Font; x, y: cint; text: cstring;
+proc drawTextShaded*(f: Font; x, y: int; text: cstring;
                      fg, bg: Color): TextExtent =
   drawTextShadedHook(f, x, y, text, fg, bg)
 proc getFontMetrics*(f: Font): FontMetrics = getFontMetricsHook(f)
-proc fontLineSkip*(f: Font): cint = getFontMetricsHook(f).lineHeight.cint
+proc fontLineSkip*(f: Font): int = getFontMetricsHook(f).lineHeight
 proc fillRect*(r: Rect; color: Color) = fillRectHook(r, color)
-proc drawLine*(x1, y1, x2, y2: cint; color: Color) =
+proc drawLine*(x1, y1, x2, y2: int; color: Color) =
   drawLineHook(x1, y1, x2, y2, color)
-proc drawPoint*(x, y: cint; color: Color) = drawPointHook(x, y, color)
+proc drawPoint*(x, y: int; color: Color) = drawPointHook(x, y, color)
 proc loadImage*(path: string): Image = loadImageHook(path)
 proc freeImage*(img: Image) = freeImageHook(img)
 proc drawImage*(img: Image; src, dst: Rect) = drawImageHook(img, src, dst)
