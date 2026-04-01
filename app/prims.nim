@@ -5,19 +5,19 @@ from math import sin, cos, PI
 type
   Pixel* = object
     col*: Color
-    thickness*: cint
     gradient*: Color
+    thickness*: int
 
 proc brightness*(c: Color): int = 299*c.r.int + 587*c.g.int + 114*c.b.int
 
 proc pixel*(x: int; y: int; p: Pixel) =
   if p.thickness <= 1:
-    drawPoint(x.cint, y.cint, p.col)
+    drawPoint(x, y, p.col)
   else:
-    fillRect(Rect(x: x.cint, y: y.cint, w: p.thickness, h: p.thickness), p.col)
+    fillRect(Rect(x: x, y: y, w: p.thickness, h: p.thickness), p.col)
 
 proc pixel*(x: int; y: int; c: Color) =
-  drawPoint(x.cint, y.cint, c)
+  drawPoint(x, y, c)
 
 template hasGradient(p: Pixel): bool = p.gradient != p.col
 
@@ -31,9 +31,9 @@ proc hlineGradient(x, y, w: int; oldp: Pixel) =
   var p = oldp
   for i in 0..w-1:
     if p.thickness <= 1:
-      drawPoint((x+i).cint, y.cint, p.col)
+      drawPoint(x+i, y, p.col)
     else:
-      fillRect(Rect(x: (x+i).cint, y: y.cint, w: 1, h: p.thickness), p.col)
+      fillRect(Rect(x: x+i, y: y, w: 1, h: p.thickness), p.col)
     if i > w-40:
       let strength = i-w+40
       p.col.r = prevColor(r, 40, strength)
@@ -49,43 +49,43 @@ proc vlineGradient(x, y, h: int; p: Pixel) =
   var p = p
   for i in 0..h-1:
     if p.thickness <= 1:
-      drawPoint(x.cint, (y+i).cint, p.col)
+      drawPoint(x, y+i, p.col)
     else:
-      fillRect(Rect(x: x.cint, y: (y+i).cint, w: p.thickness, h: 1), p.col)
+      fillRect(Rect(x: x, y: y+i, w: p.thickness, h: 1), p.col)
 
 proc hline*(x1: int; x2: int; y: int; p: Pixel) =
   if not hasGradient(p):
-    drawLine(x1.cint, y.cint, x2.cint, y.cint, p.col)
+    drawLine(x1, y, x2, y, p.col)
     for i in 1..p.thickness:
-      drawLine(x1.cint, (y+i).cint, x2.cint, (y+i).cint, p.col)
+      drawLine(x1, y+i, x2, y+i, p.col)
   else:
-    hLineGradient(x1.cint, y.cint, (x2-x1+1).cint, p)
+    hLineGradient(x1, y, (x2-x1+1), p)
 
 proc hline*(x1: int; x2: int; y: int; c: Color) =
-  drawLine(x1.cint, y.cint, x2.cint, y.cint, c)
+  drawLine(x1, y, x2, y, c)
 
 proc vline*(x: int; y1: int; y2: int; p: Pixel) =
   if not hasGradient(p):
-    drawLine(x.cint, y1.cint, x.cint, y2.cint, p.col)
+    drawLine(x, y1, x, y2, p.col)
     for i in 1..p.thickness:
-      drawLine((x+i).cint, y1.cint, (x+i).cint, y2.cint, p.col)
+      drawLine(x+i, y1, x+i, y2, p.col)
   else:
-    vLineGradient(x.cint, y1.cint, (y2-y1+1).cint, p)
+    vLineGradient(x, y1, (y2-y1+1), p)
 
 proc vlineDotted*(x: int; y1: int; y2: int; c: Color) =
   var i = y1
   while i <= y2:
-    drawPoint(x.cint, i.cint, c)
+    drawPoint(x, i, c)
     inc i, 2
 
 proc hlineDotted*(x1: int; x2: int; y: int; c: Color) =
   var i = x1
   while i <= x2:
-    drawPoint(i.cint, y.cint, c)
+    drawPoint(i, y, c)
     inc i, 2
 
 proc vline*(x: int; y1: int; y2: int; c: Color) =
-  drawLine(x.cint, y1.cint, x.cint, y2.cint, c)
+  drawLine(x, y1, x, y2, c)
 
 proc box*(x1: int; y1: int; x2: int; y2: int; c: Color) =
   var x1 = x1
@@ -94,7 +94,7 @@ proc box*(x1: int; y1: int; x2: int; y2: int; c: Color) =
   var y2 = y2
   if x1 > x2: swap x1, x2
   if y1 > y2: swap y1, y2
-  fillRect(Rect(x: x1.cint, y: y1.cint, w: cint(x2 - x1 + 1), h: cint(y2 - y1 + 1)), c)
+  fillRect(Rect(x: x1, y: y1, w: x2 - x1 + 1, h: y2 - y1 + 1), c)
 
 proc arc*(x: int; y: int; rad: int; start: int;
           `end`: int; p: Pixel) =
@@ -106,9 +106,9 @@ proc arc*(x: int; y: int; rad: int; start: int;
   var xpcx, xmcx, xpcy, xmcy: int
   var ypcy, ymcy, ypcx, ymcx: int
   var drawoct: uint8
-  var startoct, endoct, oct: cint
-  var stopvalStart: cint = 0
-  var stopvalEnd: cint = 0
+  var startoct, endoct, oct: int
+  var stopvalStart: int = 0
+  var stopvalEnd: int = 0
   var dstart, dend: cdouble
   var temp: cdouble = 0.0
   assert rad >= 0
@@ -136,7 +136,7 @@ proc arc*(x: int; y: int; rad: int; start: int;
       of 4, 7: temp = - sin(dstart * Pi / 180.0)
       else: discard
       temp = temp * rad.float
-      stopvalStart = cint(temp)
+      stopvalStart = temp.int
       if oct mod 2 != 0: drawoct = drawoct or uint8(1 shl oct)
       else: drawoct = drawoct and uint8(255 - (1 shl oct))
     if oct == endoct:
@@ -148,7 +148,7 @@ proc arc*(x: int; y: int; rad: int; start: int;
       of 4, 7: temp = - sin(dend * Pi / 180.0)
       else: discard
       temp = temp * rad.float
-      stopvalEnd = cint(temp)
+      stopvalEnd = temp.int
       if startoct == endoct:
         if start > `end`: drawoct = 255
         else: drawoct = drawoct and uint8(255 - (1 shl oct))

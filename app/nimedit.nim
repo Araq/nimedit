@@ -76,7 +76,7 @@ type
     main, prompt, console, autocomplete, minimap, sug: Buffer
     mainRect, promptRect, consoleRect: Rect
 
-    screenW, screenH: cint
+    screenW, screenH: int
     buffersCounter: int
     con, promptCon: Console
     bar: TabBar
@@ -124,8 +124,8 @@ proc newSharedState(): SharedState =
 
 proc setDefaults(ed: Editor; sh: SharedState) =
   ed.sh = sh
-  ed.screenW = cint(650)
-  ed.screenH = cint(780)
+  ed.screenW = 650
+  ed.screenH = 780
   sh.statusMsg = readyMsg
 
   ed.prompt = newBuffer("prompt", addr sh.mgr)
@@ -336,11 +336,11 @@ proc layout(ed: Editor) =
                         (yGap*5+sh.theme.uiFontSize.int+3))
   if ed.screenW > sh.theme.consoleAfter and sh.theme.consoleAfter >= 0:
     # enable the console:
-    let d = ed.screenW * (100 - sh.theme.consoleWidth.cint) div 100
+    let d = ed.screenW * (100 - sh.theme.consoleWidth) div 100
     ed.mainRect.w = d - 15
     ed.consoleRect = ed.mainRect
     ed.consoleRect.w = ed.screenW - d - 15
-    ed.consoleRect.x += ed.mainRect.w + xGap.cint*2
+    ed.consoleRect.x += ed.mainRect.w + xGap*2
   else:
     # disable console:
     ed.consoleRect.x = -1
@@ -463,7 +463,7 @@ proc harddiskCheck(ed: Editor) =
         discard
 
 const
-  DefaultTimeOut = 500.cint
+  DefaultTimeOut = 500
   TimeoutsPerSecond = 1000 div DefaultTimeOut
 
 proc hashPosition(b: Buffer): int = b.currentLine shl 20 + b.firstLine
@@ -628,8 +628,8 @@ proc setActiveWindow(sh: SharedState; wid: uint32): Editor =
 
 proc createSdlWindow(ed: Editor; maximize: range[0u32 .. 1u32]) =
   let layout = screen.createWindow(ed.screenW, ed.screenH)
-  ed.screenW = layout.width.cint
-  ed.screenH = layout.height.cint
+  ed.screenW = layout.width
+  ed.screenH = layout.height
 
 
 proc moveTabToRightWindow(ed: Editor) =
@@ -906,8 +906,8 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
         result = true
         break
     of evWindowResize:
-      ed.screenW = e.x.cint
-      ed.screenH = e.y.cint
+      ed.screenW = e.x
+      ed.screenH = e.y
       layout(ed)
     of evWindowFocusLost:
       sh.windowHasFocus = false
@@ -1009,17 +1009,17 @@ proc draw(events: sink seq[input.Event]; ed: Editor) =
     scrollLines(main, scrollTo-main.firstLine)
 
   var mainBorder = ed.mainRect
-  mainBorder.x = spaceForLines(main, sh.theme).cint + sh.theme.uiXGap.cint + 2
+  mainBorder.x = spaceForLines(main, sh.theme) + sh.theme.uiXGap + 2
   mainBorder.w = ed.mainRect.x + ed.mainRect.w - 1 - mainBorder.x
   sh.theme.drawBorder(mainBorder, focus==main)
   if main.posHint.w > 0 and ed.minimap.len > 0 and sh.theme.showMinimap and
       main.cursorDim.h > 0 and ed.minimap.heading == ed.main.heading:
     # cursorDim.h > 0 means that the cursor is in the view. The minimap is
     # too confusing when the cursor is not visible.
-    main.posHint.x += sh.theme.uiXGap.cint
-    main.posHint.y += sh.theme.uiYGap.cint
-    main.posHint.w -= sh.theme.uiXGap.cint
-    main.posHint.h -= sh.theme.uiYGap.cint * 2
+    main.posHint.x += sh.theme.uiXGap
+    main.posHint.y += sh.theme.uiYGap
+    main.posHint.w -= sh.theme.uiXGap
+    main.posHint.h -= sh.theme.uiYGap * 2
 
     main.posHint.h = min(sh.theme.draw(ed.minimap, main.posHint,
                                    false, {showGaps}) -
@@ -1030,7 +1030,7 @@ proc draw(events: sink seq[input.Event]; ed: Editor) =
     var autoRect = mainBorder
     autoRect.x += 10
     autoRect.w -= 20
-    autoRect.y = cint(main.cursorDim.y + main.cursorDim.h + 10)
+    autoRect.y = main.cursorDim.y + main.cursorDim.h + 10
     autoRect.h = min(ed.mainRect.y + ed.mainRect.h - autoRect.y, 400)
     sh.theme.drawBorderBox(autoRect, true)
     sh.theme.drawAutoComplete(focus, autoRect)
@@ -1044,7 +1044,7 @@ proc draw(events: sink seq[input.Event]; ed: Editor) =
   sh.theme.draw(prompt, ed.promptRect, sh.blink==0 and focus==prompt)
   sh.theme.drawBorder(ed.promptRect, focus==prompt)
 
-  let bottom = ed.screenH - sh.theme.editorFontSize.cint - sh.theme.uiYGap.cint*2
+  let bottom = ed.screenH - sh.theme.editorFontSize.int - sh.theme.uiYGap*2
   let statusColor = if ed.sh.statusMsg == readyMsg: sh.theme.fg
                     else: screen.color(0xff, 0x44, 0x44, 0)
   discard drawTextShaded(sh.uiFont, 15, bottom,
@@ -1055,7 +1055,7 @@ proc draw(events: sink seq[input.Event]; ed: Editor) =
                 " \\t: " & $main.tabSize &
                 " " & main.lineending.displayNL
   discard drawTextShaded(sh.uiFont,
-    cint(ed.mainRect.x + ed.mainRect.w - 14*sh.theme.uiFontSize.int), bottom,
+    ed.mainRect.x + ed.mainRect.w - 14*sh.theme.uiFontSize.int, bottom,
     cstring(posText), sh.theme.fg, sh.theme.bg)
 
   screen.refresh()
@@ -1130,7 +1130,7 @@ proc mainProc(ed: Editor) =
     # much shorter timeout. Nevertheless this should not affect our blinking
     # speed:
     let timeout = if ed.con.processRunning or nimsuggestclient.processing:
-                    100.cint
+                    100
                   else:
                     DefaultTimeOut
     # reduce CPU usage:
