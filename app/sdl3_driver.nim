@@ -66,24 +66,24 @@ proc sdlCloseFont(f: screen.Font) =
     sdl3_ttf.closeFont(fonts[idx].ttfFont)
     fonts[idx].ttfFont = nil
 
-proc sdlMeasureText(f: screen.Font; text: cstring): TextExtent =
+proc sdlMeasureText(f: screen.Font; text: string): TextExtent =
   let fp = getFontPtr(f)
-  if fp != nil and text[0] != '\0':
+  if fp != nil and text != "":
     var w, h: cint
-    discard sdl3_ttf.getStringSize(fp, text, 0, w, h)
+    discard sdl3_ttf.getStringSize(fp, cstring(text), 0, w, h)
     result = TextExtent(w: w, h: h)
 
-proc sdlDrawTextShaded(f: screen.Font; x, y: int; text: cstring;
-                       fg, bg: screen.Color): TextExtent =
+proc sdlDrawText(f: screen.Font; x, y: int; text: string;
+                 fg, bg: screen.Color): TextExtent =
   let fp = getFontPtr(f)
-  if fp == nil or text[0] == '\0': return
+  if fp == nil or text == "": return
   # Fill background, then draw blended text on top
   let ext0 = sdlMeasureText(f, text)
   var bgRect = FRect(x: x.cfloat, y: y.cfloat,
                      w: ext0.w.cfloat, h: ext0.h.cfloat)
   discard setRenderDrawColor(ren, bg.r, bg.g, bg.b, bg.a)
   discard renderFillRect(ren, addr bgRect)
-  let surf = sdl3_ttf.renderTextBlended(fp, text, 0, toColor(fg))
+  let surf = sdl3_ttf.renderTextBlended(fp, cstring(text), 0, toColor(fg))
   if surf == nil: return
   let tex = createTextureFromSurface(ren, surf)
   if tex == nil:
@@ -325,7 +325,7 @@ proc initSdl3Driver*() =
   openFontHook = sdlOpenFont
   closeFontHook = sdlCloseFont
   measureTextHook = sdlMeasureText
-  drawTextShadedHook = sdlDrawTextShaded
+  drawTextHook = sdlDrawText
   getFontMetricsHook = sdlGetFontMetrics
   fillRectHook = sdlFillRect
   drawLineHook = sdlDrawLine

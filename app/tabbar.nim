@@ -42,7 +42,7 @@ proc drawBorderBox*(t: InternalTheme; rect: Rect; active: bool; arc=8) =
 
 proc drawTextWithBorder*(t: InternalTheme; text: string; active: bool;
                          x, y, screenW: int): Rect =
-  let ext = drawTextShaded(t.uiFontHandle, x, y, cstring(text), t.fg, t.bg)
+  let ext = drawText(t.uiFontHandle, x, y, text, t.fg, t.bg)
   let iW = ext.w
   let iH = ext.h
   if iW+x < screenW:
