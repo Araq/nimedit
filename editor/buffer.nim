@@ -830,7 +830,7 @@ proc baseIndent(s: string): int =
   var i = 0
   while i < s.len:
     var ind = 0
-    while s[i] == ' ':
+    while i < s.len and s[i] == ' ':
       inc i
       inc ind
     while i < s.len and s[i] != '\L': inc i
