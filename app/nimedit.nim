@@ -952,7 +952,11 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
         if ctrlKeyPressed():
           surpress = true
       if not surpress:
-        let textStr = $cast[cstring](unsafeAddr e.text[0])
+        var textStr = ""
+        for k in 0..3:
+          let ch = e.text[k]
+          if ch == '\0': break
+          textStr.add ch
         if focus==ed.autocomplete or focus==ed.sug:
           main.insertSingleKey(textStr)
           if focus==ed.autocomplete:
