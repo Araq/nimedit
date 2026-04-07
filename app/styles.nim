@@ -1,7 +1,7 @@
 
 # Handling of styles.
 
-import std/[strformat, strutils, decls]
+import std/[strformat, strutils, decls, os]
 import screen, input
 import nimscript/common
 
@@ -36,7 +36,19 @@ type
 
 proc findFontFile(name: string): Path =
   ##[Returns the absolute path of the font file named `name`.tff.
+     First searches in 'fonts/' directory next to the executable,
+     then falls back to system font directories.
      Otherwise, raises `IOError`.]##
+  
+  # 1. First, try to find font in 'fonts/' directory next to executable
+  let exeDir = os.getAppDir()
+  let localFontsDir = exeDir / "fonts"
+  if localFontsDir.dirExists:
+    let toMatch = name.Path.addFileExt("ttf")
+    for file in localFontsDir.Path.walkDirRec({pcFile, pcLinkToFile}):
+      if file.extractFilename == toMatch.extractFilename: return file
+
+  # 2. Fall back to system fonts
   const AllFonts = when defined(linux): Path"/usr/share/fonts/truetype/"
     elif defined(windows): Path r"C:\Windows\Fonts\"
     elif defined(openIndiana): Path"/usr/share/fonts/TrueType/"
