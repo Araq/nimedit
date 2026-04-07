@@ -149,10 +149,7 @@ proc setupNimscript*(colorsScript: AbsoluteFile): PEvalContext =
     gConfig.selectedGC = gcUnselected
 
     colorsModule = makeModule(moduleGraph, colorsScript)
-    when NimMinor >= 2:
-      colorsModule.incl sfMainModule
-    else:
-      colorsModule.flags.incl sfMainModule
+    colorsModule.flags.incl sfMainModule
 
     var vm = setupVM(colorsModule, identCache, colorsScript.string,
                             moduleGraph, moduleGraph.idgen)
