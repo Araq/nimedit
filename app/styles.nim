@@ -79,11 +79,11 @@ proc fatal*(msg: string) {.noReturn.} =
 
 proc parseColor*(hex: string): Color =
   let x = parseHexInt(hex)
-  color(uint8(x shr 16 and 0xff), uint8(x shr 8 and 0xff), uint8(x and 0xff), 0)
+  color(uint8(x shr 16 and 0xff), uint8(x shr 8 and 0xff), uint8(x and 0xff), 255)
 
 proc colorFromInt*(x: BiggestInt): Color =
   let x = x.int
-  color(uint8(x shr 16 and 0xff), uint8(x shr 8 and 0xff), uint8(x and 0xff), 0)
+  color(uint8(x shr 16 and 0xff), uint8(x shr 8 and 0xff), uint8(x and 0xff), 255)
 
 proc openFontFromPath(p: Path; s: byte): Font {.inline.} =
   var metrics: FontMetrics
