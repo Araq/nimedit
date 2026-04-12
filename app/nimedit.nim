@@ -549,11 +549,8 @@ proc pollEvents*(someConsoleRunning, windowHasFocus: bool): seq[input.Event] =
   while input.pollEvent(e):
     result.add e
 
-proc ctrlKeyPressed*(): bool =
-  modCtrl in input.getModState()
-
-proc shiftKeyPressed*(): bool =
-  modShift in input.getModState()
+proc ctrlKeyPressed*(e: Event): bool = modCtrl in e.mods
+proc shiftKeyPressed*(e: Event): bool = modShift in e.mods
 
 proc loadTheme(ed: SharedState) =
   loadTheme(ed.cfgColors, ed.theme, ed.mgr, ed.fontM)
@@ -682,7 +679,7 @@ proc closeWindow(ed: Editor) =
   left.next = left.next.next
   ed.sh.activeWindow = left
 
-proc runAction(ed: Editor; action: Action; arg: string): bool =
+proc runAction(ed: Editor; action: Action; arg: string; shiftKeyPressed: bool): bool =
   template console: untyped = ed.console
 
   case action
@@ -756,7 +753,7 @@ proc runAction(ed: Editor; action: Action; arg: string): bool =
       main.insertEnter()
       trackSpot(ed.sh.hotspots, main)
     elif focus==prompt:
-      if ed.runCmd(prompt.fullText, shiftKeyPressed()):
+      if ed.runCmd(prompt.fullText, shiftKeyPressed):
         saveOpenTabs(ed)
         result = true
     elif focus==console:
@@ -931,7 +928,7 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
     of evMouseDown:
       var clicks = e.clicks
       if clicks == 0 or clicks > 5: clicks = 1
-      if ctrlKeyPressed(): inc(clicks)
+      if ctrlKeyPressed(e): inc(clicks)
       let p = point(e.x, e.y)
       if ed.mainRect.contains(p) and ed.main.scrollingEnabled:
         var rawMainRect = ed.mainRect
@@ -957,7 +954,7 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
     of evTextInput:
       var surpress = false
       if e.text[0] == ' ' and e.text[1] == '\0':
-        if ctrlKeyPressed():
+        if ctrlKeyPressed(e):
           surpress = true
       if not surpress:
         var textStr = ""
@@ -978,7 +975,7 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
     of evKeyDown, evKeyUp:
       let ks = eventToKeySet(e)
       let cmd = sh.keymapping.getOrDefault(ks)
-      if ed.runAction(cmd.action, cmd.arg):
+      if ed.runAction(cmd.action, cmd.arg, shiftKeyPressed(e)):
         result = true
         break
     else: discard
@@ -1148,7 +1145,7 @@ proc mainProc(ed: Editor) =
     # reduce CPU usage:
     delay(20)
     let newTicks = getTicks()
-    if newTicks - oldTicks > timeout.uint32:
+    if newTicks - oldTicks > timeout:
       oldTicks = newTicks
 
       inc sh.idle

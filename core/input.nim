@@ -42,32 +42,36 @@ type
     buttons*: set[MouseButton]  ## evMouseMove: which buttons are held
     clicks*: int           ## number of consecutive clicks (double-click = 2)
 
-var pollEventRelay*: proc (e: var Event): bool {.nimcall.} =
-  proc (e: var Event): bool = false
-var getClipboardTextRelay*: proc (): string {.nimcall.} =
-  proc (): string = ""
-var putClipboardTextRelay*: proc (text: string) {.nimcall.} =
-  proc (text: string) = discard
+  ClipboardRelays* = object
+    getText*: proc (): string {.nimcall.}
+    putText*: proc (text: string) {.nimcall.}
 
-var waitEventRelay*: proc (e: var Event; timeoutMs: int): bool {.nimcall.} =
-  proc (e: var Event; timeoutMs: int): bool = false
-var getModStateRelay*: proc (): set[Modifier] {.nimcall.} =
-  proc (): set[Modifier] = {}
-var getTicksRelay*: proc (): uint32 {.nimcall.} =
-  proc (): uint32 = 0
-var delayRelay*: proc (ms: uint32) {.nimcall.} =
-  proc (ms: uint32) = discard
-var startTextInputRelay*: proc () {.nimcall.} =
-  proc () = discard
-var quitRequestRelay*: proc () {.nimcall.} =
-  proc () = discard
+  InputRelays* = object
+    pollEvent*: proc (e: var Event): bool {.nimcall.}
+    waitEvent*: proc (e: var Event; timeoutMs: int): bool {.nimcall.}
+    getTicks*: proc (): int {.nimcall.}
+    delay*: proc (ms: int) {.nimcall.}
+    startTextInput*: proc () {.nimcall.}
+    quitRequest*: proc () {.nimcall.}
 
-proc pollEvent*(e: var Event): bool = pollEventRelay(e)
-proc waitEvent*(e: var Event; timeoutMs: int = -1): bool = waitEventRelay(e, timeoutMs)
-proc getClipboardText*(): string = getClipboardTextRelay()
-proc putClipboardText*(text: string) = putClipboardTextRelay(text)
-proc getModState*(): set[Modifier] = getModStateRelay()
-proc getTicks*(): uint32 = getTicksRelay()
-proc delay*(ms: uint32) = delayRelay(ms)
-proc startTextInput*() = startTextInputRelay()
-proc quitRequest*() = quitRequestRelay()
+var clipboardRelays* = ClipboardRelays(
+  getText: proc (): string = "",
+  putText: proc (text: string) = discard)
+
+var inputRelays* = InputRelays(
+  pollEvent: proc (e: var Event): bool = false,
+  waitEvent: proc (e: var Event; timeoutMs: int): bool = false,
+  getTicks: proc (): int = 0,
+  delay: proc (ms: int) = discard,
+  startTextInput: proc () = discard,
+  quitRequest: proc () = discard)
+
+proc pollEvent*(e: var Event): bool = inputRelays.pollEvent(e)
+proc waitEvent*(e: var Event; timeoutMs: int = -1): bool =
+  inputRelays.waitEvent(e, timeoutMs)
+proc getClipboardText*(): string = clipboardRelays.getText()
+proc putClipboardText*(text: string) = clipboardRelays.putText(text)
+proc getTicks*(): int = inputRelays.getTicks()
+proc delay*(ms: int) = inputRelays.delay(ms)
+proc startTextInput*() = inputRelays.startTextInput()
+proc quitRequest*() = inputRelays.quitRequest()

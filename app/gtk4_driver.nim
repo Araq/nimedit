@@ -721,13 +721,10 @@ proc gtkPutClipboardText(text: string) =
   if clip != nil:
     gdk_clipboard_set_text(clip, cstring(text))
 
-proc gtkGetModState(): set[Modifier] =
-  modState
+proc gtkGetTicks(): int =
+  int(g_get_monotonic_time() div 1000)
 
-proc gtkGetTicks(): uint32 =
-  uint32(g_get_monotonic_time() div 1000)
-
-proc gtkDelay(ms: uint32) =
+proc gtkDelay(ms: int) =
   g_usleep(culong(ms) * 1000)
 
 proc gtkStartTextInput() =
@@ -752,27 +749,20 @@ proc gtkQuitRequest() =
     imContext = nil
 
 proc initGtk4Driver*() =
-  createWindowRelay = gtkCreateWindow
-  refreshRelay = gtkRefresh
-  saveStateRelay = gtkSaveState
-  restoreStateRelay = gtkRestoreState
-  setClipRectRelay = gtkSetClipRect
-  openFontRelay = gtkOpenFont
-  closeFontRelay = gtkCloseFont
-  measureTextRelay = gtkMeasureText
-  drawTextRelay = gtkDrawText
-  getFontMetricsRelay = gtkGetFontMetrics
-  fillRectRelay = gtkFillRect
-  drawLineRelay = gtkDrawLine
-  drawPointRelay = gtkDrawPoint
-  setCursorRelay = gtkSetCursor
-  setWindowTitleRelay = gtkSetWindowTitle
-  pollEventRelay = gtkPollEvent
-  waitEventRelay = gtkWaitEvent
-  getClipboardTextRelay = gtkGetClipboardText
-  putClipboardTextRelay = gtkPutClipboardText
-  getModStateRelay = gtkGetModState
-  getTicksRelay = gtkGetTicks
-  delayRelay = gtkDelay
-  startTextInputRelay = gtkStartTextInput
-  quitRequestRelay = gtkQuitRequest
+  windowRelays = WindowRelays(
+    createWindow: gtkCreateWindow, refresh: gtkRefresh,
+    saveState: gtkSaveState, restoreState: gtkRestoreState,
+    setClipRect: gtkSetClipRect, setCursor: gtkSetCursor,
+    setWindowTitle: gtkSetWindowTitle)
+  fontRelays = FontRelays(
+    openFont: gtkOpenFont, closeFont: gtkCloseFont,
+    getFontMetrics: gtkGetFontMetrics, measureText: gtkMeasureText,
+    drawText: gtkDrawText)
+  drawRelays = DrawRelays(
+    fillRect: gtkFillRect, drawLine: gtkDrawLine, drawPoint: gtkDrawPoint)
+  inputRelays = InputRelays(
+    pollEvent: gtkPollEvent, waitEvent: gtkWaitEvent,
+    getTicks: gtkGetTicks, delay: gtkDelay,
+    startTextInput: gtkStartTextInput, quitRequest: gtkQuitRequest)
+  clipboardRelays = ClipboardRelays(
+    getText: gtkGetClipboardText, putText: gtkPutClipboardText)

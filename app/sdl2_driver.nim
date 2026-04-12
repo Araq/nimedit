@@ -311,12 +311,9 @@ proc sdlWaitEvent(e: var input.Event; timeoutMs: int): bool =
       sdl2.delay(10)
     return false
 
-proc sdlGetModState(): set[Modifier] =
-  translateMods(sdl2.getModState().int16)
+proc sdlGetTicks(): int = sdl2.getTicks().int
 
-proc sdlGetTicks(): uint32 = sdl2.getTicks()
-
-proc sdlDelay(ms: uint32) = sdl2.delay(ms)
+proc sdlDelay(ms: int) = sdl2.delay(ms.uint32)
 
 proc sdlStartTextInput() = sdl2.startTextInput()
 
@@ -329,29 +326,20 @@ proc initSdl2Driver*() =
     quit("SDL init failed")
   if ttfInit() != SdlSuccess:
     quit("TTF init failed")
-  # Screen hooks
-  createWindowRelay = sdlCreateWindow
-  refreshRelay = sdlRefresh
-  saveStateRelay = sdlSaveState
-  restoreStateRelay = sdlRestoreState
-  setClipRectRelay = sdlSetClipRect
-  openFontRelay = sdlOpenFont
-  closeFontRelay = sdlCloseFont
-  measureTextRelay = sdlMeasureText
-  drawTextRelay = sdlDrawTextShaded
-  getFontMetricsRelay = sdlGetFontMetrics
-  fillRectRelay = sdlFillRect
-  drawLineRelay = sdlDrawLine
-  drawPointRelay = sdlDrawPoint
-  setCursorRelay = sdlSetCursor
-  setWindowTitleRelay = sdlSetWindowTitle
-  # Input hooks
-  pollEventRelay = sdlPollEvent
-  waitEventRelay = sdlWaitEvent
-  getClipboardTextRelay = sdlGetClipboardText
-  putClipboardTextRelay = sdlPutClipboardText
-  getModStateRelay = sdlGetModState
-  getTicksRelay = sdlGetTicks
-  delayRelay = sdlDelay
-  startTextInputRelay = sdlStartTextInput
-  quitRequestRelay = sdlQuitRequest
+  windowRelays = WindowRelays(
+    createWindow: sdlCreateWindow, refresh: sdlRefresh,
+    saveState: sdlSaveState, restoreState: sdlRestoreState,
+    setClipRect: sdlSetClipRect, setCursor: sdlSetCursor,
+    setWindowTitle: sdlSetWindowTitle)
+  fontRelays = FontRelays(
+    openFont: sdlOpenFont, closeFont: sdlCloseFont,
+    getFontMetrics: sdlGetFontMetrics, measureText: sdlMeasureText,
+    drawText: sdlDrawTextShaded)
+  drawRelays = DrawRelays(
+    fillRect: sdlFillRect, drawLine: sdlDrawLine, drawPoint: sdlDrawPoint)
+  inputRelays = InputRelays(
+    pollEvent: sdlPollEvent, waitEvent: sdlWaitEvent,
+    getTicks: sdlGetTicks, delay: sdlDelay,
+    startTextInput: sdlStartTextInput, quitRequest: sdlQuitRequest)
+  clipboardRelays = ClipboardRelays(
+    getText: sdlGetClipboardText, putText: sdlPutClipboardText)

@@ -257,44 +257,29 @@ proc cocoaGetClipboardText(): string =
 proc cocoaPutClipboardText(text: string) =
   cPutClipboardText(cstring(text))
 
-proc cocoaGetModState(): set[Modifier] =
-  let m = cGetModState()
-  if (m and neModShift) != 0: result.incl modShift
-  if (m and neModCtrl) != 0: result.incl modCtrl
-  if (m and neModAlt) != 0: result.incl modAlt
-  if (m and neModGui) != 0: result.incl modGui
-
-proc cocoaGetTicks(): uint32 = cGetTicks()
-proc cocoaDelay(ms: uint32) = cDelay(ms)
+proc cocoaGetTicks(): int = cGetTicks().int
+proc cocoaDelay(ms: int) = cDelay(ms.uint32)
 proc cocoaStartTextInput() = cStartTextInput()
 proc cocoaQuitRequest() = cQuitRequest()
 
 # --- Init ---
 
 proc initCocoaDriver*() =
-  # Screen hooks
-  createWindowRelay = cocoaCreateWindow
-  refreshRelay = cocoaRefresh
-  saveStateRelay = cocoaSaveState
-  restoreStateRelay = cocoaRestoreState
-  setClipRectRelay = cocoaSetClipRect
-  openFontRelay = cocoaOpenFont
-  closeFontRelay = cocoaCloseFont
-  measureTextRelay = cocoaMeasureText
-  drawTextRelay = cocoaDrawText
-  getFontMetricsRelay = cocoaGetFontMetrics
-  fillRectRelay = cocoaFillRect
-  drawLineRelay = cocoaDrawLine
-  drawPointRelay = cocoaDrawPoint
-  setCursorRelay = cocoaSetCursor
-  setWindowTitleRelay = cocoaSetWindowTitle
-  # Input hooks
-  pollEventRelay = cocoaPollEvent
-  waitEventRelay = cocoaWaitEvent
-  getClipboardTextRelay = cocoaGetClipboardText
-  putClipboardTextRelay = cocoaPutClipboardText
-  getModStateRelay = cocoaGetModState
-  getTicksRelay = cocoaGetTicks
-  delayRelay = cocoaDelay
-  startTextInputRelay = cocoaStartTextInput
-  quitRequestRelay = cocoaQuitRequest
+  windowRelays = WindowRelays(
+    createWindow: cocoaCreateWindow, refresh: cocoaRefresh,
+    saveState: cocoaSaveState, restoreState: cocoaRestoreState,
+    setClipRect: cocoaSetClipRect, setCursor: cocoaSetCursor,
+    setWindowTitle: cocoaSetWindowTitle)
+  fontRelays = FontRelays(
+    openFont: cocoaOpenFont, closeFont: cocoaCloseFont,
+    getFontMetrics: cocoaGetFontMetrics, measureText: cocoaMeasureText,
+    drawText: cocoaDrawText)
+  drawRelays = DrawRelays(
+    fillRect: cocoaFillRect, drawLine: cocoaDrawLine,
+    drawPoint: cocoaDrawPoint)
+  inputRelays = InputRelays(
+    pollEvent: cocoaPollEvent, waitEvent: cocoaWaitEvent,
+    getTicks: cocoaGetTicks, delay: cocoaDelay,
+    startTextInput: cocoaStartTextInput, quitRequest: cocoaQuitRequest)
+  clipboardRelays = ClipboardRelays(
+    getText: cocoaGetClipboardText, putText: cocoaPutClipboardText)

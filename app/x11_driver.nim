@@ -849,7 +849,7 @@ proc x11WaitEvent(e: var input.Event; timeoutMs: int): bool =
     return false
   else:
     # Poll with short sleeps
-    let deadline = getTicks() + timeoutMs.uint32
+    let deadline = getTicks() + timeoutMs
     while true:
       let now = getTicks()
       if now >= deadline: return false
@@ -889,11 +889,6 @@ proc x11PutClipboardText(text: string) =
   gClipboardText = text
   discard XSetSelectionOwner(gDisplay, gClipboard, gWindow, CurrentTime)
 
-proc x11GetModState(): set[Modifier] =
-  # X11 doesn't have a direct "get modifier state" API outside of events.
-  # Return empty; the event-level mods are more reliable.
-  result = {}
-
 # ---- POSIX imports for getTicks ----
 
 type
@@ -905,20 +900,20 @@ type
 proc clock_gettime(clk: ClockId; tp: var Timespec): cint
   {.importc, header: "<time.h>".}
 
-proc x11GetTicks(): uint32 =
+proc x11GetTicks(): int =
   # Use POSIX clock
   var ts: Timespec
   discard clock_gettime(0.ClockId, ts)  # CLOCK_REALTIME = 0
-  result = uint32(ts.tv_sec.int64 * 1000 + ts.tv_nsec.int64 div 1_000_000)
+  result = int(ts.tv_sec.int64 * 1000 + ts.tv_nsec.int64 div 1_000_000)
 
-proc x11Delay(ms: uint32) =
+proc x11Delay(ms: int) =
   # Drain events during delay to stay responsive
   let deadline = x11GetTicks() + ms
   while true:
     let now = x11GetTicks()
     if now >= deadline: break
     drainXEvents()
-    os.sleep(min(int(deadline - now), 10))
+    os.sleep(min(deadline - now, 10))
 
 proc x11StartTextInput() = discard
 proc x11QuitRequest() =
@@ -930,29 +925,20 @@ proc x11QuitRequest() =
 # ---- Init ----
 
 proc initX11Driver*() =
-  # Screen hooks
-  createWindowRelay = x11CreateWindow
-  refreshRelay = x11Refresh
-  saveStateRelay = x11SaveState
-  restoreStateRelay = x11RestoreState
-  setClipRectRelay = x11SetClipRect
-  openFontRelay = x11OpenFont
-  closeFontRelay = x11CloseFont
-  measureTextRelay = x11MeasureText
-  drawTextRelay = x11DrawText
-  getFontMetricsRelay = x11GetFontMetrics
-  fillRectRelay = x11FillRect
-  drawLineRelay = x11DrawLine
-  drawPointRelay = x11DrawPoint
-  setCursorRelay = x11SetCursor
-  setWindowTitleRelay = x11SetWindowTitle
-  # Input hooks
-  pollEventRelay = x11PollEvent
-  waitEventRelay = x11WaitEvent
-  getClipboardTextRelay = x11GetClipboardText
-  putClipboardTextRelay = x11PutClipboardText
-  getModStateRelay = x11GetModState
-  getTicksRelay = x11GetTicks
-  delayRelay = x11Delay
-  startTextInputRelay = x11StartTextInput
-  quitRequestRelay = x11QuitRequest
+  windowRelays = WindowRelays(
+    createWindow: x11CreateWindow, refresh: x11Refresh,
+    saveState: x11SaveState, restoreState: x11RestoreState,
+    setClipRect: x11SetClipRect, setCursor: x11SetCursor,
+    setWindowTitle: x11SetWindowTitle)
+  fontRelays = FontRelays(
+    openFont: x11OpenFont, closeFont: x11CloseFont,
+    getFontMetrics: x11GetFontMetrics, measureText: x11MeasureText,
+    drawText: x11DrawText)
+  drawRelays = DrawRelays(
+    fillRect: x11FillRect, drawLine: x11DrawLine, drawPoint: x11DrawPoint)
+  inputRelays = InputRelays(
+    pollEvent: x11PollEvent, waitEvent: x11WaitEvent,
+    getTicks: x11GetTicks, delay: x11Delay,
+    startTextInput: x11StartTextInput, quitRequest: x11QuitRequest)
+  clipboardRelays = ClipboardRelays(
+    getText: x11GetClipboardText, putText: x11PutClipboardText)

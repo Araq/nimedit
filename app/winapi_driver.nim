@@ -871,16 +871,14 @@ proc winPutClipboardText(text: string) =
       discard SetClipboardData(CF_UNICODETEXT, cast[HANDLE](hMem))
   discard CloseClipboard()
 
-proc winGetModState(): set[Modifier] =
-  getModifiers()
-
-proc winGetTicks(): uint32 = GetTickCount()
-proc winDelay(ms: uint32) =
-  let deadline = GetTickCount() + ms
+proc winGetTicks(): int = GetTickCount().int
+proc winDelay(ms: int) =
+  let msU = ms.DWORD
+  let deadline = GetTickCount() + msU
   while true:
     let now = GetTickCount()
     if now >= deadline: break
-    let remaining = min(deadline - now, ms)
+    let remaining = min(deadline - now, msU)
     discard MsgWaitForMultipleObjects(0, nil, 0, remaining, QS_ALLINPUT)
     pumpMessages()
 proc winStartTextInput() = discard  # Win32 always delivers WM_CHAR
@@ -911,29 +909,20 @@ proc setDpiAware() =
 
 proc initWinapiDriver*() =
   setDpiAware()
-  # Screen hooks
-  createWindowRelay = winCreateWindow
-  refreshRelay = winRefresh
-  saveStateRelay = winSaveState
-  restoreStateRelay = winRestoreState
-  setClipRectRelay = winSetClipRect
-  openFontRelay = winOpenFont
-  closeFontRelay = winCloseFont
-  measureTextRelay = winMeasureText
-  drawTextRelay = winDrawText
-  getFontMetricsRelay = winGetFontMetrics
-  fillRectRelay = winFillRect
-  drawLineRelay = winDrawLine
-  drawPointRelay = winDrawPoint
-  setCursorRelay = winSetCursor
-  setWindowTitleRelay = winSetWindowTitle
-  # Input hooks
-  pollEventRelay = winPollEvent
-  waitEventRelay = winWaitEvent
-  getClipboardTextRelay = winGetClipboardText
-  putClipboardTextRelay = winPutClipboardText
-  getModStateRelay = winGetModState
-  getTicksRelay = winGetTicks
-  delayRelay = winDelay
-  startTextInputRelay = winStartTextInput
-  quitRequestRelay = winQuitRequest
+  windowRelays = WindowRelays(
+    createWindow: winCreateWindow, refresh: winRefresh,
+    saveState: winSaveState, restoreState: winRestoreState,
+    setClipRect: winSetClipRect, setCursor: winSetCursor,
+    setWindowTitle: winSetWindowTitle)
+  fontRelays = FontRelays(
+    openFont: winOpenFont, closeFont: winCloseFont,
+    getFontMetrics: winGetFontMetrics, measureText: winMeasureText,
+    drawText: winDrawText)
+  drawRelays = DrawRelays(
+    fillRect: winFillRect, drawLine: winDrawLine, drawPoint: winDrawPoint)
+  inputRelays = InputRelays(
+    pollEvent: winPollEvent, waitEvent: winWaitEvent,
+    getTicks: winGetTicks, delay: winDelay,
+    startTextInput: winStartTextInput, quitRequest: winQuitRequest)
+  clipboardRelays = ClipboardRelays(
+    getText: winGetClipboardText, putText: winPutClipboardText)
