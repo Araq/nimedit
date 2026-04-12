@@ -12,10 +12,13 @@ import uirelays/[coords, screen, input, backend]
 import buffertype except Action
 import buffer, styles, unicode, highlighters, console
 import nimscript/common, nimscript/keydefs, languages, themes,
-  nimscriptsupport, tabbar, finder,
+  tabbar, finder,
   scrollbar, indexer, overviews, nimsuggestclient, minimap
 
-import compiler / pathutils
+when defined(nimscript):
+  import nimscriptsupport
+  import compiler / pathutils
+import cfgloader
 
 when defined(windows):
   import dialogs
@@ -61,7 +64,9 @@ type
     theme: InternalTheme
     keymapping: KeyMapping
     fontM: FontManager
-    cfgColors, cfgActions: AbsoluteFile
+    when defined(nimscript):
+      cfgColors, cfgActions: AbsoluteFile
+    cfgFile: string
     project: string
     nimsuggestDebug, clickOnFilename, windowHasFocus: bool
     state: EditorState
@@ -110,8 +115,10 @@ proc newSharedState(): SharedState =
   ed.theme.bg = parseColor"#292929"
   ed.theme.fg = parseColor"#fafafa"
   ed.theme.cursor = parseColor"#fafafa"
-  ed.cfgColors = AbsoluteFile(os.getAppDir().parentDir / "nimscript" / "colors.nims")
-  ed.cfgActions = AbsoluteFile(os.getAppDir().parentDir / "nimscript" / "actions.nims")
+  when defined(nimscript):
+    ed.cfgColors = AbsoluteFile(os.getAppDir().parentDir / "nimscript" / "colors.nims")
+    ed.cfgActions = AbsoluteFile(os.getAppDir().parentDir / "nimscript" / "actions.nims")
+  ed.cfgFile = os.getAppDir().parentDir / "nimedit.cfg"
   ed.searchPath = @[]
   ed.nimsuggestDebug = true
   ed.keymapping = initTable[set[Key], Command]()
@@ -516,15 +523,17 @@ proc suggest(ed: Editor; cmd: string) =
     ed.sug.clear()
     sh.focus = ed.sug
 
-include api
+when defined(nimscript):
+  include api
 
-proc handleEvent(ed: Editor; procname: string) =
-  try:
-    nimscriptsupport.execProc procname
-  except:
-    ed.con.insertReadonly(getCurrentExceptionMsg())
-    if not ed.hasConsole:
-      ed.sh.statusMsg = "Errors! Open console to see them."
+when defined(nimscript):
+  proc handleEvent(ed: Editor; procname: string) =
+    try:
+      nimscriptsupport.execProc procname
+    except:
+      ed.con.insertReadonly(getCurrentExceptionMsg())
+      if not ed.hasConsole:
+        ed.sh.statusMsg = "Errors! Open console to see them."
 
 proc pollEvents*(someConsoleRunning, windowHasFocus: bool): seq[input.Event] =
   result = @[]
@@ -541,11 +550,27 @@ proc ctrlKeyPressed*(e: Event): bool = CtrlPressed in e.mods
 proc shiftKeyPressed*(e: Event): bool = ShiftPressed in e.mods
 
 proc loadTheme(ed: SharedState) =
-  loadTheme(ed.cfgColors, ed.theme, ed.mgr, ed.fontM)
+  when defined(nimscript):
+    loadTheme(ed.cfgColors, ed.theme, ed.mgr, ed.fontM)
+  else:
+    let cfg = loadCfg(ed.cfgFile)
+    applyTheme(cfg, ed.theme, ed.mgr, ed.fontM)
   ed.uiFont = ed.fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)
   ed.theme.uiFontHandle = ed.uiFont
   ed.theme.editorFontHandle = ed.fontM.fontByName(ed.theme.editorFont,
                                                    ed.theme.editorFontSize)
+
+when not defined(nimscript):
+  proc loadThemeCfg(ed: SharedState; cfg: NimEditCfg) =
+    applyTheme(cfg, ed.theme, ed.mgr, ed.fontM)
+    ed.uiFont = ed.fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)
+    ed.theme.uiFontHandle = ed.uiFont
+    ed.theme.editorFontHandle = ed.fontM.fontByName(ed.theme.editorFont,
+                                                     ed.theme.editorFontSize)
+
+  proc loadKeysCfg(ed: SharedState; cfg: NimEditCfg) =
+    for kb in cfg.keybindings:
+      ed.keymapping[kb.keys] = Command(action: kb.action, arg: kb.arg)
 
 proc eventToKeySet(e: input.Event): set[Key] =
   result = {}
@@ -817,11 +842,18 @@ proc runAction(ed: Editor; action: Action; arg: string; shiftKeyPressed: bool): 
   of Action.SaveTab:
     main.save()
     let sh = ed.sh
-    if cmpPaths(main.filename, sh.cfgColors.string) == 0:
-      loadTheme(sh)
-      layout(ed)
-    elif cmpPaths(main.filename, sh.cfgActions.string) == 0:
-      reloadActions(sh.cfgActions)
+    when defined(nimscript):
+      if cmpPaths(main.filename, sh.cfgColors.string) == 0:
+        loadTheme(sh)
+        layout(ed)
+      elif cmpPaths(main.filename, sh.cfgActions.string) == 0:
+        reloadActions(sh.cfgActions)
+    else:
+      if cmpPaths(main.filename, sh.cfgFile) == 0:
+        let cfg = loadCfg(sh.cfgFile)
+        loadThemeCfg(sh, cfg)
+        loadKeysCfg(sh, cfg)
+        layout(ed)
     sh.statusMsg = readyMsg
 
   of Action.NewTab:
@@ -873,7 +905,10 @@ proc runAction(ed: Editor; action: Action; arg: string; shiftKeyPressed: bool): 
   of Action.Nimsuggest:
     ed.suggest(arg)
   of Action.NimScript:
-    ed.handleEvent(arg)
+    when defined(nimscript):
+      ed.handleEvent(arg)
+    else:
+      ed.sh.statusMsg = "NimScript support not compiled in. Rebuild with -d:nimscript."
 
 proc handleQuitEvent(ed: Editor): bool =
   saveOpenTabs(ed)
@@ -1075,15 +1110,24 @@ proc mainProc(ed: Editor) =
   createUnknownTab(ed, sh)
   sh.activeWindow = ed
   sh.firstWindow = ed
-  let scriptContext = setupNimscript(sh.cfgColors)
-  scriptContext.setupApi(sh)
-  compileActions(sh.cfgActions)
+  when defined(nimscript):
+    let scriptContext = setupNimscript(sh.cfgColors)
+    scriptContext.setupApi(sh)
+    compileActions(sh.cfgActions)
 
   createSdlWindow(ed, 1u32)
-  loadTheme(sh)
 
-
-  include nimscript/keybindings #XXX TODO: nimscript instead of include
+  when defined(nimscript):
+    loadTheme(sh)
+    include nimscript/keybindings
+  else:
+    let cfg = loadCfg(sh.cfgFile)
+    applyTheme(cfg, sh.theme, sh.mgr, sh.fontM)
+    sh.uiFont = sh.fontM.fontByName(sh.theme.uiFont, sh.theme.uiFontSize)
+    sh.theme.uiFontHandle = sh.uiFont
+    sh.theme.editorFontHandle = sh.fontM.fontByName(sh.theme.editorFont,
+                                                     sh.theme.editorFontSize)
+    loadKeysCfg(sh, cfg)
 
   ed.bar.first = ed.main
 
