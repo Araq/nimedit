@@ -2,7 +2,7 @@
 
 import strutils, unicode, intsets, compiler/ast, tables
 import styles, highlighters, nimscript/common, themes
-import basetypes, screen, prims
+import uirelays/[coords, screen], prims
 import buffertype, unihelp, languages
 from os import splitFile
 

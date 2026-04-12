@@ -51,6 +51,5 @@ if sdl2.init(INIT_VIDEO) != SdlSuccess:
 elif ttfInit() != SdlSuccess:
   echo "TTF_Init"
 else:
-  startTextInput()
   mainProc()
 sdl2.quit()

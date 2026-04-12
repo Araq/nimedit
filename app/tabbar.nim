@@ -1,7 +1,7 @@
 
 
 import buffertype, themes
-import basetypes, screen, input, prims
+import uirelays/[coords, screen, input], prims
 
 type
   TabBar* = object
@@ -76,16 +76,34 @@ proc drawButtonList*(buttons: openArray[string]; t: Internaltheme;
   for i in 0..buttons.high:
     let b = buttons[i]
     let rect = drawTextWithBorder(t, b, i == active, xx, y, screenW)
-    if e.kind == evMouseDown:
+    if e.kind == MouseDownEvent:
       if e.clicks >= 1:
         let p = point(e.x, e.y)
         if rect.contains(p):
           result = i
     inc xx, rect.w + t.uiXGap*2
 
+var tabDragX: int  ## last known mouse X during tab drag
+var tabDragging: bool  ## whether left button is held for tab dragging
+
 proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
                  x, screenW: int; events: seq[Event];
                  active: Buffer): Buffer =
+  # Track drag state from events
+  for e in events:
+    case e.kind
+    of MouseDownEvent:
+      if e.button == LeftButton:
+        tabDragging = true
+        tabDragX = e.x
+    of MouseUpEvent:
+      if e.button == LeftButton:
+        tabDragging = false
+    of MouseMoveEvent:
+      if tabDragging:
+        tabDragX = e.x
+    else: discard
+
   var it = tabs.first
   var activeDrawn = false
   var xx = x
@@ -103,21 +121,21 @@ proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
 
     activeDrawn = activeDrawn or it == active
     for e in events:
-      if e.kind == evMouseDown:
+      if e.kind == MouseDownEvent:
         if e.clicks >= 1:
           let p = point(e.x, e.y)
           if rect.contains(p):
             result = it
-      elif e.kind == evMouseMove:
-        if mbLeft in e.buttons:
-          let p = point(e.x, e.y)
-          if rect.contains(p):
-            if e.xrel >= 4:
-              if it == tabs.first: tabs.first = it.next
-              swapBuffers(it, it.next)
-            elif e.xrel <= -4:
-              if it == tabs.first: tabs.first = it.prev
-              swapBuffers(it.prev, it)
+      elif e.kind == MouseMoveEvent and tabDragging:
+        let p = point(e.x, e.y)
+        if rect.contains(p):
+          let dx = e.x - tabDragX
+          if dx >= 4:
+            if it == tabs.first: tabs.first = it.next
+            swapBuffers(it, it.next)
+          elif dx <= -4:
+            if it == tabs.first: tabs.first = it.prev
+            swapBuffers(it.prev, it)
 
     inc xx, rect.w + t.uiXGap*2
     if it == tabs.last: break

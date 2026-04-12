@@ -1,5 +1,5 @@
 
-import screen
+import uirelays/screen
 
 type
   InternalTheme* = object
