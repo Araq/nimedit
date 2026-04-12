@@ -203,6 +203,7 @@ proc startsWithIgnoreCase(s, prefix: string): bool =
   var i = 0
   while true:
     if i >= prefix.len: return true
+    if i >= s.len: return false
     if s[i].toLowerAscii != prefix[i].toLowerAscii: return false
     inc(i)
 

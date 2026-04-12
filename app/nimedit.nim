@@ -9,7 +9,9 @@ import
     exitprocs]
 from parseutils import parseInt
 import basetypes, screen, input
-when defined(gtk4):
+when defined(cocoa):
+  import cocoa_driver
+elif defined(gtk4):
   import gtk4_driver
 elif defined(sdl2):
   import sdl2_driver
@@ -1162,7 +1164,9 @@ proc mainProc(ed: Editor) =
 
 
 
-when defined(gtk4):
+when defined(cocoa):
+  initCocoaDriver()
+elif defined(gtk4):
   initGtk4Driver()
 elif defined(sdl2):
   initSdl2Driver()
