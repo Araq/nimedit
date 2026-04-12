@@ -8,19 +8,7 @@ import
   std/[strutils, critbits, os, times, browsers, tables, hashes, intsets,
     exitprocs]
 from parseutils import parseInt
-import basetypes, screen, input
-when defined(cocoa):
-  import cocoa_driver
-elif defined(gtk4):
-  import gtk4_driver
-elif defined(x11):
-  import x11_driver
-elif defined(winapi):
-  import winapi_driver
-elif defined(sdl2):
-  import sdl2_driver
-else:
-  import sdl3_driver
+import uirelays/[coords, screen, input, backend]
 import buffertype except Action
 import buffer, styles, unicode, highlighters, console
 import nimscript/common, nimscript/keydefs, languages, themes,
@@ -1166,17 +1154,6 @@ proc mainProc(ed: Editor) =
 
 
 
-when defined(cocoa):
-  initCocoaDriver()
-elif defined(gtk4):
-  initGtk4Driver()
-elif defined(x11):
-  initX11Driver()
-elif defined(winapi):
-  initWinapiDriver()
-elif defined(sdl2):
-  initSdl2Driver()
-else:
-  initSdl3Driver()
+initBackend()
 mainProc(Editor())
 input.quitRequest()

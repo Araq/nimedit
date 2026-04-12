@@ -1,7 +1,7 @@
 
 import styles, nimscript/common, intsets, compiler/ast, tables
 from times import Time
-import core/basetypes
+import uirelays/coords
 
 type
   ActionKind* = enum

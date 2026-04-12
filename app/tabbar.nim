@@ -1,7 +1,7 @@
 
 
 import buffertype, themes
-import basetypes, screen, input, prims
+import uirelays/[coords, screen, input], prims
 
 type
   TabBar* = object

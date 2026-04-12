@@ -1,5 +1,5 @@
 
-import basetypes, screen
+import uirelays/[coords, screen]
 from math import sin, cos, PI
 
 type

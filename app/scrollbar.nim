@@ -1,7 +1,7 @@
 ## Draws a vertical scrollbar for a buffer.
 
 import buffertype, themes
-import basetypes, screen, input, tabbar
+import uirelays/[coords, screen, input], tabbar
 
 const scrollBarWidth* = 15
 

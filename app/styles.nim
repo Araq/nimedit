@@ -2,7 +2,7 @@
 # Handling of styles.
 
 import std/[strformat, strutils, decls]
-import screen, input
+import uirelays/[screen, input]
 import nimscript/common
 
 when NimMajor >= 2:
