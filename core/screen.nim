@@ -1,4 +1,4 @@
-# Platform-independent screen/drawing hooks.
+# Platform-independent screen/drawing relays.
 # Part of the core stdlib abstraction (plan.md).
 
 import basetypes
@@ -30,86 +30,85 @@ proc `==`*(a, b: Font): bool {.borrow.}
 proc `==`*(a, b: Image): bool {.borrow.}
 
 # Window lifecycle
-var createWindowHook*: proc (layout: var ScreenLayout) {.nimcall.} =
+var createWindowRelay*: proc (layout: var ScreenLayout) {.nimcall.} =
   proc (layout: var ScreenLayout) = discard
-var refreshHook*: proc () {.nimcall.} =
+var refreshRelay*: proc () {.nimcall.} =
   proc () = discard
 
 # Graphics state
-var saveStateHook*: proc () {.nimcall.} =
+var saveStateRelay*: proc () {.nimcall.} =
   proc () = discard
-var restoreStateHook*: proc () {.nimcall.} =
+var restoreStateRelay*: proc () {.nimcall.} =
   proc () = discard
-var setClipRectHook*: proc (r: Rect) {.nimcall.} =
+var setClipRectRelay*: proc (r: Rect) {.nimcall.} =
   proc (r: Rect) = discard
 
 # Font management
-var openFontHook*: proc (path: string; size: int;
+var openFontRelay*: proc (path: string; size: int;
                          metrics: var FontMetrics): Font {.nimcall.} =
   proc (path: string; size: int; metrics: var FontMetrics): Font = Font(0)
-var closeFontHook*: proc (f: Font) {.nimcall.} =
+var closeFontRelay*: proc (f: Font) {.nimcall.} =
   proc (f: Font) = discard
 
 # Text
-var measureTextHook*: proc (f: Font; text: string): TextExtent {.nimcall.} =
+var measureTextRelay*: proc (f: Font; text: string): TextExtent {.nimcall.} =
   proc (f: Font; text: string): TextExtent = TextExtent()
-var drawTextHook*: proc (f: Font; x, y: int; text: string;
+var drawTextRelay*: proc (f: Font; x, y: int; text: string;
                                fg, bg: Color): TextExtent {.nimcall.} =
   proc (f: Font; x, y: int; text: string; fg, bg: Color): TextExtent =
     TextExtent()
-var getFontMetricsHook*: proc (f: Font): FontMetrics {.nimcall.} =
+var getFontMetricsRelay*: proc (f: Font): FontMetrics {.nimcall.} =
   proc (f: Font): FontMetrics = FontMetrics()
 
 # Drawing primitives
-var fillRectHook*: proc (r: Rect; color: Color) {.nimcall.} =
+var fillRectRelay*: proc (r: Rect; color: Color) {.nimcall.} =
   proc (r: Rect; color: Color) = discard
-var drawLineHook*: proc (x1, y1, x2, y2: int; color: Color) {.nimcall.} =
+var drawLineRelay*: proc (x1, y1, x2, y2: int; color: Color) {.nimcall.} =
   proc (x1, y1, x2, y2: int; color: Color) = discard
-var drawPointHook*: proc (x, y: int; color: Color) {.nimcall.} =
+var drawPointRelay*: proc (x, y: int; color: Color) {.nimcall.} =
   proc (x, y: int; color: Color) = discard
 
 # Images
-var loadImageHook*: proc (path: string): Image {.nimcall.} =
+var loadImageRelay*: proc (path: string): Image {.nimcall.} =
   proc (path: string): Image = Image(0)
-var freeImageHook*: proc (img: Image) {.nimcall.} =
+var freeImageRelay*: proc (img: Image) {.nimcall.} =
   proc (img: Image) = discard
-var drawImageHook*: proc (img: Image; src, dst: Rect) {.nimcall.} =
+var drawImageRelay*: proc (img: Image; src, dst: Rect) {.nimcall.} =
   proc (img: Image; src, dst: Rect) = discard
 
 # Cursor and window
-var setCursorHook*: proc (c: CursorKind) {.nimcall.} =
+var setCursorRelay*: proc (c: CursorKind) {.nimcall.} =
   proc (c: CursorKind) = discard
-var setWindowTitleHook*: proc (title: string) {.nimcall.} =
+var setWindowTitleRelay*: proc (title: string) {.nimcall.} =
   proc (title: string) = discard
 
 # Convenience wrappers
 proc createWindow*(requestedW, requestedH: int): ScreenLayout =
   result = ScreenLayout(width: requestedW, height: requestedH)
-  createWindowHook(result)
+  createWindowRelay(result)
 
-proc refresh*() = refreshHook()
-proc saveState*() = saveStateHook()
-proc restoreState*() = restoreStateHook()
-proc setClipRect*(r: Rect) = setClipRectHook(r)
+proc refresh*() = refreshRelay()
+proc saveState*() = saveStateRelay()
+proc restoreState*() = restoreStateRelay()
+proc setClipRect*(r: Rect) = setClipRectRelay(r)
 proc openFont*(path: string; size: int; metrics: var FontMetrics): Font =
-  openFontHook(path, size, metrics)
-proc closeFont*(f: Font) = closeFontHook(f)
-proc measureText*(f: Font; text: string): TextExtent = measureTextHook(f, text)
+  openFontRelay(path, size, metrics)
+proc closeFont*(f: Font) = closeFontRelay(f)
+proc measureText*(f: Font; text: string): TextExtent = measureTextRelay(f, text)
 proc drawText*(f: Font; x, y: int; text: string; fg, bg: Color): TextExtent =
-  drawTextHook(f, x, y, text, fg, bg)
-proc getFontMetrics*(f: Font): FontMetrics = getFontMetricsHook(f)
-proc fontLineSkip*(f: Font): int = getFontMetricsHook(f).lineHeight
-proc fillRect*(r: Rect; color: Color) = fillRectHook(r, color)
+  drawTextRelay(f, x, y, text, fg, bg)
+proc getFontMetrics*(f: Font): FontMetrics = getFontMetricsRelay(f)
+proc fontLineSkip*(f: Font): int = getFontMetricsRelay(f).lineHeight
+proc fillRect*(r: Rect; color: Color) = fillRectRelay(r, color)
 proc drawLine*(x1, y1, x2, y2: int; color: Color) =
-  drawLineHook(x1, y1, x2, y2, color)
-proc drawPoint*(x, y: int; color: Color) = drawPointHook(x, y, color)
-proc loadImage*(path: string): Image = loadImageHook(path)
-proc freeImage*(img: Image) = freeImageHook(img)
-proc drawImage*(img: Image; src, dst: Rect) = drawImageHook(img, src, dst)
-proc setCursor*(c: CursorKind) = setCursorHook(c)
-proc setWindowTitle*(title: string) = setWindowTitleHook(title)
+  drawLineRelay(x1, y1, x2, y2, color)
+proc drawPoint*(x, y: int; color: Color) = drawPointRelay(x, y, color)
+proc loadImage*(path: string): Image = loadImageRelay(path)
+proc freeImage*(img: Image) = freeImageRelay(img)
+proc drawImage*(img: Image; src, dst: Rect) = drawImageRelay(img, src, dst)
+proc setCursor*(c: CursorKind) = setCursorRelay(c)
+proc setWindowTitle*(title: string) = setWindowTitleRelay(title)
 
 # Color constructors
 proc color*(r, g, b: uint8; a: uint8 = 255): Color =
   Color(r: r, g: g, b: b, a: a)
-

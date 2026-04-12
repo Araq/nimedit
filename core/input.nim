@@ -1,4 +1,4 @@
-# Platform-independent input events and hooks.
+# Platform-independent input events and relays.
 # Part of the core stdlib abstraction (plan.md).
 
 
@@ -42,32 +42,32 @@ type
     buttons*: set[MouseButton]  ## evMouseMove: which buttons are held
     clicks*: int           ## number of consecutive clicks (double-click = 2)
 
-var pollEventHook*: proc (e: var Event): bool {.nimcall.} =
+var pollEventRelay*: proc (e: var Event): bool {.nimcall.} =
   proc (e: var Event): bool = false
-var getClipboardTextHook*: proc (): string {.nimcall.} =
+var getClipboardTextRelay*: proc (): string {.nimcall.} =
   proc (): string = ""
-var putClipboardTextHook*: proc (text: string) {.nimcall.} =
+var putClipboardTextRelay*: proc (text: string) {.nimcall.} =
   proc (text: string) = discard
 
-var waitEventHook*: proc (e: var Event; timeoutMs: int): bool {.nimcall.} =
+var waitEventRelay*: proc (e: var Event; timeoutMs: int): bool {.nimcall.} =
   proc (e: var Event; timeoutMs: int): bool = false
-var getModStateHook*: proc (): set[Modifier] {.nimcall.} =
+var getModStateRelay*: proc (): set[Modifier] {.nimcall.} =
   proc (): set[Modifier] = {}
-var getTicksHook*: proc (): uint32 {.nimcall.} =
+var getTicksRelay*: proc (): uint32 {.nimcall.} =
   proc (): uint32 = 0
-var delayHook*: proc (ms: uint32) {.nimcall.} =
+var delayRelay*: proc (ms: uint32) {.nimcall.} =
   proc (ms: uint32) = discard
-var startTextInputHook*: proc () {.nimcall.} =
+var startTextInputRelay*: proc () {.nimcall.} =
   proc () = discard
-var quitRequestHook*: proc () {.nimcall.} =
+var quitRequestRelay*: proc () {.nimcall.} =
   proc () = discard
 
-proc pollEvent*(e: var Event): bool = pollEventHook(e)
-proc waitEvent*(e: var Event; timeoutMs: int = -1): bool = waitEventHook(e, timeoutMs)
-proc getClipboardText*(): string = getClipboardTextHook()
-proc putClipboardText*(text: string) = putClipboardTextHook(text)
-proc getModState*(): set[Modifier] = getModStateHook()
-proc getTicks*(): uint32 = getTicksHook()
-proc delay*(ms: uint32) = delayHook(ms)
-proc startTextInput*() = startTextInputHook()
-proc quitRequest*() = quitRequestHook()
+proc pollEvent*(e: var Event): bool = pollEventRelay(e)
+proc waitEvent*(e: var Event; timeoutMs: int = -1): bool = waitEventRelay(e, timeoutMs)
+proc getClipboardText*(): string = getClipboardTextRelay()
+proc putClipboardText*(text: string) = putClipboardTextRelay(text)
+proc getModState*(): set[Modifier] = getModStateRelay()
+proc getTicks*(): uint32 = getTicksRelay()
+proc delay*(ms: uint32) = delayRelay(ms)
+proc startTextInput*() = startTextInputRelay()
+proc quitRequest*() = quitRequestRelay()

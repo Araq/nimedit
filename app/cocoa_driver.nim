@@ -97,7 +97,7 @@ proc cSetWindowTitle(title: cstring) {.importc: "cocoa_setWindowTitle", cdecl.}
 proc cStartTextInput() {.importc: "cocoa_startTextInput", cdecl.}
 proc cQuitRequest() {.importc: "cocoa_quitRequest", cdecl.}
 
-# --- Hook implementations ---
+# --- Relay implementations ---
 
 proc cocoaCreateWindow(layout: var ScreenLayout) =
   var w, h, sx, sy: cint
@@ -273,28 +273,28 @@ proc cocoaQuitRequest() = cQuitRequest()
 
 proc initCocoaDriver*() =
   # Screen hooks
-  createWindowHook = cocoaCreateWindow
-  refreshHook = cocoaRefresh
-  saveStateHook = cocoaSaveState
-  restoreStateHook = cocoaRestoreState
-  setClipRectHook = cocoaSetClipRect
-  openFontHook = cocoaOpenFont
-  closeFontHook = cocoaCloseFont
-  measureTextHook = cocoaMeasureText
-  drawTextHook = cocoaDrawText
-  getFontMetricsHook = cocoaGetFontMetrics
-  fillRectHook = cocoaFillRect
-  drawLineHook = cocoaDrawLine
-  drawPointHook = cocoaDrawPoint
-  setCursorHook = cocoaSetCursor
-  setWindowTitleHook = cocoaSetWindowTitle
+  createWindowRelay = cocoaCreateWindow
+  refreshRelay = cocoaRefresh
+  saveStateRelay = cocoaSaveState
+  restoreStateRelay = cocoaRestoreState
+  setClipRectRelay = cocoaSetClipRect
+  openFontRelay = cocoaOpenFont
+  closeFontRelay = cocoaCloseFont
+  measureTextRelay = cocoaMeasureText
+  drawTextRelay = cocoaDrawText
+  getFontMetricsRelay = cocoaGetFontMetrics
+  fillRectRelay = cocoaFillRect
+  drawLineRelay = cocoaDrawLine
+  drawPointRelay = cocoaDrawPoint
+  setCursorRelay = cocoaSetCursor
+  setWindowTitleRelay = cocoaSetWindowTitle
   # Input hooks
-  pollEventHook = cocoaPollEvent
-  waitEventHook = cocoaWaitEvent
-  getClipboardTextHook = cocoaGetClipboardText
-  putClipboardTextHook = cocoaPutClipboardText
-  getModStateHook = cocoaGetModState
-  getTicksHook = cocoaGetTicks
-  delayHook = cocoaDelay
-  startTextInputHook = cocoaStartTextInput
-  quitRequestHook = cocoaQuitRequest
+  pollEventRelay = cocoaPollEvent
+  waitEventRelay = cocoaWaitEvent
+  getClipboardTextRelay = cocoaGetClipboardText
+  putClipboardTextRelay = cocoaPutClipboardText
+  getModStateRelay = cocoaGetModState
+  getTicksRelay = cocoaGetTicks
+  delayRelay = cocoaDelay
+  startTextInputRelay = cocoaStartTextInput
+  quitRequestRelay = cocoaQuitRequest
