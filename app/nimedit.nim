@@ -13,6 +13,8 @@ when defined(cocoa):
   import cocoa_driver
 elif defined(gtk4):
   import gtk4_driver
+elif defined(winapi):
+  import winapi_driver
 elif defined(sdl2):
   import sdl2_driver
 else:
@@ -1089,8 +1091,8 @@ proc mainProc(ed: Editor) =
   scriptContext.setupApi(sh)
   compileActions(sh.cfgActions)
 
-  loadTheme(sh)
   createSdlWindow(ed, 1u32)
+  loadTheme(sh)
   input.startTextInput()
 
   include nimscript/keybindings #XXX TODO: nimscript instead of include
@@ -1168,6 +1170,8 @@ when defined(cocoa):
   initCocoaDriver()
 elif defined(gtk4):
   initGtk4Driver()
+elif defined(winapi):
+  initWinapiDriver()
 elif defined(sdl2):
   initSdl2Driver()
 else:
