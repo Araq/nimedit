@@ -267,19 +267,19 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
         p = os.getCurrentDir() / p
       else:
         p = ed.main.filename.splitFile.dir / p
-    if p.len > 0:
+    if p.len > 0 and p.splitFile.name.len > 0:
       sh.statusMsg = readyMsg
       var answer = ""
       i = parseWord(cmd, answer, i, true)
       if cmpPaths(ed.main.filename, p) == 0 or
-          not os.fileExists(p) or answer[0] == 'y':
+          not os.fileExists(p) or (answer.len > 0 and answer[0] == 'y'):
         ed.main.saveAs(p)
         try:
           ed.main.filename = expandFilename(p)
         except OSError:
           discard
         success()
-      elif answer[0] == 'n':
+      elif answer.len > 0 and answer[0] == 'n':
         success()
       else:
         sh.statusMsg = "File already exists. Overwrite? [yes|no]"

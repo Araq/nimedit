@@ -454,14 +454,15 @@ proc harddiskCheck(ed: Editor) =
         let newTimestamp = os.getLastModificationTime(it.filename)
         if it.timestamp != newTimestamp:
           it.timestamp = newTimestamp
-          ed.sh.state = requestedReload
-          if it != ed.main:
-            trackSpot(ed.sh.hotspots, ed.main)
-            ed.main = it
-          ed.main.changed = true
-          ed.sh.focus = ed.prompt
-          ed.sh.statusMsg = "File changed on disk. Reload?"
-          break
+          if it.fileContentChanged:
+            ed.sh.state = requestedReload
+            if it != ed.main:
+              trackSpot(ed.sh.hotspots, ed.main)
+              ed.main = it
+            ed.main.changed = true
+            ed.sh.focus = ed.prompt
+            ed.sh.statusMsg = "File changed on disk. Reload?"
+            break
       except OSError:
         discard
 
@@ -549,18 +550,14 @@ proc pollEvents*(someConsoleRunning, windowHasFocus: bool): seq[input.Event] =
 proc ctrlKeyPressed*(e: Event): bool = CtrlPressed in e.mods
 proc shiftKeyPressed*(e: Event): bool = ShiftPressed in e.mods
 
-proc loadTheme(ed: SharedState) =
-  when defined(nimscript):
+when defined(nimscript):
+  proc loadTheme(ed: SharedState) =
     loadTheme(ed.cfgColors, ed.theme, ed.mgr, ed.fontM)
-  else:
-    let cfg = loadCfg(ed.cfgFile)
-    applyTheme(cfg, ed.theme, ed.mgr, ed.fontM)
-  ed.uiFont = ed.fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)
-  ed.theme.uiFontHandle = ed.uiFont
-  ed.theme.editorFontHandle = ed.fontM.fontByName(ed.theme.editorFont,
-                                                   ed.theme.editorFontSize)
-
-when not defined(nimscript):
+    ed.uiFont = ed.fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)
+    ed.theme.uiFontHandle = ed.uiFont
+    ed.theme.editorFontHandle = ed.fontM.fontByName(ed.theme.editorFont,
+                                                     ed.theme.editorFontSize)
+else:
   proc loadThemeCfg(ed: SharedState; cfg: NimEditCfg) =
     applyTheme(cfg, ed.theme, ed.mgr, ed.fontM)
     ed.uiFont = ed.fontM.fontByName(ed.theme.uiFont, ed.theme.uiFontSize)

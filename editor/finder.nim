@@ -158,13 +158,12 @@ proc findNext*(b: Buffer; searchTerm: string; options: set[SearchOption];
       if wordBoundary notin options or inWordBoundary():
         b.markers.add(Marker(a: i, b: last, replacement: toReplaceWith))
       i = last+1
-  # first match is the one *after* the cursor:
-  var j = 1
-  while j < b.markers.len:
+  # first match is the one *at or after* the cursor:
+  b.activeMarker = 0
+  for j in 0 ..< b.markers.len:
     if b.markers[j].a >= b.cursor:
-      b.activeMarker = j-1
+      b.activeMarker = j
       break
-    inc j
 
 proc doReplace*(b: Buffer): bool =
   if b.activeMarker < b.markers.len:

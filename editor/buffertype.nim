@@ -43,6 +43,7 @@ type
     bracketToHighlightA*, bracketToHighlightB*: int
     mouseX*, mouseY*, clicks*, readOnly*: int
     version*: int  # document version; used to group undo actions
+    cacheId*: int  # incremented on every buffer mutation; invalidates offsetToLineCache
     front*, back*: seq[Cell]
     mgr*: ptr StyleManager
     actions*: seq[Action]

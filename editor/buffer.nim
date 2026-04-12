@@ -70,7 +70,7 @@ proc getLineFromOffset(b: Buffer; pos: int): Natural =
 
   # check cache:
   for ce in mitems(b.offsetToLineCache):
-    if ce.version == b.version:
+    if ce.version == b.cacheId:
       if ce.offset == pos:
         return ce.line
       if ce.offset < pos and ce.offset > e:
@@ -90,9 +90,9 @@ proc getLineFromOffset(b: Buffer; pos: int): Natural =
   # find best cache entry to replace:
   var idx = 0
   for ce in mitems(b.offsetToLineCache):
-    if ce.version != b.version or idx == high(b.offsetToLineCache) or
+    if ce.version != b.cacheId or idx == high(b.offsetToLineCache) or
        ce.offset >= pos:
-      ce = (version: b.version, offset: p, line: result)
+      ce = (version: b.cacheId, offset: p, line: result)
       break
     inc idx
 
@@ -102,7 +102,7 @@ proc getLineOffset(b: Buffer; lines: Natural): int =
 
   # check cache:
   for ce in mitems(b.offsetToLineCache):
-    if ce.version == b.version:
+    if ce.version == b.cacheId:
       if ce.line == lines:
         return ce.offset
 
@@ -117,9 +117,9 @@ proc getLineOffset(b: Buffer; lines: Natural): int =
   # find best cache entry to replace:
   var idx = 0
   for ce in mitems(b.offsetToLineCache):
-    if ce.version != b.version or idx == high(b.offsetToLineCache) or
+    if ce.version != b.cacheId or idx == high(b.offsetToLineCache) or
        ce.offset >= result:
-      ce = (version: b.version, offset: result, line: lines)
+      ce = (version: b.cacheId, offset: result, line: lines)
       break
     inc idx
 
@@ -176,6 +176,7 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.breakpoints = initTable[int, TokenClass]()
 
 proc clear*(result: Buffer) =
+  inc result.cacheId
   result.front.setLen 0
   result.back.setLen 0
   result.actions.setLen 0
@@ -350,7 +351,7 @@ proc getCurrentWord*(b: Buffer): string =
   var i = b.cursor
   while i > 0 and b[i-1] in Letters: dec i
   result = ""
-  while b[i] in Letters:
+  while i < b.len and b[i] in Letters:
     result.add b[i]
     inc i
 
@@ -494,6 +495,7 @@ proc filterForInsert(s: string): string =
     else: result.add(s[i])
 
 proc rawInsert*(b: Buffer; c: char; keepMarkers=false) =
+  inc b.cacheId
   case c
   of '\L':
     b.front.add Cell(c: '\L')
@@ -564,6 +566,28 @@ proc loadFromFile*(b: Buffer; filename: string) =
   b.timestamp = os.getLastModificationTime(b.filename)
   b.changed = false
 
+proc fileContentChanged*(b: Buffer): bool =
+  ## Returns true if the file on disk has different content than what the
+  ## buffer holds. Used to avoid false "file changed" warnings when only
+  ## the timestamp changed (e.g. after git operations).
+  if b.filename.len == 0: return false
+  try:
+    let disk = readFile(b.filename)
+    var i = 0 # index into disk
+    var j = 0 # index into buffer
+    let L = b.len
+    while i < disk.len and j < L:
+      if disk[i] == '\C':
+        inc i # skip CR, buffer stores LF only
+      elif disk[i] == b[j]:
+        inc i; inc j
+      else:
+        return true
+    while i < disk.len and disk[i] == '\C': inc i
+    result = i != disk.len or j != L
+  except IOError:
+    result = true
+
 proc saveAsTemp*(b: Buffer; filename: string) =
   if b.lineending.len == 0:
     b.lineending = "\L"
@@ -606,7 +630,9 @@ proc saveAs*(b: Buffer; filename: string) =
   save(b)
 
 proc rawBackspace(b: Buffer; overrideUtf8=false; undoAction: var string) =
+  inc b.cacheId
   assert b.cursor == b.front.len
+  if b.cursor <= 0: return
   var x = 0
   let ch = b.front[b.cursor-1].c
   if ch.ord < 128 or overrideUtf8:
@@ -842,13 +868,13 @@ proc baseIndent(s: string): int =
 proc startsWithWord[T](b: T; s: string; start: int): bool =
   var i = 0
   while i+start < b.len and i < s.len and b[i+start] == s[i]: inc i
-  if i >= s.len: result = b[i+start] <= ' '
+  if i >= s.len: result = i+start >= b.len or b[i+start] <= ' '
 
 type InsertContext = enum ordinary, inOfBranch, inElif
 
 proc insertCon(s: string): InsertContext =
   var i = 0
-  while s[i] in {'\L', '\C', ' ', '\t'}: inc i
+  while i < s.len and s[i] in {'\L', '\C', ' ', '\t'}: inc i
   result = ordinary
   if s.startsWithWord("of", i): result = inOfBranch
   elif s.startsWithWord("elif", i): result = inElif
