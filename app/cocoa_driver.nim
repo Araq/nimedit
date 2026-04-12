@@ -224,11 +224,6 @@ proc translateNEEvent(ne: NEEvent; e: var input.Event) =
     e.kind = MouseMoveEvent
     e.x = ne.x
     e.y = ne.y
-    e.xrel = ne.xrel
-    e.yrel = ne.yrel
-    if (ne.buttons and 1) != 0: e.buttons.incl LeftButton
-    if (ne.buttons and 2) != 0: e.buttons.incl RightButton
-    if (ne.buttons and 4) != 0: e.buttons.incl MiddleButton
   of neMouseWheel:
     e.kind = MouseWheelEvent
     e.x = ne.x

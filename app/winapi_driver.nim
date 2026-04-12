@@ -416,12 +416,6 @@ proc getModifiers(): set[Modifier] =
   if GetKeyState(VK_CONTROL.int32) < 0: result.incl CtrlPressed
   if GetKeyState(VK_MENU.int32) < 0: result.incl AltPressed
 
-proc getMouseButtons(wp: WPARAM): set[MouseButton] =
-  let flags = wp.uint32
-  if (flags and MK_LBUTTON) != 0: result.incl LeftButton
-  if (flags and MK_RBUTTON) != 0: result.incl RightButton
-  if (flags and MK_MBUTTON) != 0: result.incl MiddleButton
-
 var lastClickTime: DWORD
 var lastClickX, lastClickY: int
 var clickCount: int
@@ -555,7 +549,6 @@ proc wndProc(hwnd: HWND; msg: UINT; wp: WPARAM; lp: LPARAM): LRESULT {.stdcall.}
     var e = input.Event(kind: MouseMoveEvent)
     e.x = loWord(lp)
     e.y = hiWord(lp)
-    e.buttons = getMouseButtons(wp)
     pushEvent(e)
     return 0
 

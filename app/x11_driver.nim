@@ -499,11 +499,6 @@ proc translateButton(button: cuint): MouseButton =
   of Button2: MiddleButton
   else: LeftButton
 
-proc heldButtons(state: cuint): set[MouseButton] =
-  if (state and Button1Mask) != 0: result.incl LeftButton
-  if (state and Button2Mask) != 0: result.incl MiddleButton
-  if (state and Button3Mask) != 0: result.incl RightButton
-
 # ---- Clipboard handling ----
 
 proc handleSelectionRequest(req: XSelectionRequestEvent) =
@@ -630,7 +625,6 @@ proc processXEvent(xev: XEvent) =
     var e = input.Event(kind: MouseMoveEvent)
     e.x = xev.xmotion.x
     e.y = xev.xmotion.y
-    e.buttons = heldButtons(xev.xmotion.state)
     pushEvent(e)
 
   of SelectionRequest:

@@ -276,12 +276,6 @@ proc translateEvent(sdlEvent: sdl3.Event; e: var input.Event) =
     e.kind = MouseMoveEvent
     e.x = sdlEvent.motion.x.int
     e.y = sdlEvent.motion.y.int
-    e.xrel = sdlEvent.motion.xrel.int
-    e.yrel = sdlEvent.motion.yrel.int
-    if (sdlEvent.motion.state and BUTTON_LMASK) != 0:
-      e.buttons.incl LeftButton
-    if (sdlEvent.motion.state and BUTTON_RMASK) != 0:
-      e.buttons.incl RightButton
   elif evType == uint32(EVENT_MOUSE_WHEEL):
     e.kind = MouseWheelEvent
     e.x = sdlEvent.wheel.x.int

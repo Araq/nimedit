@@ -39,9 +39,7 @@ type
     mods*: set[Modifier]
     text*: array[4, char]  ## TextInputEvent: one UTF-8 codepoint, no alloc
     x*, y*: int            ## mouse position, scroll delta, or new window size
-    xrel*, yrel*: int      ## MouseMoveEvent: relative motion
-    button*: MouseButton
-    buttons*: set[MouseButton]  ## MouseMoveEvent: which buttons are held
+    button*: MouseButton   ## MouseDownEvent/MouseUpEvent: which button
     clicks*: int           ## number of consecutive clicks (double-click = 2)
 
   ClipboardRelays* = object

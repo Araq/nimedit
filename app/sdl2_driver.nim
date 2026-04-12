@@ -283,12 +283,6 @@ proc sdlPollEvent(e: var input.Event; flags: set[InputFlag]): bool =
     e.kind = MouseMoveEvent
     e.x = sdlEvent.motion.x
     e.y = sdlEvent.motion.y
-    e.xrel = sdlEvent.motion.xrel
-    e.yrel = sdlEvent.motion.yrel
-    if (sdlEvent.motion.state and BUTTON_LMASK) != 0:
-      e.buttons.incl LeftButton
-    if (sdlEvent.motion.state and BUTTON_RMASK) != 0:
-      e.buttons.incl RightButton
   of MouseWheel:
     e.kind = MouseWheelEvent
     e.x = sdlEvent.wheel.x
