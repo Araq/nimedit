@@ -174,39 +174,46 @@ proc arc*(x, y: int; radius: int; octs: openArray[Octant]; p: Pixel) =
       let offset = octAPosition.transformFor(oct)
       pixel(x + offset.x, y + offset.y, p)
 
-proc roundedRect*(x1, y1, x2, y2, rad: int; p: Pixel) =
+
+type
+  RoundedRect = tuple
+    left, top, right, bottom, rad: int
+
+func normalize(x1, y1, x2, y2, rad: sink int): RoundedRect {.inline.} =
   assert x1 != x2
   assert y1 != y2
 
-  var
-    left = x1
-    right = x2
-    top = y1
-    bottom = y2
-  if left > right: swap left, right
-  if top > bottom: swap top, bottom
+  result.left = x1
+  result.right = x2
+  result.top = y1
+  result.bottom = y2
+  if result.left > result.right: swap result.left, result.right
+  if result.top > result.bottom: swap result.top, result.bottom
 
   let
-    width = right - left
-    height = bottom - top
-  var rad = rad
-  if (rad * 2) > width: rad = width div 2
-  if (rad * 2) > height: rad = height div 2
+    width = result.right - result.left
+    height = result.bottom - result.top
+  result.rad = rad
+  if (result.rad * 2) > width: result.rad = width div 2
+  if (result.rad * 2) > height: result.rad = height div 2
+
+proc roundedRect*(x1, y1, x2, y2, rad: int; p: Pixel) =
+  let r = normalize(x1, y1, x2, y2, rad)
 
   let
-    leftArcCenter = left + rad
-    rightArcCenter = right - rad
-    topArcCenter = top + rad
-    bottomArcCenter = bottom - rad
-  arc(leftArcCenter, topArcCenter, rad, [octE, octF], p)
-  arc(rightArcCenter, topArcCenter, rad, [octG, octH], p)
-  arc(leftArcCenter, bottomArcCenter, rad, [octC, octD], p)
-  arc(rightArcCenter, bottomArcCenter, rad, [octA, octB], p)
+    leftArcCenter = r.left + r.rad
+    rightArcCenter = r.right - r.rad
+    topArcCenter = r.top + r.rad
+    bottomArcCenter = r.bottom - r.rad
+  arc(leftArcCenter, topArcCenter, r.rad, [octE, octF], p)
+  arc(rightArcCenter, topArcCenter, r.rad, [octG, octH], p)
+  arc(leftArcCenter, bottomArcCenter, r.rad, [octC, octD], p)
+  arc(rightArcCenter, bottomArcCenter, r.rad, [octA, octB], p)
 
-  hline(leftArcCenter, rightArcCenter, top, p)
-  hline(leftArcCenter, rightArcCenter, bottom, p)
-  vline(left, topArcCenter, bottomArcCenter, p)
-  vline(right, topArcCenter, bottomArcCenter, p)
+  hline(leftArcCenter, rightArcCenter, r.top, p)
+  hline(leftArcCenter, rightArcCenter, r.bottom, p)
+  vline(r.left, topArcCenter, bottomArcCenter, p)
+  vline(r.right, topArcCenter, bottomArcCenter, p)
 
 
 proc fillArc(x, y, radius: int; octs: openArray[Octant]; color: Color) =
@@ -218,41 +225,25 @@ proc fillArc(x, y, radius: int; octs: openArray[Octant]; color: Color) =
 
 proc roundedBox*(x1: int; y1: int; x2: int;
                     y2: int; rad: int; c: Color) =
-  assert x1 != x2
-  assert y1 != y2
-
-  var
-    left = x1
-    right = x2
-    top = y1
-    bottom = y2
-  if left > right: swap left, right
-  if top > bottom: swap top, bottom
+  let r = normalize(x1, y1, x2, y2, rad)
 
   let
-    width = right - left
-    height = bottom - top
-  var rad = rad
-  if (rad * 2) > width: rad = width div 2
-  if (rad * 2) > height: rad = height div 2
+    leftArcCenter = r.left + r.rad
+    rightArcCenter = r.right - r.rad
+    topArcCenter = r.top + r.rad
+    bottomArcCenter = r.bottom - r.rad
 
-  let
-    leftArcCenter = left + rad
-    rightArcCenter = right - rad
-    topArcCenter = top + rad
-    bottomArcCenter = bottom - rad
-
-  fillArc(leftArcCenter, topArcCenter, rad, [octE, octF], c)
-  fillArc(rightArcCenter, topArcCenter, rad, [octG, octH], c)
-  fillArc(leftArcCenter, bottomArcCenter, rad, [octC, octD], c)
-  fillArc(rightArcCenter, bottomArcCenter, rad, [octA, octB], c)
+  fillArc(leftArcCenter, topArcCenter, r.rad, [octE, octF], c)
+  fillArc(rightArcCenter, topArcCenter, r.rad, [octG, octH], c)
+  fillArc(leftArcCenter, bottomArcCenter, r.rad, [octC, octD], c)
+  fillArc(rightArcCenter, bottomArcCenter, r.rad, [octA, octB], c)
 
 
   # We'll divide the area into three rectangles.
   let
-    topBox = Rect(x: leftArcCenter, y: top, w: rightArcCenter - leftArcCenter,
-      h: rad)
-    middleBox = Rect(x: left, y: topArcCenter, w: width,
+    topBox = Rect(x: leftArcCenter, y: r.top, w: rightArcCenter - leftArcCenter,
+      h: r.rad)
+    middleBox = Rect(x: r.left, y: topArcCenter, w: r.right - r.left,
       h: bottomArcCenter - topArcCenter)
     bottomBox = Rect(x: leftArcCenter, y: bottomArcCenter, w: topBox.w,
       h: topBox.h)
