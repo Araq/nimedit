@@ -946,6 +946,7 @@ proc dedent*(b: Buffer) =
       dedentSingleLine(b, i)
       while i < b.len-1 and b[i] != '\L': inc i
       if b[i] == '\L': inc i
+  b.firstLineOffset = getLineOffset(b, b.firstLine)
 
 proc indentSingleLine(b: Buffer; i: int) =
   b.setCaret i
@@ -967,6 +968,7 @@ proc indent*(b: Buffer) =
       inc i
       while i < b.len and b[i] != '\L': inc i
       if b[i] == '\L': inc i
+  b.firstLineOffset = getLineOffset(b, b.firstLine)
 
 proc gotoPos*(b: Buffer; pos: int) =
   let pos = clamp(pos, 0, b.len)
