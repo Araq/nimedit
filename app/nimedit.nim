@@ -1132,7 +1132,7 @@ proc mainProc(ed: Editor) =
                   else:
                     DefaultTimeOut
     # reduce CPU usage:
-    sleep(20)
+    input.sleep(20)
     let newTicks = getTicks()
     if newTicks - oldTicks > timeout:
       oldTicks = newTicks
