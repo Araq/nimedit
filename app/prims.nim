@@ -208,64 +208,55 @@ proc roundedRect*(x1, y1, x2, y2, rad: int; p: Pixel) =
   vline(left, topArcCenter, bottomArcCenter, p)
   vline(right, topArcCenter, bottomArcCenter, p)
 
+
+proc fillArc(x, y, radius: int; octs: openArray[Octant]; color: Color) =
+  for octAPosition in octantAPoints(radius):
+    for oct in octs:
+      let (dx, dy) = octAPosition.transformFor(oct)
+      hline(x, x + dx, y + dy, color)
+
+
 proc roundedBox*(x1: int; y1: int; x2: int;
                     y2: int; rad: int; c: Color) =
-  var w, h, r2: int
-  var cx: int = 0
-  var cy: int = rad
-  var ocx: int = -1
-  var ocy: int = -1
-  var df: int = 1 - rad
-  var dE: int = 3
-  var dSe: int = - (2 * rad) + 5
-  var xpcx, xmcx, xpcy, xmcy: int
-  var ypcy, ymcy, ypcx, ymcx: int
-  var x, y, dx, dy: int
-  assert rad >= 0
-  if rad <= 1: return
-  if x1 == x2:
-    if y1 == y2: pixel(x1, y1, c)
-    else: vline(x1, y1, y2, c)
-    return
-  else:
-    if y1 == y2:
-      hline(x1, x2, y1, c)
-      return
-  var x1 = x1; var x2 = x2; var y1 = y1; var y2 = y2
-  if x1 > x2: swap x1, x2
-  if y1 > y2: swap y1, y2
-  w = x2 - x1 + 1; h = y2 - y1 + 1
-  r2 = rad + rad
+  assert x1 != x2
+  assert y1 != y2
+
+  var
+    left = x1
+    right = x2
+    top = y1
+    bottom = y2
+  if left > right: swap left, right
+  if top > bottom: swap top, bottom
+
+  let
+    width = right - left
+    height = bottom - top
   var rad = rad
-  if r2 > w: rad = w div 2; r2 = rad + rad
-  if r2 > h: rad = h div 2
-  x = x1 + rad; y = y1 + rad
-  dx = x2 - x1 - rad - rad; dy = y2 - y1 - rad - rad
-  while true:
-    xpcx = x + cx; xmcx = x - cx
-    xpcy = x + cy; xmcy = x - cy
-    if ocy != cy:
-      if cy > 0:
-        ypcy = y + cy; ymcy = y - cy
-        hline(xmcx, xpcx + dx, ypcy + dy, c)
-        hline(xmcx, xpcx + dx, ymcy, c)
-      else:
-        hline(xmcx, xpcx + dx, y, c)
-      ocy = cy
-    if ocx != cx:
-      if cx != cy:
-        if cx > 0:
-          ypcx = y + cx; ymcx = y - cx
-          hline(xmcy, xpcy + dx, ymcx, c)
-          hline(xmcy, xpcy + dx, ypcx + dy, c)
-        else:
-          hline(xmcy, xpcy + dx, y, c)
-      ocx = cx
-    if df < 0:
-      inc(df, dE); inc(dE, 2); inc(dSe, 2)
-    else:
-      inc(df, dSe); inc(dE, 2); inc(dSe, 4); dec(cy)
-    inc(cx)
-    if cx > cy: break
-  if dx > 0 and dy > 0:
-    box(x1, y1 + rad + 1, x2, y2 - rad, c)
+  if (rad * 2) > width: rad = width div 2
+  if (rad * 2) > height: rad = height div 2
+
+  let
+    leftArcCenter = left + rad
+    rightArcCenter = right - rad
+    topArcCenter = top + rad
+    bottomArcCenter = bottom - rad
+
+  fillArc(leftArcCenter, topArcCenter, rad, [octE, octF], c)
+  fillArc(rightArcCenter, topArcCenter, rad, [octG, octH], c)
+  fillArc(leftArcCenter, bottomArcCenter, rad, [octC, octD], c)
+  fillArc(rightArcCenter, bottomArcCenter, rad, [octA, octB], c)
+
+
+  # We'll divide the area into three rectangles.
+  let
+    topBox = Rect(x: leftArcCenter, y: top, w: rightArcCenter - leftArcCenter,
+      h: rad)
+    middleBox = Rect(x: left, y: topArcCenter, w: width,
+      h: bottomArcCenter - topArcCenter)
+    bottomBox = Rect(x: leftArcCenter, y: bottomArcCenter, w: topBox.w,
+      h: topBox.h)
+
+  fillRect(topBox, c)
+  fillRect(middleBox, c)
+  fillRect(bottomBox, c)
