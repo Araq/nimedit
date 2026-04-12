@@ -1,6 +1,6 @@
 # Loads NimEdit configuration from a .cfg file using parsecfg.
 
-import std/[parsecfg, streams, strutils, tables, os]
+import std/[parsecfg, streams, strutils]
 import nimscript/common, nimscript/keydefs
 import styles, themes
 

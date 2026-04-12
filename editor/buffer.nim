@@ -70,7 +70,7 @@ proc getLineFromOffset(b: Buffer; pos: int): Natural =
 
   # check cache:
   for ce in mitems(b.offsetToLineCache):
-    if ce.version == b.version:
+    if ce.version == b.cacheId:
       if ce.offset == pos:
         return ce.line
       if ce.offset < pos and ce.offset > e:
@@ -90,9 +90,9 @@ proc getLineFromOffset(b: Buffer; pos: int): Natural =
   # find best cache entry to replace:
   var idx = 0
   for ce in mitems(b.offsetToLineCache):
-    if ce.version != b.version or idx == high(b.offsetToLineCache) or
+    if ce.version != b.cacheId or idx == high(b.offsetToLineCache) or
        ce.offset >= pos:
-      ce = (version: b.version, offset: p, line: result)
+      ce = (version: b.cacheId, offset: p, line: result)
       break
     inc idx
 
@@ -102,7 +102,7 @@ proc getLineOffset(b: Buffer; lines: Natural): int =
 
   # check cache:
   for ce in mitems(b.offsetToLineCache):
-    if ce.version == b.version:
+    if ce.version == b.cacheId:
       if ce.line == lines:
         return ce.offset
 
@@ -117,9 +117,9 @@ proc getLineOffset(b: Buffer; lines: Natural): int =
   # find best cache entry to replace:
   var idx = 0
   for ce in mitems(b.offsetToLineCache):
-    if ce.version != b.version or idx == high(b.offsetToLineCache) or
+    if ce.version != b.cacheId or idx == high(b.offsetToLineCache) or
        ce.offset >= result:
-      ce = (version: b.version, offset: result, line: lines)
+      ce = (version: b.cacheId, offset: result, line: lines)
       break
     inc idx
 
@@ -176,6 +176,7 @@ proc newBuffer*(heading: string; mgr: ptr StyleManager): Buffer =
   result.breakpoints = initTable[int, TokenClass]()
 
 proc clear*(result: Buffer) =
+  inc result.cacheId
   result.front.setLen 0
   result.back.setLen 0
   result.actions.setLen 0
@@ -494,6 +495,7 @@ proc filterForInsert(s: string): string =
     else: result.add(s[i])
 
 proc rawInsert*(b: Buffer; c: char; keepMarkers=false) =
+  inc b.cacheId
   case c
   of '\L':
     b.front.add Cell(c: '\L')
@@ -606,6 +608,7 @@ proc saveAs*(b: Buffer; filename: string) =
   save(b)
 
 proc rawBackspace(b: Buffer; overrideUtf8=false; undoAction: var string) =
+  inc b.cacheId
   assert b.cursor == b.front.len
   var x = 0
   let ch = b.front[b.cursor-1].c
