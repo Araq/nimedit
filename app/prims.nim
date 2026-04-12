@@ -174,37 +174,45 @@ proc arc*(x, y: int; radius: int; octs: openArray[Octant]; p: Pixel) =
       pixel(x + offset.x, y + offset.y, p)
 
 proc roundedRect*(x1, y1, x2, y2, rad: int; p: Pixel) =
-  var w, h: int
-  var xx1, xx2, yy1, yy2: int
   assert rad >= 0
-  if rad <= 1: return
+
   if x1 == x2:
     if y1 == y2: pixel(x1, y1, p)
     else: vline(x1, y1, y2, p)
     return
-  else:
-    if y1 == y2:
-      hline(x1, x2, y1, p)
-      return
-  var x1 = x1; var x2 = x2; var y1 = y1; var y2 = y2
-  if x1 > x2: swap x1, x2
-  if y1 > y2: swap y1, y2
-  w = x2 - x1; h = y2 - y1
+  if y1 == y2:
+    hline(x1, x2, y1, p)
+    return
+
+  var
+    left = x1
+    right = x2
+    top = y1
+    bottom = y2
+  if left > right: swap left, right
+  if top > bottom: swap top, bottom
+
+  let
+    width = right - left
+    height = bottom - top
   var rad = rad
-  if (rad * 2) > w: rad = w div 2
-  if (rad * 2) > h: rad = h div 2
-  xx1 = x1 + rad; xx2 = x2 - rad
-  yy1 = y1 + rad; yy2 = y2 - rad
-  arc(xx1, yy1, rad, [octE, octF], p)
-  arc(xx2, yy1, rad, [octG, octH], p)
-  arc(xx1, yy2, rad, [octC, octD], p)
-  arc(xx2, yy2, rad, [octA, octB], p)
-  if xx1 <= xx2:
-    hline(xx1, xx2, y1, p)
-    hline(xx1, xx2, y2, p)
-  if yy1 <= yy2:
-    vline(x1, yy1, yy2, p)
-    vline(x2, yy1, yy2, p)
+  if (rad * 2) > width: rad = width div 2
+  if (rad * 2) > height: rad = height div 2
+
+  let
+    leftArcCenter = left + rad
+    rightArcCenter = right - rad
+    topArcCenter = top + rad
+    bottomArcCenter = bottom - rad
+  arc(leftArcCenter, topArcCenter, rad, [octE, octF], p)
+  arc(rightArcCenter, topArcCenter, rad, [octG, octH], p)
+  arc(leftArcCenter, bottomArcCenter, rad, [octC, octD], p)
+  arc(rightArcCenter, bottomArcCenter, rad, [octA, octB], p)
+
+  hline(leftArcCenter, rightArcCenter, top, p)
+  hline(leftArcCenter, rightArcCenter, bottom, p)
+  vline(left, topArcCenter, bottomArcCenter, p)
+  vline(right, topArcCenter, bottomArcCenter, p)
 
 proc roundedBox*(x1: int; y1: int; x2: int;
                     y2: int; rad: int; c: Color) =
