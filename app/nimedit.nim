@@ -13,6 +13,8 @@ when defined(cocoa):
   import cocoa_driver
 elif defined(gtk4):
   import gtk4_driver
+elif defined(x11):
+  import x11_driver
 elif defined(winapi):
   import winapi_driver
 elif defined(sdl2):
@@ -1170,6 +1172,8 @@ when defined(cocoa):
   initCocoaDriver()
 elif defined(gtk4):
   initGtk4Driver()
+elif defined(x11):
+  initX11Driver()
 elif defined(winapi):
   initWinapiDriver()
 elif defined(sdl2):
