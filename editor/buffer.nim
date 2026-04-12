@@ -351,7 +351,7 @@ proc getCurrentWord*(b: Buffer): string =
   var i = b.cursor
   while i > 0 and b[i-1] in Letters: dec i
   result = ""
-  while b[i] in Letters:
+  while i < b.len and b[i] in Letters:
     result.add b[i]
     inc i
 
@@ -846,13 +846,13 @@ proc baseIndent(s: string): int =
 proc startsWithWord[T](b: T; s: string; start: int): bool =
   var i = 0
   while i+start < b.len and i < s.len and b[i+start] == s[i]: inc i
-  if i >= s.len: result = b[i+start] <= ' '
+  if i >= s.len: result = i+start >= b.len or b[i+start] <= ' '
 
 type InsertContext = enum ordinary, inOfBranch, inElif
 
 proc insertCon(s: string): InsertContext =
   var i = 0
-  while s[i] in {'\L', '\C', ' ', '\t'}: inc i
+  while i < s.len and s[i] in {'\L', '\C', ' ', '\t'}: inc i
   result = ordinary
   if s.startsWithWord("of", i): result = inOfBranch
   elif s.startsWithWord("elif", i): result = inElif
