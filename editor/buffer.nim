@@ -610,6 +610,7 @@ proc saveAs*(b: Buffer; filename: string) =
 proc rawBackspace(b: Buffer; overrideUtf8=false; undoAction: var string) =
   inc b.cacheId
   assert b.cursor == b.front.len
+  if b.cursor <= 0: return
   var x = 0
   let ch = b.front[b.cursor-1].c
   if ch.ord < 128 or overrideUtf8:
