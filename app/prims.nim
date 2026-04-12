@@ -96,115 +96,82 @@ proc box*(x1: int; y1: int; x2: int; y2: int; c: Color) =
   if y1 > y2: swap y1, y2
   fillRect(Rect(x: x1, y: y1, w: x2 - x1 + 1, h: y2 - y1 + 1), c)
 
-proc arc*(x: int; y: int; rad: int; start: int;
-          `end`: int; p: Pixel) =
-  var cx: int = 0
-  var cy: int = rad
-  var df: int = 1 - rad
-  var dE: int = 3
-  var dSe: int = - (2 * rad) + 5
-  var xpcx, xmcx, xpcy, xmcy: int
-  var ypcy, ymcy, ypcx, ymcx: int
-  var drawoct: uint8
-  var startoct, endoct, oct: int
-  var stopvalStart: int = 0
-  var stopvalEnd: int = 0
-  var dstart, dend: cdouble
-  var temp: cdouble = 0.0
-  assert rad >= 0
-  if rad == 0:
-    pixel(x, y, p)
-    return
-  drawoct = 0
-  var start = start mod 360
-  var `end` = `end` mod 360
-  while start < 0: inc(start, 360)
-  while `end` < 0: inc(`end`, 360)
-  start = start mod 360
-  `end` = `end` mod 360
-  startoct = start.int32 div 45i32
-  endoct = `end`.int32 div 45i32
-  oct = startoct - 1
-  while true:
-    oct = (oct + 1) mod 8
-    if oct == startoct:
-      dstart = cdouble(start)
-      case oct
-      of 0, 3: temp = sin(dstart * Pi / 180.0)
-      of 1, 6: temp = cos(dstart * Pi / 180.0)
-      of 2, 5: temp = - cos(dstart * Pi / 180.0)
-      of 4, 7: temp = - sin(dstart * Pi / 180.0)
-      else: discard
-      temp = temp * rad.float
-      stopvalStart = temp.int
-      if oct mod 2 != 0: drawoct = drawoct or uint8(1 shl oct)
-      else: drawoct = drawoct and uint8(255 - (1 shl oct))
-    if oct == endoct:
-      dend = cdouble(`end`)
-      case oct
-      of 0, 3: temp = sin(dend * Pi / 180.0)
-      of 1, 6: temp = cos(dend * Pi / 180.0)
-      of 2, 5: temp = - cos(dend * Pi / 180.0)
-      of 4, 7: temp = - sin(dend * Pi / 180.0)
-      else: discard
-      temp = temp * rad.float
-      stopvalEnd = temp.int
-      if startoct == endoct:
-        if start > `end`: drawoct = 255
-        else: drawoct = drawoct and uint8(255 - (1 shl oct))
-      elif oct mod 2 != 0:
-        drawoct = drawoct and uint8(255 - (1 shl oct))
-      else:
-        drawoct = drawoct or uint8(1 shl oct)
-    elif oct != startoct:
-      drawoct = drawoct or uint8(1 shl oct)
-    if oct == endoct: break
-  while true:
-    ypcy = y + cy
-    ymcy = y - cy
-    if cx > 0:
-      xpcx = x + cx
-      xmcx = x - cx
-      if (drawoct and 4) != 0: pixel(xmcx, ypcy, p)
-      if (drawoct and 2) != 0: pixel(xpcx, ypcy, p)
-      if (drawoct and 32) != 0: pixel(xmcx, ymcy, p)
-      if (drawoct and 64) != 0: pixel(xpcx, ymcy, p)
-    else:
-      if (drawoct and 96) != 0: pixel(x, ymcy, p)
-      if (drawoct and 6) != 0: pixel(x, ypcy, p)
-    xpcy = x + cy
-    xmcy = x - cy
-    if cx > 0 and cx != cy:
-      ypcx = y + cx
-      ymcx = y - cx
-      if (drawoct and 8) != 0: pixel(xmcy, ypcx, p)
-      if (drawoct and 1) != 0: pixel(xpcy, ypcx, p)
-      if (drawoct and 16) != 0: pixel(xmcy, ymcx, p)
-      if (drawoct and 128) != 0: pixel(xpcy, ymcx, p)
-    elif cx == 0:
-      if (drawoct and 24) != 0: pixel(xmcy, y, p)
-      if (drawoct and 129) != 0: pixel(xpcy, y, p)
-    if stopvalStart == cx:
-      if (drawoct and uint8(1 shl startoct)) != 0:
-        drawoct = drawoct and uint8(255 - (1 shl startoct))
-      else:
-        drawoct = drawoct or uint8(1 shl startoct)
-    if stopvalEnd == cx:
-      if (drawoct and uint8(1 shl endoct)) != 0:
-        drawoct = drawoct and uint8(255 - (1 shl endoct))
-      else:
-        drawoct = drawoct or uint8(1 shl endoct)
+type Octant* = enum
+  octA, octB, octC, octD, octE, octF, octG, octH
+
+#[
+     oct F |270
+           | oct G
+           |
+  oct E    |     oct H
+180 --------------- 0   -> +x
+  oct D    |     oct A
+           |
+     oct C |  oct B
+           |90
+
+           |
+           v
+          +y
+]#
+
+iterator octantAPoints(radius: int): tuple[x, y: int] =
+  ##[Used to iterate over every position on `octA`'s arc segment.
+
+  The yielded values are the offset from the center of the arc to a position
+  between 0 and 45 degrees, starting at 0 and ending at 45.
+
+  The first values yielded will be `(0, radius)`.
+  The last values will be approximately `(radius / sqrt(2), radius / sqrt(2))`.
+
+  If you want to iterate over an octant that isn't `octA`, you'll have to
+  mirror, rotate, or apply some other transformation to the results.
+  ]##
+  # Uses the midpoint circle algorithm.
+  var
+    df = 4 - radius
+    dE = 5
+    dSe = - (2 * radius) + 7
+    currentPos = (x: radius, y: 0)
+
+  while currentPos.y <= currentPos.x:
+    yield currentPos
+
     if df < 0:
-      inc(df, dE)
-      inc(dE, 2)
-      inc(dSe, 2)
+      df.inc dE
+      dSe.inc 2
     else:
-      inc(df, dSe)
-      inc(dE, 2)
-      inc(dSe, 4)
-      dec(cy)
-    inc(cx)
-    if cx > cy: break
+      df.inc dSe
+      dSe.inc 4
+      currentPos.x.dec
+    dE.inc 2
+    currentPos.y.inc
+
+func transformFor(
+    octantAPoint: tuple[x, y: int]; desiredOctant: Octant
+  ): tuple[x, y: int] {.inline.} =
+  ##Transforms a point on `octA`'s arc to lie upon the input octant.
+  const CloserToYAxis = {octB, octC, octF, octG}
+  var
+    changeInX = octantAPoint.x
+    changeInY = octantAPoint.y
+  if desiredOctant in CloserToYAxis: swap changeInX, changeInY
+
+  const
+    Northern = {octE..octH}
+    Western = {octC..octF}
+  result.x = changeInX
+  if desiredOctant in Western: result.x *= -1
+
+  result.y = changeInY
+  if desiredOctant in Northern: result.y *= -1
+
+
+proc arc*(x, y: int; radius: int; octs: openArray[Octant]; p: Pixel) =
+  for progressor in octantAPoints(radius):
+    for oct in octs:
+      let offset = progressor.transformFor(oct)
+      pixel(x + offset.x, y + offset.y, p)
 
 proc roundedRect*(x1, y1, x2, y2, rad: int; p: Pixel) =
   var w, h: int
@@ -228,10 +195,10 @@ proc roundedRect*(x1, y1, x2, y2, rad: int; p: Pixel) =
   if (rad * 2) > h: rad = h div 2
   xx1 = x1 + rad; xx2 = x2 - rad
   yy1 = y1 + rad; yy2 = y2 - rad
-  arc(xx1, yy1, rad, 180, 270, p)
-  arc(xx2, yy1, rad, 270, 360, p)
-  arc(xx1, yy2, rad, 90, 180, p)
-  arc(xx2, yy2, rad, 0, 90, p)
+  arc(xx1, yy1, rad, [octE, octF], p)
+  arc(xx2, yy1, rad, [octG, octH], p)
+  arc(xx1, yy2, rad, [octC, octD], p)
+  arc(xx2, yy2, rad, [octA, octB], p)
   if xx1 <= xx2:
     hline(xx1, xx2, y1, p)
     hline(xx1, xx2, y2, p)
