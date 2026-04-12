@@ -1,5 +1,7 @@
 
-import buffertype, buffer, nimscriptsupport
+import buffertype, buffer
+when defined(nimscript):
+  import nimscriptsupport
 import strutils except `%`
 from unicode import runeLen
 
@@ -98,17 +100,21 @@ proc `%`(formatstr: string; a: openArray[string]): string =
         if formatstr[i] in {'1'..'9', '_'}:
           parseDigits()
           if idx <=% a.high and not a[idx].len == 0:
-            let x = runTransformator(procname, a[idx])
-            if x.len > 0:
-              result.add x
+            when defined(nimscript):
+              let x = runTransformator(procname, a[idx])
+              if x.len > 0:
+                result.add x
+            else:
+              result.add a[idx]
         elif formatstr[i] == '#':
           if num <=% a.high and not a[num].len == 0:
             add result, a[num]
             inc i
             inc num
-          let x = runTransformator(procname, a[num])
-          if x.len > 0:
-            result.add x
+          when defined(nimscript):
+            let x = runTransformator(procname, a[num])
+            if x.len > 0:
+              result.add x
       else:
         result.add '$'
     else:

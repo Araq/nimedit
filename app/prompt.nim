@@ -117,15 +117,18 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
     var procName = ""
     i = parseWord(cmd, procName, i)
     if procname.len > 0:
-      if supportsAction(procName):
-        let x = runTransformator(procName, ed.main.getSelectedText())
-        if not x.len == 0:
-          inc ed.main.version
-          ed.main.removeSelectedText()
-          dec ed.main.version
-          ed.main.insert(x)
+      when defined(nimscript):
+        if supportsAction(procName):
+          let x = runTransformator(procName, ed.main.getSelectedText())
+          if not x.len == 0:
+            inc ed.main.version
+            ed.main.removeSelectedText()
+            dec ed.main.version
+            ed.main.insert(x)
+        else:
+          sh.statusMsg = "Unknown command: " & procname
       else:
-        sh.statusMsg = "Unknown command: " & procname
+        sh.statusMsg = "NimScript not compiled in. Rebuild with -d:nimscript."
     success()
     sh.state = requestedNothing
   of "yes", "y":
@@ -296,10 +299,16 @@ proc runCmd(ed: Editor; cmd: string; shiftPressed: bool): bool =
     highlightEverything(ed.main)
     success()
   of "config", "conf", "cfg", "colors":
-    openTab(ed, sh.cfgColors.string, true)
+    when defined(nimscript):
+      openTab(ed, sh.cfgColors.string, true)
+    else:
+      openTab(ed, sh.cfgFile, true)
     success()
   of "script", "scripts", "actions":
-    openTab(ed, sh.cfgActions.string, true)
+    when defined(nimscript):
+      openTab(ed, sh.cfgActions.string, true)
+    else:
+      openTab(ed, sh.cfgFile, true)
     success()
   of "cr":
     ed.main.lineending = "\C"
