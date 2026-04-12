@@ -4,7 +4,7 @@ NimEdit is the new upcoming slim IDE/editor for the Nim programming language.
 
 # Installation
 
-NimEdit now uses the new [uirelays]() library for drawing and font rendering. This library talks directly to your
+NimEdit now uses the new [uirelays](https://github.com/nim-lang/uirelay) library for drawing and font rendering. This library talks directly to your
 OS and has no dependencies. But it can also use an SDL 3 backend via `-d:sdl3`.
 
 To install the required dependencies use:
