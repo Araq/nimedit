@@ -385,42 +385,42 @@ proc recreateBackBuffer() =
 proc translateVK(vk: WPARAM): input.KeyCode =
   let vk = vk.uint32
   if vk >= ord('A').uint32 and vk <= ord('Z').uint32:
-    return input.KeyCode(ord(keyA) + (vk.int - ord('A')))
+    return input.KeyCode(ord(KeyA) + (vk.int - ord('A')))
   if vk >= ord('0').uint32 and vk <= ord('9').uint32:
-    return input.KeyCode(ord(key0) + (vk.int - ord('0')))
+    return input.KeyCode(ord(Key0) + (vk.int - ord('0')))
   if vk >= VK_F1 and vk <= VK_F12:
-    return input.KeyCode(ord(keyF1) + (vk.int - VK_F1.int))
+    return input.KeyCode(ord(KeyF1) + (vk.int - VK_F1.int))
   case vk
-  of VK_RETURN: keyEnter
-  of VK_SPACE: keySpace
-  of VK_ESCAPE: keyEsc
-  of VK_TAB: keyTab
-  of VK_BACK: keyBackspace
-  of VK_DELETE: keyDelete
-  of VK_INSERT: keyInsert
-  of VK_LEFT: keyLeft
-  of VK_RIGHT: keyRight
-  of VK_UP: keyUp
-  of VK_DOWN: keyDown
-  of VK_PRIOR: keyPageUp
-  of VK_NEXT: keyPageDown
-  of VK_HOME: keyHome
-  of VK_END: keyEnd
-  of VK_CAPITAL: keyCapslock
-  of VK_OEM_COMMA: keyComma
-  of VK_OEM_PERIOD: keyPeriod
-  else: keyNone
+  of VK_RETURN: KeyEnter
+  of VK_SPACE: KeySpace
+  of VK_ESCAPE: KeyEsc
+  of VK_TAB: KeyTab
+  of VK_BACK: KeyBackspace
+  of VK_DELETE: KeyDelete
+  of VK_INSERT: KeyInsert
+  of VK_LEFT: KeyLeft
+  of VK_RIGHT: KeyRight
+  of VK_UP: KeyUp
+  of VK_DOWN: KeyDown
+  of VK_PRIOR: KeyPageUp
+  of VK_NEXT: KeyPageDown
+  of VK_HOME: KeyHome
+  of VK_END: KeyEnd
+  of VK_CAPITAL: KeyCapslock
+  of VK_OEM_COMMA: KeyComma
+  of VK_OEM_PERIOD: KeyPeriod
+  else: KeyNone
 
 proc getModifiers(): set[Modifier] =
-  if GetKeyState(VK_SHIFT.int32) < 0: result.incl modShift
-  if GetKeyState(VK_CONTROL.int32) < 0: result.incl modCtrl
-  if GetKeyState(VK_MENU.int32) < 0: result.incl modAlt
+  if GetKeyState(VK_SHIFT.int32) < 0: result.incl ShiftPressed
+  if GetKeyState(VK_CONTROL.int32) < 0: result.incl CtrlPressed
+  if GetKeyState(VK_MENU.int32) < 0: result.incl AltPressed
 
 proc getMouseButtons(wp: WPARAM): set[MouseButton] =
   let flags = wp.uint32
-  if (flags and MK_LBUTTON) != 0: result.incl mbLeft
-  if (flags and MK_RBUTTON) != 0: result.incl mbRight
-  if (flags and MK_MBUTTON) != 0: result.incl mbMiddle
+  if (flags and MK_LBUTTON) != 0: result.incl LeftButton
+  if (flags and MK_RBUTTON) != 0: result.incl RightButton
+  if (flags and MK_MBUTTON) != 0: result.incl MiddleButton
 
 var lastClickTime: DWORD
 var lastClickX, lastClickY: int
@@ -435,7 +435,7 @@ proc pumpMessages() =
     discard TranslateMessage(addr msg)
     discard DispatchMessageW(addr msg)
     if msg.message == WM_QUIT:
-      pushEvent(input.Event(kind: evQuit))
+      pushEvent(input.Event(kind: QuitEvent))
 
 proc wndProc(hwnd: HWND; msg: UINT; wp: WPARAM; lp: LPARAM): LRESULT {.stdcall.} =
   # Capture gHwnd from the first message -- WM_SIZE etc. arrive
@@ -445,11 +445,11 @@ proc wndProc(hwnd: HWND; msg: UINT; wp: WPARAM; lp: LPARAM): LRESULT {.stdcall.}
   case msg
   of WM_DESTROY:
     PostQuitMessage(0)
-    pushEvent(input.Event(kind: evQuit))
+    pushEvent(input.Event(kind: QuitEvent))
     return 0
 
   of WM_CLOSE:
-    pushEvent(input.Event(kind: evWindowClose))
+    pushEvent(input.Event(kind: WindowCloseEvent))
     return 0  # don't call DestroyWindow yet; let the app decide
 
   of WM_ERASEBKGND:
@@ -462,7 +462,7 @@ proc wndProc(hwnd: HWND; msg: UINT; wp: WPARAM; lp: LPARAM): LRESULT {.stdcall.}
       gWidth = newW
       gHeight = newH
       recreateBackBuffer()
-      var e = input.Event(kind: evWindowResize)
+      var e = input.Event(kind: WindowResizeEvent)
       e.x = gWidth
       e.y = gHeight
       pushEvent(e)
@@ -477,24 +477,24 @@ proc wndProc(hwnd: HWND; msg: UINT; wp: WPARAM; lp: LPARAM): LRESULT {.stdcall.}
     return 0
 
   of WM_KEYDOWN:
-    var e = input.Event(kind: evKeyDown)
+    var e = input.Event(kind: KeyDownEvent)
     e.key = translateVK(wp)
     e.mods = getModifiers()
     pushEvent(e)
     return 0
 
   of WM_KEYUP:
-    var e = input.Event(kind: evKeyUp)
+    var e = input.Event(kind: KeyUpEvent)
     e.key = translateVK(wp)
     e.mods = getModifiers()
     pushEvent(e)
     return 0
 
   of WM_CHAR:
-    # wp is a UTF-16 code unit. For BMP characters, emit evTextInput.
+    # wp is a UTF-16 code unit. For BMP characters, emit TextInputEvent.
     let ch = wp.uint16
     if ch >= 32 and ch != 127:
-      var e = input.Event(kind: evTextInput)
+      var e = input.Event(kind: TextInputEvent)
       # Convert UTF-16 to UTF-8 into e.text[0..3]
       let codepoint = ch.uint32
       if codepoint < 0x80:
@@ -510,22 +510,22 @@ proc wndProc(hwnd: HWND; msg: UINT; wp: WPARAM; lp: LPARAM): LRESULT {.stdcall.}
     return 0
 
   of WM_SETFOCUS:
-    pushEvent(input.Event(kind: evWindowFocusGained))
+    pushEvent(input.Event(kind: WindowFocusGainedEvent))
     return 0
 
   of WM_KILLFOCUS:
-    pushEvent(input.Event(kind: evWindowFocusLost))
+    pushEvent(input.Event(kind: WindowFocusLostEvent))
     return 0
 
   of WM_LBUTTONDOWN, WM_RBUTTONDOWN, WM_MBUTTONDOWN:
-    var e = input.Event(kind: evMouseDown)
+    var e = input.Event(kind: MouseDownEvent)
     e.x = loWord(lp)
     e.y = hiWord(lp)
     e.mods = getModifiers()
     case msg
-    of WM_LBUTTONDOWN: e.button = mbLeft
-    of WM_RBUTTONDOWN: e.button = mbRight
-    else: e.button = mbMiddle
+    of WM_LBUTTONDOWN: e.button = LeftButton
+    of WM_RBUTTONDOWN: e.button = RightButton
+    else: e.button = MiddleButton
     # Track click count for double/triple click
     let now = GetTickCount()
     if now - lastClickTime < 500 and
@@ -541,18 +541,18 @@ proc wndProc(hwnd: HWND; msg: UINT; wp: WPARAM; lp: LPARAM): LRESULT {.stdcall.}
     return 0
 
   of WM_LBUTTONUP, WM_RBUTTONUP, WM_MBUTTONUP:
-    var e = input.Event(kind: evMouseUp)
+    var e = input.Event(kind: MouseUpEvent)
     e.x = loWord(lp)
     e.y = hiWord(lp)
     case msg
-    of WM_LBUTTONUP: e.button = mbLeft
-    of WM_RBUTTONUP: e.button = mbRight
-    else: e.button = mbMiddle
+    of WM_LBUTTONUP: e.button = LeftButton
+    of WM_RBUTTONUP: e.button = RightButton
+    else: e.button = MiddleButton
     pushEvent(e)
     return 0
 
   of WM_MOUSEMOVE:
-    var e = input.Event(kind: evMouseMove)
+    var e = input.Event(kind: MouseMoveEvent)
     e.x = loWord(lp)
     e.y = hiWord(lp)
     e.buttons = getMouseButtons(wp)
@@ -560,7 +560,7 @@ proc wndProc(hwnd: HWND; msg: UINT; wp: WPARAM; lp: LPARAM): LRESULT {.stdcall.}
     return 0
 
   of WM_MOUSEWHEEL:
-    var e = input.Event(kind: evMouseWheel)
+    var e = input.Event(kind: MouseWheelEvent)
     let delta = signedHiWord(wp)
     e.y = delta div 120  # standard wheel delta
     var pt = WINAPIPOINT(x: loWord(lp).LONG, y: hiWord(lp).LONG)
@@ -808,7 +808,7 @@ proc winSetWindowTitle(title: string) =
 
 # ---- Input hook implementations ----
 
-proc winPollEvent(e: var input.Event): bool =
+proc winPollEvent(e: var input.Event; flags: set[InputFlag]): bool =
   pumpMessages()
   if eventQueue.len > 0:
     e = eventQueue[0]
@@ -816,14 +816,15 @@ proc winPollEvent(e: var input.Event): bool =
     return true
   return false
 
-proc winWaitEvent(e: var input.Event; timeoutMs: int): bool =
+proc winWaitEvent(e: var input.Event; timeoutMs: int;
+                  flags: set[InputFlag]): bool =
   # Check already-queued events first
   if eventQueue.len > 0:
     e = eventQueue[0]
     eventQueue.delete(0)
     return true
   # Drain any pending Win32 messages before blocking
-  if winPollEvent(e):
+  if winPollEvent(e, flags):
     return true
   # Pump messages in a loop with short sleeps, like SDL does internally.
   # A single MWFMO(INFINITE) would block the thread entirely, causing
@@ -838,7 +839,7 @@ proc winWaitEvent(e: var input.Event; timeoutMs: int): bool =
                     else: min(deadline - now, 100'u32)
     let res = MsgWaitForMultipleObjects(0, nil, 0, remaining, QS_ALLINPUT)
     if res != WAIT_TIMEOUT:
-      if winPollEvent(e): return true
+      if winPollEvent(e, flags): return true
     elif timeoutMs >= 0:
       # Finite timeout: check if expired
       if GetTickCount() >= deadline: return false
@@ -881,7 +882,6 @@ proc winDelay(ms: int) =
     let remaining = min(deadline - now, msU)
     discard MsgWaitForMultipleObjects(0, nil, 0, remaining, QS_ALLINPUT)
     pumpMessages()
-proc winStartTextInput() = discard  # Win32 always delivers WM_CHAR
 proc winQuitRequest() =
   gQuitFlag = true
   if gHwnd != nil:
@@ -923,6 +923,6 @@ proc initWinapiDriver*() =
   inputRelays = InputRelays(
     pollEvent: winPollEvent, waitEvent: winWaitEvent,
     getTicks: winGetTicks, delay: winDelay,
-    startTextInput: winStartTextInput, quitRequest: winQuitRequest)
+    quitRequest: winQuitRequest)
   clipboardRelays = ClipboardRelays(
     getText: winGetClipboardText, putText: winPutClipboardText)

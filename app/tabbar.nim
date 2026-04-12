@@ -76,7 +76,7 @@ proc drawButtonList*(buttons: openArray[string]; t: Internaltheme;
   for i in 0..buttons.high:
     let b = buttons[i]
     let rect = drawTextWithBorder(t, b, i == active, xx, y, screenW)
-    if e.kind == evMouseDown:
+    if e.kind == MouseDownEvent:
       if e.clicks >= 1:
         let p = point(e.x, e.y)
         if rect.contains(p):
@@ -103,13 +103,13 @@ proc drawTabBar*(tabs: var TabBar; t: InternalTheme;
 
     activeDrawn = activeDrawn or it == active
     for e in events:
-      if e.kind == evMouseDown:
+      if e.kind == MouseDownEvent:
         if e.clicks >= 1:
           let p = point(e.x, e.y)
           if rect.contains(p):
             result = it
-      elif e.kind == evMouseMove:
-        if mbLeft in e.buttons:
+      elif e.kind == MouseMoveEvent:
+        if LeftButton in e.buttons:
           let p = point(e.x, e.y)
           if rect.contains(p):
             if e.xrel >= 4:

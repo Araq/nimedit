@@ -460,49 +460,49 @@ proc recreateBackBuffer() =
 
 proc translateKeySym(ks: XKeySym): input.KeyCode =
   if ks >= XK_a and ks <= XK_z:
-    return input.KeyCode(ord(keyA) + (ks.int - XK_a.int))
+    return input.KeyCode(ord(KeyA) + (ks.int - XK_a.int))
   if ks >= XK_0 and ks <= XK_9:
-    return input.KeyCode(ord(key0) + (ks.int - XK_0.int))
+    return input.KeyCode(ord(Key0) + (ks.int - XK_0.int))
   if ks >= XK_F1 and ks <= XK_F12:
-    return input.KeyCode(ord(keyF1) + (ks.int - XK_F1.int))
+    return input.KeyCode(ord(KeyF1) + (ks.int - XK_F1.int))
   case ks.uint
-  of XK_Return: keyEnter
-  of XK_space: keySpace
-  of XK_Escape: keyEsc
-  of XK_Tab: keyTab
-  of XK_BackSpace: keyBackspace
-  of XK_Delete: keyDelete
-  of XK_Insert: keyInsert
-  of XK_Left: keyLeft
-  of XK_Right: keyRight
-  of XK_Up: keyUp
-  of XK_Down: keyDown
-  of XK_Page_Up: keyPageUp
-  of XK_Page_Down: keyPageDown
-  of XK_Home: keyHome
-  of XK_End: keyEnd
-  of XK_Caps_Lock: keyCapslock
-  of XK_comma: keyComma
-  of XK_period: keyPeriod
-  else: keyNone
+  of XK_Return: KeyEnter
+  of XK_space: KeySpace
+  of XK_Escape: KeyEsc
+  of XK_Tab: KeyTab
+  of XK_BackSpace: KeyBackspace
+  of XK_Delete: KeyDelete
+  of XK_Insert: KeyInsert
+  of XK_Left: KeyLeft
+  of XK_Right: KeyRight
+  of XK_Up: KeyUp
+  of XK_Down: KeyDown
+  of XK_Page_Up: KeyPageUp
+  of XK_Page_Down: KeyPageDown
+  of XK_Home: KeyHome
+  of XK_End: KeyEnd
+  of XK_Caps_Lock: KeyCapslock
+  of XK_comma: KeyComma
+  of XK_period: KeyPeriod
+  else: KeyNone
 
 proc translateMods(state: cuint): set[Modifier] =
-  if (state and ShiftMask) != 0: result.incl modShift
-  if (state and ControlMask) != 0: result.incl modCtrl
-  if (state and Mod1Mask) != 0: result.incl modAlt
-  if (state and Mod4Mask) != 0: result.incl modGui
+  if (state and ShiftMask) != 0: result.incl ShiftPressed
+  if (state and ControlMask) != 0: result.incl CtrlPressed
+  if (state and Mod1Mask) != 0: result.incl AltPressed
+  if (state and Mod4Mask) != 0: result.incl GuiPressed
 
 proc translateButton(button: cuint): MouseButton =
   case button
-  of Button1: mbLeft
-  of Button3: mbRight
-  of Button2: mbMiddle
-  else: mbLeft
+  of Button1: LeftButton
+  of Button3: RightButton
+  of Button2: MiddleButton
+  else: LeftButton
 
 proc heldButtons(state: cuint): set[MouseButton] =
-  if (state and Button1Mask) != 0: result.incl mbLeft
-  if (state and Button2Mask) != 0: result.incl mbMiddle
-  if (state and Button3Mask) != 0: result.incl mbRight
+  if (state and Button1Mask) != 0: result.incl LeftButton
+  if (state and Button2Mask) != 0: result.incl MiddleButton
+  if (state and Button3Mask) != 0: result.incl RightButton
 
 # ---- Clipboard handling ----
 
@@ -551,20 +551,20 @@ proc processXEvent(xev: XEvent) =
       gWidth = newW
       gHeight = newH
       recreateBackBuffer()
-      var e = input.Event(kind: evWindowResize)
+      var e = input.Event(kind: WindowResizeEvent)
       e.x = gWidth
       e.y = gHeight
       pushEvent(e)
 
   of ClientMessage:
     if xev.xclient.data[0] == gWmDeleteWindow.clong:
-      pushEvent(input.Event(kind: evWindowClose))
+      pushEvent(input.Event(kind: WindowCloseEvent))
 
   of FocusIn:
-    pushEvent(input.Event(kind: evWindowFocusGained))
+    pushEvent(input.Event(kind: WindowFocusGainedEvent))
 
   of FocusOut:
-    pushEvent(input.Event(kind: evWindowFocusLost))
+    pushEvent(input.Event(kind: WindowFocusLostEvent))
 
   of KeyPress:
     var buf: array[8, char]
@@ -572,13 +572,13 @@ proc processXEvent(xev: XEvent) =
     let textLen = XLookupString(unsafeAddr xev.xkey, cast[cstring](addr buf[0]),
       8, addr ks, nil)
     # Key event
-    var e = input.Event(kind: evKeyDown)
+    var e = input.Event(kind: KeyDownEvent)
     e.key = translateKeySym(ks)
     e.mods = translateMods(xev.xkey.state)
     pushEvent(e)
     # Text input (if printable)
     if textLen > 0 and buf[0].uint8 >= 32 and buf[0].uint8 != 127:
-      var te = input.Event(kind: evTextInput)
+      var te = input.Event(kind: TextInputEvent)
       for i in 0 ..< min(textLen, 4):
         te.text[i] = buf[i]
       pushEvent(te)
@@ -586,7 +586,7 @@ proc processXEvent(xev: XEvent) =
   of KeyRelease:
     var ks: XKeySym
     discard XLookupString(unsafeAddr xev.xkey, nil, 0, addr ks, nil)
-    var e = input.Event(kind: evKeyUp)
+    var e = input.Event(kind: KeyUpEvent)
     e.key = translateKeySym(ks)
     e.mods = translateMods(xev.xkey.state)
     pushEvent(e)
@@ -595,11 +595,11 @@ proc processXEvent(xev: XEvent) =
     let btn = xev.xbutton.button
     if btn == Button4 or btn == Button5:
       # Scroll wheel
-      var e = input.Event(kind: evMouseWheel)
+      var e = input.Event(kind: MouseWheelEvent)
       e.y = if btn == Button4: 1 else: -1
       pushEvent(e)
     else:
-      var e = input.Event(kind: evMouseDown)
+      var e = input.Event(kind: MouseDownEvent)
       e.x = xev.xbutton.x
       e.y = xev.xbutton.y
       e.button = translateButton(btn)
@@ -620,14 +620,14 @@ proc processXEvent(xev: XEvent) =
   of ButtonRelease:
     let btn = xev.xbutton.button
     if btn != Button4 and btn != Button5:
-      var e = input.Event(kind: evMouseUp)
+      var e = input.Event(kind: MouseUpEvent)
       e.x = xev.xbutton.x
       e.y = xev.xbutton.y
       e.button = translateButton(btn)
       pushEvent(e)
 
   of MotionNotify:
-    var e = input.Event(kind: evMouseMove)
+    var e = input.Event(kind: MouseMoveEvent)
     e.x = xev.xmotion.x
     e.y = xev.xmotion.y
     e.buttons = heldButtons(xev.xmotion.state)
@@ -820,7 +820,7 @@ proc x11SetWindowTitle(title: string) =
 
 # ---- Input hook implementations ----
 
-proc x11PollEvent(e: var input.Event): bool =
+proc x11PollEvent(e: var input.Event; flags: set[InputFlag]): bool =
   drainXEvents()
   if eventQueue.len > 0:
     e = eventQueue[0]
@@ -828,12 +828,13 @@ proc x11PollEvent(e: var input.Event): bool =
     return true
   return false
 
-proc x11WaitEvent(e: var input.Event; timeoutMs: int): bool =
+proc x11WaitEvent(e: var input.Event; timeoutMs: int;
+                  flags: set[InputFlag]): bool =
   if eventQueue.len > 0:
     e = eventQueue[0]
     eventQueue.delete(0)
     return true
-  if x11PollEvent(e): return true
+  if x11PollEvent(e, flags): return true
 
   if timeoutMs < 0:
     # Block efficiently until an X11 event arrives
@@ -854,7 +855,7 @@ proc x11WaitEvent(e: var input.Event; timeoutMs: int): bool =
       let now = getTicks()
       if now >= deadline: return false
       os.sleep(10)
-      if x11PollEvent(e): return true
+      if x11PollEvent(e, flags): return true
 
 proc x11GetClipboardText(): string =
   discard XConvertSelection(gDisplay, gClipboard, gUtf8String,
@@ -915,7 +916,6 @@ proc x11Delay(ms: int) =
     drainXEvents()
     os.sleep(min(deadline - now, 10))
 
-proc x11StartTextInput() = discard
 proc x11QuitRequest() =
   if gDisplay != nil:
     discard XDestroyWindow(gDisplay, gWindow)
@@ -939,6 +939,6 @@ proc initX11Driver*() =
   inputRelays = InputRelays(
     pollEvent: x11PollEvent, waitEvent: x11WaitEvent,
     getTicks: x11GetTicks, delay: x11Delay,
-    startTextInput: x11StartTextInput, quitRequest: x11QuitRequest)
+    quitRequest: x11QuitRequest)
   clipboardRelays = ClipboardRelays(
     getText: x11GetClipboardText, putText: x11PutClipboardText)

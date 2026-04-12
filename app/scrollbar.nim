@@ -48,15 +48,15 @@ proc drawScrollBar*(b: Buffer; t: InternalTheme; events: seq[Event];
   for e in events:
     case state.usingScrollbar
     of false:
-      if e.kind == evMouseDown:
+      if e.kind == MouseDownEvent:
         let p = point(e.x, e.y)
         if grip.contains(p):
           state = ScrollBarState(usingScrollbar: true,
             initiallyGrippedAt: e.y.int - grip.y)
     of true:
-      if e.kind == evMouseUp:
+      if e.kind == MouseUpEvent:
         state = ScrollBarState(usingScrollbar: false)
-      elif e.kind == evMouseMove:
+      elif e.kind == MouseMoveEvent:
         let
           mousePosRelativeToScrollbar = e.y - grip.y
           yMovement = mousePosRelativeToScrollbar - state.initiallyGrippedAt

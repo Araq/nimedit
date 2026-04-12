@@ -171,78 +171,79 @@ proc cocoaSetWindowTitle(title: string) =
 # --- Event translation ---
 
 proc translateNEEvent(ne: NEEvent; e: var input.Event) =
-  e = input.Event(kind: evNone)
+  e = input.Event(kind: NoEvent)
   # Translate modifiers
-  if (ne.mods and neModShift) != 0: e.mods.incl modShift
-  if (ne.mods and neModCtrl) != 0: e.mods.incl modCtrl
-  if (ne.mods and neModAlt) != 0: e.mods.incl modAlt
-  if (ne.mods and neModGui) != 0: e.mods.incl modGui
+  if (ne.mods and neModShift) != 0: e.mods.incl ShiftPressed
+  if (ne.mods and neModCtrl) != 0: e.mods.incl CtrlPressed
+  if (ne.mods and neModAlt) != 0: e.mods.incl AltPressed
+  if (ne.mods and neModGui) != 0: e.mods.incl GuiPressed
 
   case ne.kind
   of neQuit:
-    e.kind = evQuit
+    e.kind = QuitEvent
   of neWindowResize:
-    e.kind = evWindowResize
+    e.kind = WindowResizeEvent
     e.x = ne.x
     e.y = ne.y
   of neWindowClose:
-    e.kind = evWindowClose
+    e.kind = WindowCloseEvent
   of neWindowFocusGained:
-    e.kind = evWindowFocusGained
+    e.kind = WindowFocusGainedEvent
   of neWindowFocusLost:
-    e.kind = evWindowFocusLost
+    e.kind = WindowFocusLostEvent
   of neKeyDown:
-    e.kind = evKeyDown
+    e.kind = KeyDownEvent
     e.key = KeyCode(ne.key)
   of neKeyUp:
-    e.kind = evKeyUp
+    e.kind = KeyUpEvent
     e.key = KeyCode(ne.key)
   of neTextInput:
-    e.kind = evTextInput
+    e.kind = TextInputEvent
     for i in 0..3:
       e.text[i] = ne.text[i]
   of neMouseDown:
-    e.kind = evMouseDown
+    e.kind = MouseDownEvent
     e.x = ne.x
     e.y = ne.y
     e.clicks = ne.clicks
     case ne.button
-    of 0: e.button = mbLeft
-    of 1: e.button = mbRight
-    of 2: e.button = mbMiddle
-    else: e.button = mbLeft
+    of 0: e.button = LeftButton
+    of 1: e.button = RightButton
+    of 2: e.button = MiddleButton
+    else: e.button = LeftButton
   of neMouseUp:
-    e.kind = evMouseUp
+    e.kind = MouseUpEvent
     e.x = ne.x
     e.y = ne.y
     case ne.button
-    of 0: e.button = mbLeft
-    of 1: e.button = mbRight
-    of 2: e.button = mbMiddle
-    else: e.button = mbLeft
+    of 0: e.button = LeftButton
+    of 1: e.button = RightButton
+    of 2: e.button = MiddleButton
+    else: e.button = LeftButton
   of neMouseMove:
-    e.kind = evMouseMove
+    e.kind = MouseMoveEvent
     e.x = ne.x
     e.y = ne.y
     e.xrel = ne.xrel
     e.yrel = ne.yrel
-    if (ne.buttons and 1) != 0: e.buttons.incl mbLeft
-    if (ne.buttons and 2) != 0: e.buttons.incl mbRight
-    if (ne.buttons and 4) != 0: e.buttons.incl mbMiddle
+    if (ne.buttons and 1) != 0: e.buttons.incl LeftButton
+    if (ne.buttons and 2) != 0: e.buttons.incl RightButton
+    if (ne.buttons and 4) != 0: e.buttons.incl MiddleButton
   of neMouseWheel:
-    e.kind = evMouseWheel
+    e.kind = MouseWheelEvent
     e.x = ne.x
     e.y = ne.y
   else: discard
 
-proc cocoaPollEvent(e: var input.Event): bool =
+proc cocoaPollEvent(e: var input.Event; flags: set[InputFlag]): bool =
   var ne: NEEvent
   if cPollEvent(addr ne) == 0:
     return false
   translateNEEvent(ne, e)
   result = true
 
-proc cocoaWaitEvent(e: var input.Event; timeoutMs: int): bool =
+proc cocoaWaitEvent(e: var input.Event; timeoutMs: int;
+                    flags: set[InputFlag]): bool =
   var ne: NEEvent
   if cWaitEvent(addr ne, timeoutMs.cint) == 0:
     return false
@@ -259,7 +260,6 @@ proc cocoaPutClipboardText(text: string) =
 
 proc cocoaGetTicks(): int = cGetTicks().int
 proc cocoaDelay(ms: int) = cDelay(ms.uint32)
-proc cocoaStartTextInput() = cStartTextInput()
 proc cocoaQuitRequest() = cQuitRequest()
 
 # --- Init ---
@@ -280,6 +280,6 @@ proc initCocoaDriver*() =
   inputRelays = InputRelays(
     pollEvent: cocoaPollEvent, waitEvent: cocoaWaitEvent,
     getTicks: cocoaGetTicks, delay: cocoaDelay,
-    startTextInput: cocoaStartTextInput, quitRequest: cocoaQuitRequest)
+    quitRequest: cocoaQuitRequest)
   clipboardRelays = ClipboardRelays(
     getText: cocoaGetClipboardText, putText: cocoaPutClipboardText)

@@ -6,7 +6,7 @@
 # Uses gtk_event_controller_key_set_im_context (GTK 4.2+). GtkDrawingArea "resize" needs GTK 4.6+.
 # If pkg-config is missing, set compile-time flags manually, e.g.:
 #   nim c -d:gtk4 --passC:"$(pkg-config --cflags gtk4)" --passL:"$(pkg-config --libs gtk4 pangocairo pangoft2 fontconfig)" app/nimedit.nim
-# evMouseMove does not set `buttons` (held buttons) yet; SDL drivers do.
+# MouseMoveEvent does not set `buttons` (held buttons) yet; SDL drivers do.
 
 {.emit: """
 #include <gtk/gtk.h>
@@ -129,7 +129,7 @@ proc gtk_drawing_area_set_draw_func(
 ) {.importc, nodecl, cdecl.}
 
 proc gtk_event_controller_key_new(): pointer {.importc, nodecl, cdecl.}
-proc gtk_event_controller_key_set_im_context(keyCtrl, im: pointer) {.importc, nodecl, cdecl.}
+proc gtk_event_controller_key_set_im_context(KeyCtrl, im: pointer) {.importc, nodecl, cdecl.}
 proc gtk_event_controller_get_current_event(ctrl: pointer): pointer {.importc, nodecl, cdecl.}
 proc gtk_event_controller_motion_new(): pointer {.importc, nodecl, cdecl.}
 proc gtk_event_controller_scroll_new(flags: guint): pointer {.importc, nodecl, cdecl.}
@@ -240,11 +240,11 @@ proc pushEvent(e: Event) =
   eventQueue.add e
 
 proc gdkModsToSet(st: guint): set[Modifier] =
-  if (st and (1'u32 shl 0)) != 0: result.incl modShift
-  if (st and (1'u32 shl 2)) != 0: result.incl modCtrl
-  if (st and (1'u32 shl 3)) != 0: result.incl modAlt
-  if (st and (1'u32 shl 26)) != 0: result.incl modGui
-  if (st and (1'u32 shl 28)) != 0: result.incl modGui
+  if (st and (1'u32 shl 0)) != 0: result.incl ShiftPressed
+  if (st and (1'u32 shl 2)) != 0: result.incl CtrlPressed
+  if (st and (1'u32 shl 3)) != 0: result.incl AltPressed
+  if (st and (1'u32 shl 26)) != 0: result.incl GuiPressed
+  if (st and (1'u32 shl 28)) != 0: result.incl GuiPressed
 
 proc syncModsFromController(ctrl: pointer) =
   let ev = gtk_event_controller_get_current_event(ctrl)
@@ -255,50 +255,50 @@ proc translateKeyval(kv: guint): KeyCode =
   let k = gdk_keyval_to_lower(kv)
   template ck(c: char, key: KeyCode): untyped =
     if k == cast[guint](ord(c)): return key
-  ck('a', keyA); ck('b', keyB); ck('c', keyC); ck('d', keyD); ck('e', keyE)
-  ck('f', keyF); ck('g', keyG); ck('h', keyH); ck('i', keyI); ck('j', keyJ)
-  ck('k', keyK); ck('l', keyL); ck('m', keyM); ck('n', keyN); ck('o', keyO)
-  ck('p', keyP); ck('q', keyQ); ck('r', keyR); ck('s', keyS); ck('t', keyT)
-  ck('u', keyU); ck('v', keyV); ck('w', keyW); ck('x', keyX); ck('y', keyY)
-  ck('z', keyZ)
-  ck('0', key0); ck('1', key1); ck('2', key2); ck('3', key3); ck('4', key4)
-  ck('5', key5); ck('6', key6); ck('7', key7); ck('8', key8); ck('9', key9)
+  ck('a', KeyA); ck('b', KeyB); ck('c', KeyC); ck('d', KeyD); ck('e', KeyE)
+  ck('f', KeyF); ck('g', KeyG); ck('h', KeyH); ck('i', KeyI); ck('j', KeyJ)
+  ck('k', KeyK); ck('l', KeyL); ck('m', KeyM); ck('n', KeyN); ck('o', KeyO)
+  ck('p', KeyP); ck('q', KeyQ); ck('r', KeyR); ck('s', KeyS); ck('t', KeyT)
+  ck('u', KeyU); ck('v', KeyV); ck('w', KeyW); ck('x', KeyX); ck('y', KeyY)
+  ck('z', KeyZ)
+  ck('0', Key0); ck('1', Key1); ck('2', Key2); ck('3', Key3); ck('4', Key4)
+  ck('5', Key5); ck('6', Key6); ck('7', Key7); ck('8', Key8); ck('9', Key9)
   case k
-  of 0xff1b: keyEsc
-  of 0xff09: keyTab
-  of 0xff0d: keyEnter
-  of 0x020: keySpace
-  of 0xff08: keyBackspace
-  of 0xffff: keyDelete
-  of 0xff63: keyInsert
-  of 0xff51: keyLeft
-  of 0xff53: keyRight
-  of 0xff52: keyUp
-  of 0xff54: keyDown
-  of 0xff55: keyPageUp
-  of 0xff56: keyPageDown
-  of 0xff50: keyHome
-  of 0xff57: keyEnd
-  of 0xffe5: keyCapslock
-  of 0x02c: keyComma
-  of 0x02e: keyPeriod
-  of 0xffbe: keyF1
-  of 0xffbf: keyF2
-  of 0xffc0: keyF3
-  of 0xffc1: keyF4
-  of 0xffc2: keyF5
-  of 0xffc3: keyF6
-  of 0xffc4: keyF7
-  of 0xffc5: keyF8
-  of 0xffc6: keyF9
-  of 0xffc7: keyF10
-  of 0xffc8: keyF11
-  of 0xffc9: keyF12
-  else: keyNone
+  of 0xff1b: KeyEsc
+  of 0xff09: KeyTab
+  of 0xff0d: KeyEnter
+  of 0x020: KeySpace
+  of 0xff08: KeyBackspace
+  of 0xffff: KeyDelete
+  of 0xff63: KeyInsert
+  of 0xff51: KeyLeft
+  of 0xff53: KeyRight
+  of 0xff52: KeyUp
+  of 0xff54: KeyDown
+  of 0xff55: KeyPageUp
+  of 0xff56: KeyPageDown
+  of 0xff50: KeyHome
+  of 0xff57: KeyEnd
+  of 0xffe5: KeyCapslock
+  of 0x02c: KeyComma
+  of 0x02e: KeyPeriod
+  of 0xffbe: KeyF1
+  of 0xffbf: KeyF2
+  of 0xffc0: KeyF3
+  of 0xffc1: KeyF4
+  of 0xffc2: KeyF5
+  of 0xffc3: KeyF6
+  of 0xffc4: KeyF7
+  of 0xffc5: KeyF8
+  of 0xffc6: KeyF9
+  of 0xffc7: KeyF10
+  of 0xffc8: KeyF11
+  of 0xffc9: KeyF12
+  else: KeyNone
 
 proc enqueueTextFromUtf8(s: string) =
   for ch in s.toRunes:
-    var ev = Event(kind: evTextInput)
+    var ev = Event(kind: TextInputEvent)
     let u = toUtf8(ch)
     for i in 0 ..< min(4, u.len):
       ev.text[i] = u[i]
@@ -335,12 +335,12 @@ proc ensureBackingCr() =
 # --- Signal callbacks (cdecl) ---
 
 proc onCloseRequest(self: pointer; data: pointer): gboolean {.cdecl.} =
-  pushEvent(Event(kind: evWindowClose))
+  pushEvent(Event(kind: WindowCloseEvent))
   G_TRUE
 
 proc onResize(area: pointer; width, height: gint; data: pointer) {.cdecl.} =
   recreateBacking(width.int, height.int)
-  pushEvent(Event(kind: evWindowResize, x: width.int, y: height.int))
+  pushEvent(Event(kind: WindowResizeEvent, x: width.int, y: height.int))
 
 proc onDraw(area: ptr GtkDrawingArea; cr: ptr cairo_t; width, height: gint;
     data: pointer) {.cdecl.} =
@@ -365,14 +365,14 @@ proc onDraw(area: ptr GtkDrawingArea; cr: ptr cairo_t; width, height: gint;
 proc onKeyPressed(ctrl: pointer; keyval, keycode: guint; state: guint;
     data: pointer): gboolean {.cdecl.} =
   modState = gdkModsToSet(state)
-  var ev = Event(kind: evKeyDown, key: translateKeyval(keyval), mods: modState)
+  var ev = Event(kind: KeyDownEvent, key: translateKeyval(keyval), mods: modState)
   pushEvent ev
   G_FALSE
 
 proc onKeyReleased(ctrl: pointer; keyval, keycode: guint; state: guint;
     data: pointer): gboolean {.cdecl.} =
   modState = gdkModsToSet(state)
-  var ev = Event(kind: evKeyUp, key: translateKeyval(keyval), mods: modState)
+  var ev = Event(kind: KeyUpEvent, key: translateKeyval(keyval), mods: modState)
   pushEvent ev
   G_FALSE
 
@@ -382,35 +382,35 @@ proc onImCommit(ctx: pointer; str: cstring; data: pointer) {.cdecl.} =
 
 proc onMotion(ctrl: pointer; x, y: gdouble; data: pointer) {.cdecl.} =
   syncModsFromController(ctrl)
-  var ev = Event(kind: evMouseMove, x: int(x), y: int(y), mods: modState)
+  var ev = Event(kind: MouseMoveEvent, x: int(x), y: int(y), mods: modState)
   pushEvent ev
 
 proc onScroll(ctrl: pointer; dx, dy: gdouble; data: pointer): gboolean {.cdecl.} =
   syncModsFromController(ctrl)
-  pushEvent(Event(kind: evMouseWheel, x: int(-dx), y: int(-dy), mods: modState))
+  pushEvent(Event(kind: MouseWheelEvent, x: int(-dx), y: int(-dy), mods: modState))
   G_TRUE
 
 proc onFocusEnter(ctrl: pointer; data: pointer) {.cdecl.} =
-  pushEvent(Event(kind: evWindowFocusGained))
+  pushEvent(Event(kind: WindowFocusGainedEvent))
 
 proc onFocusLeave(ctrl: pointer; data: pointer) {.cdecl.} =
-  pushEvent(Event(kind: evWindowFocusLost))
+  pushEvent(Event(kind: WindowFocusLostEvent))
 
 proc onClickPressed(gesture: pointer; nPress: gint; x, y: gdouble; data: pointer) {.cdecl.} =
   let btn = gtk_gesture_single_get_current_button(gesture)
-  var b = mbLeft
-  if btn == GDK_BUTTON_SECONDARY: b = mbRight
-  elif btn == GDK_BUTTON_MIDDLE: b = mbMiddle
-  var ev = Event(kind: evMouseDown, x: int(x), y: int(y), button: b,
+  var b = LeftButton
+  if btn == GDK_BUTTON_SECONDARY: b = RightButton
+  elif btn == GDK_BUTTON_MIDDLE: b = MiddleButton
+  var ev = Event(kind: MouseDownEvent, x: int(x), y: int(y), button: b,
                  clicks: nPress.int)
   pushEvent ev
 
 proc onClickReleased(gesture: pointer; nPress: gint; x, y: gdouble; data: pointer) {.cdecl.} =
   let btn = gtk_gesture_single_get_current_button(gesture)
-  var b = mbLeft
-  if btn == GDK_BUTTON_SECONDARY: b = mbRight
-  elif btn == GDK_BUTTON_MIDDLE: b = mbMiddle
-  pushEvent(Event(kind: evMouseUp, x: int(x), y: int(y), button: b))
+  var b = LeftButton
+  if btn == GDK_BUTTON_SECONDARY: b = RightButton
+  elif btn == GDK_BUTTON_MIDDLE: b = MiddleButton
+  pushEvent(Event(kind: MouseUpEvent, x: int(x), y: int(y), button: b))
 
 proc g_main_loop_new(ctx: pointer, isRunning: gboolean): pointer {.importc, nodecl, cdecl.}
 proc g_main_loop_run(loop: pointer) {.importc, nodecl, cdecl.}
@@ -684,7 +684,7 @@ proc pumpGtk() =
   while g_main_context_iteration(nil, G_FALSE) != G_FALSE:
     discard
 
-proc gtkPollEvent(e: var Event): bool =
+proc gtkPollEvent(e: var Event; flags: set[InputFlag]): bool =
   pumpGtk()
   if eventQueue.len > 0:
     e = eventQueue[0]
@@ -692,13 +692,14 @@ proc gtkPollEvent(e: var Event): bool =
     return true
   false
 
-proc gtkWaitEvent(e: var Event; timeoutMs: int): bool =
-  if gtkPollEvent(e):
+proc gtkWaitEvent(e: var Event; timeoutMs: int;
+                  flags: set[InputFlag]): bool =
+  if gtkPollEvent(e, flags):
     return true
   if timeoutMs < 0:
     while true:
       discard g_main_context_iteration(nil, G_TRUE)
-      if gtkPollEvent(e):
+      if gtkPollEvent(e, flags):
         return true
   elif timeoutMs == 0:
     return false
@@ -706,10 +707,10 @@ proc gtkWaitEvent(e: var Event; timeoutMs: int): bool =
     let t0 = g_get_monotonic_time() div 1000
     while g_get_monotonic_time() div 1000 - t0 < timeoutMs:
       discard g_main_context_iteration(nil, G_FALSE)
-      if gtkPollEvent(e):
+      if gtkPollEvent(e, flags):
         return true
       g_usleep(5000)
-    return gtkPollEvent(e)
+    return gtkPollEvent(e, flags)
 
 proc gtkGetClipboardText(): string =
   readClipboardSync()
@@ -726,12 +727,6 @@ proc gtkGetTicks(): int =
 
 proc gtkDelay(ms: int) =
   g_usleep(culong(ms) * 1000)
-
-proc gtkStartTextInput() =
-  if drawingArea != nil:
-    gtk_widget_grab_focus(drawingArea)
-    if imContext != nil:
-      gtk_im_context_focus_in(imContext)
 
 proc gtkQuitRequest() =
   if win != nil:
@@ -763,6 +758,6 @@ proc initGtk4Driver*() =
   inputRelays = InputRelays(
     pollEvent: gtkPollEvent, waitEvent: gtkWaitEvent,
     getTicks: gtkGetTicks, delay: gtkDelay,
-    startTextInput: gtkStartTextInput, quitRequest: gtkQuitRequest)
+    quitRequest: gtkQuitRequest)
   clipboardRelays = ClipboardRelays(
     getText: gtkGetClipboardText, putText: gtkPutClipboardText)

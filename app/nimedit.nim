@@ -549,8 +549,8 @@ proc pollEvents*(someConsoleRunning, windowHasFocus: bool): seq[input.Event] =
   while input.pollEvent(e):
     result.add e
 
-proc ctrlKeyPressed*(e: Event): bool = modCtrl in e.mods
-proc shiftKeyPressed*(e: Event): bool = modShift in e.mods
+proc ctrlKeyPressed*(e: Event): bool = CtrlPressed in e.mods
+proc shiftKeyPressed*(e: Event): bool = ShiftPressed in e.mods
 
 proc loadTheme(ed: SharedState) =
   loadTheme(ed.cfgColors, ed.theme, ed.mgr, ed.fontM)
@@ -561,39 +561,39 @@ proc loadTheme(ed: SharedState) =
 
 proc eventToKeySet(e: input.Event): set[Key] =
   result = {}
-  if e.kind == evKeyDown: discard
-  elif e.kind == evKeyUp: result.incl(Key.KeyReleased)
+  if e.kind == KeyDownEvent: discard
+  elif e.kind == KeyUpEvent: result.incl(Key.KeyReleased)
   else: return
   # Map KeyCode to Key enum for the keybinding system
   case e.key
-  of keyA..keyZ:
-    result.incl(Key(ord(Key.A) + ord(e.key) - ord(keyA)))
-  of key0..key9:
-    result.incl(Key(ord(Key.N0) + ord(e.key) - ord(key0)))
-  of keyF1..keyF12:
-    result.incl(Key(ord(Key.F1) + ord(e.key) - ord(keyF1)))
-  of keyEnter: result.incl Key.Enter
-  of keySpace: result.incl Key.Space
-  of keyEsc: result.incl Key.Esc
-  of keyDelete: result.incl Key.Del
-  of keyBackspace: result.incl Key.Backspace
-  of keyInsert: result.incl Key.Ins
-  of keyPageUp: result.incl Key.PageUp
-  of keyPageDown: result.incl Key.PageDown
-  of keyCapslock: result.incl Key.Capslock
-  of keyTab: result.incl Key.Tab
-  of keyLeft: result.incl Key.Left
-  of keyRight: result.incl Key.Right
-  of keyUp: result.incl Key.Up
-  of keyDown: result.incl Key.Down
-  of keyComma: result.incl Key.Comma
-  of keyPeriod: result.incl Key.Period
+  of KeyA..KeyZ:
+    result.incl(Key(ord(Key.A) + ord(e.key) - ord(KeyA)))
+  of Key0..Key9:
+    result.incl(Key(ord(Key.N0) + ord(e.key) - ord(Key0)))
+  of KeyF1..KeyF12:
+    result.incl(Key(ord(Key.F1) + ord(e.key) - ord(KeyF1)))
+  of KeyEnter: result.incl Key.Enter
+  of KeySpace: result.incl Key.Space
+  of KeyEsc: result.incl Key.Esc
+  of KeyDelete: result.incl Key.Del
+  of KeyBackspace: result.incl Key.Backspace
+  of KeyInsert: result.incl Key.Ins
+  of KeyPageUp: result.incl Key.PageUp
+  of KeyPageDown: result.incl Key.PageDown
+  of KeyCapslock: result.incl Key.Capslock
+  of KeyTab: result.incl Key.Tab
+  of KeyLeft: result.incl Key.Left
+  of KeyRight: result.incl Key.Right
+  of KeyUp: result.incl Key.Up
+  of KeyDown: result.incl Key.Down
+  of KeyComma: result.incl Key.Comma
+  of KeyPeriod: result.incl Key.Period
   else: discard
   when defined(macosx):
-    if modGui in e.mods: result.incl Key.Apple
-  if modCtrl in e.mods: result.incl Key.Ctrl
-  if modShift in e.mods: result.incl Key.Shift
-  if modAlt in e.mods: result.incl Key.Alt
+    if GuiPressed in e.mods: result.incl Key.Apple
+  if CtrlPressed in e.mods: result.incl Key.Ctrl
+  if ShiftPressed in e.mods: result.incl Key.Shift
+  if AltPressed in e.mods: result.incl Key.Alt
 
 proc produceHelp(ed: Editor): string =
   proc getArg(a: Command): string =
@@ -906,26 +906,26 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
 
   for e in events:
     case e.kind
-    of evQuit:
+    of QuitEvent:
       if handleQuitEvent(ed):
         result = true
         break
-    of evWindowResize:
+    of WindowResizeEvent:
       ed.screenW = e.x
       ed.screenH = e.y
       layout(ed)
-    of evWindowFocusLost:
+    of WindowFocusLostEvent:
       sh.windowHasFocus = false
-    of evWindowFocusGained:
+    of WindowFocusGainedEvent:
       sh.windowHasFocus = true
-    of evWindowClose:
+    of WindowCloseEvent:
       if sh.firstWindow.next.isNil:
         if handleQuitEvent(ed):
           result = true
           break
       else:
         closeWindow(sh.activeWindow)
-    of evMouseDown:
+    of MouseDownEvent:
       var clicks = e.clicks
       if clicks == 0 or clicks > 5: clicks = 1
       if ctrlKeyPressed(e): inc(clicks)
@@ -948,10 +948,10 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
           ed.sh.clickOnFilename = clicks >= 2
         else:
           focus = console
-    of evMouseWheel:
+    of MouseWheelEvent:
       # use last known mouse position for target determination
       focus.scrollLines(-e.y*3)
-    of evTextInput:
+    of TextInputEvent:
       var surpress = false
       if e.text[0] == ' ' and e.text[1] == '\0':
         if ctrlKeyPressed(e):
@@ -972,7 +972,7 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
         else:
           focus.insertSingleKey(textStr)
           if focus==main: trackSpot(ed.sh.hotspots, main)
-    of evKeyDown, evKeyUp:
+    of KeyDownEvent, KeyUpEvent:
       let ks = eventToKeySet(e)
       let cmd = sh.keymapping.getOrDefault(ks)
       if ed.runAction(cmd.action, cmd.arg, shiftKeyPressed(e)):
@@ -991,7 +991,7 @@ proc draw(events: sink seq[input.Event]; ed: Editor) =
   if activeTab != nil:
     var rightClick = false
     for e in events:
-      if e.kind == evMouseDown and e.button == mbRight:
+      if e.kind == MouseDownEvent and e.button == RightButton:
         rightClick = true
         break
     if rightClick:
@@ -1092,7 +1092,7 @@ proc mainProc(ed: Editor) =
 
   createSdlWindow(ed, 1u32)
   loadTheme(sh)
-  input.startTextInput()
+
 
   include nimscript/keybindings #XXX TODO: nimscript instead of include
 

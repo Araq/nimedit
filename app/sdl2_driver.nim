@@ -48,6 +48,7 @@ proc sdlCreateWindow(layout: var ScreenLayout) =
   layout.height = h
   layout.scaleX = 1
   layout.scaleY = 1
+  sdl2.startTextInput()
 
 proc sdlRefresh() =
   renderer.present()
@@ -148,174 +149,173 @@ proc sdlPutClipboardText(text: string) =
 
 proc translateScancode(sc: Scancode): KeyCode =
   case sc
-  of SDL_SCANCODE_A: keyA
-  of SDL_SCANCODE_B: keyB
-  of SDL_SCANCODE_C: keyC
-  of SDL_SCANCODE_D: keyD
-  of SDL_SCANCODE_E: keyE
-  of SDL_SCANCODE_F: keyF
-  of SDL_SCANCODE_G: keyG
-  of SDL_SCANCODE_H: keyH
-  of SDL_SCANCODE_I: keyI
-  of SDL_SCANCODE_J: keyJ
-  of SDL_SCANCODE_K: keyK
-  of SDL_SCANCODE_L: keyL
-  of SDL_SCANCODE_M: keyM
-  of SDL_SCANCODE_N: keyN
-  of SDL_SCANCODE_O: keyO
-  of SDL_SCANCODE_P: keyP
-  of SDL_SCANCODE_Q: keyQ
-  of SDL_SCANCODE_R: keyR
-  of SDL_SCANCODE_S: keyS
-  of SDL_SCANCODE_T: keyT
-  of SDL_SCANCODE_U: keyU
-  of SDL_SCANCODE_V: keyV
-  of SDL_SCANCODE_W: keyW
-  of SDL_SCANCODE_X: keyX
-  of SDL_SCANCODE_Y: keyY
-  of SDL_SCANCODE_Z: keyZ
-  of SDL_SCANCODE_1: key1
-  of SDL_SCANCODE_2: key2
-  of SDL_SCANCODE_3: key3
-  of SDL_SCANCODE_4: key4
-  of SDL_SCANCODE_5: key5
-  of SDL_SCANCODE_6: key6
-  of SDL_SCANCODE_7: key7
-  of SDL_SCANCODE_8: key8
-  of SDL_SCANCODE_9: key9
-  of SDL_SCANCODE_0: key0
-  of SDL_SCANCODE_F1: keyF1
-  of SDL_SCANCODE_F2: keyF2
-  of SDL_SCANCODE_F3: keyF3
-  of SDL_SCANCODE_F4: keyF4
-  of SDL_SCANCODE_F5: keyF5
-  of SDL_SCANCODE_F6: keyF6
-  of SDL_SCANCODE_F7: keyF7
-  of SDL_SCANCODE_F8: keyF8
-  of SDL_SCANCODE_F9: keyF9
-  of SDL_SCANCODE_F10: keyF10
-  of SDL_SCANCODE_F11: keyF11
-  of SDL_SCANCODE_F12: keyF12
-  of SDL_SCANCODE_RETURN: keyEnter
-  of SDL_SCANCODE_SPACE: keySpace
-  of SDL_SCANCODE_ESCAPE: keyEsc
-  of SDL_SCANCODE_TAB: keyTab
-  of SDL_SCANCODE_BACKSPACE: keyBackspace
-  of SDL_SCANCODE_DELETE: keyDelete
-  of SDL_SCANCODE_INSERT: keyInsert
-  of SDL_SCANCODE_LEFT: keyLeft
-  of SDL_SCANCODE_RIGHT: keyRight
-  of SDL_SCANCODE_UP: keyUp
-  of SDL_SCANCODE_DOWN: keyDown
-  of SDL_SCANCODE_PAGEUP: keyPageUp
-  of SDL_SCANCODE_PAGEDOWN: keyPageDown
-  of SDL_SCANCODE_HOME: keyHome
-  of SDL_SCANCODE_END: keyEnd
-  of SDL_SCANCODE_CAPSLOCK: keyCapslock
-  of SDL_SCANCODE_COMMA: keyComma
-  of SDL_SCANCODE_PERIOD: keyPeriod
-  else: keyNone
+  of SDL_SCANCODE_A: KeyA
+  of SDL_SCANCODE_B: KeyB
+  of SDL_SCANCODE_C: KeyC
+  of SDL_SCANCODE_D: KeyD
+  of SDL_SCANCODE_E: KeyE
+  of SDL_SCANCODE_F: KeyF
+  of SDL_SCANCODE_G: KeyG
+  of SDL_SCANCODE_H: KeyH
+  of SDL_SCANCODE_I: KeyI
+  of SDL_SCANCODE_J: KeyJ
+  of SDL_SCANCODE_K: KeyK
+  of SDL_SCANCODE_L: KeyL
+  of SDL_SCANCODE_M: KeyM
+  of SDL_SCANCODE_N: KeyN
+  of SDL_SCANCODE_O: KeyO
+  of SDL_SCANCODE_P: KeyP
+  of SDL_SCANCODE_Q: KeyQ
+  of SDL_SCANCODE_R: KeyR
+  of SDL_SCANCODE_S: KeyS
+  of SDL_SCANCODE_T: KeyT
+  of SDL_SCANCODE_U: KeyU
+  of SDL_SCANCODE_V: KeyV
+  of SDL_SCANCODE_W: KeyW
+  of SDL_SCANCODE_X: KeyX
+  of SDL_SCANCODE_Y: KeyY
+  of SDL_SCANCODE_Z: KeyZ
+  of SDL_SCANCODE_1: Key1
+  of SDL_SCANCODE_2: Key2
+  of SDL_SCANCODE_3: Key3
+  of SDL_SCANCODE_4: Key4
+  of SDL_SCANCODE_5: Key5
+  of SDL_SCANCODE_6: Key6
+  of SDL_SCANCODE_7: Key7
+  of SDL_SCANCODE_8: Key8
+  of SDL_SCANCODE_9: Key9
+  of SDL_SCANCODE_0: Key0
+  of SDL_SCANCODE_F1: KeyF1
+  of SDL_SCANCODE_F2: KeyF2
+  of SDL_SCANCODE_F3: KeyF3
+  of SDL_SCANCODE_F4: KeyF4
+  of SDL_SCANCODE_F5: KeyF5
+  of SDL_SCANCODE_F6: KeyF6
+  of SDL_SCANCODE_F7: KeyF7
+  of SDL_SCANCODE_F8: KeyF8
+  of SDL_SCANCODE_F9: KeyF9
+  of SDL_SCANCODE_F10: KeyF10
+  of SDL_SCANCODE_F11: KeyF11
+  of SDL_SCANCODE_F12: KeyF12
+  of SDL_SCANCODE_RETURN: KeyEnter
+  of SDL_SCANCODE_SPACE: KeySpace
+  of SDL_SCANCODE_ESCAPE: KeyEsc
+  of SDL_SCANCODE_TAB: KeyTab
+  of SDL_SCANCODE_BACKSPACE: KeyBackspace
+  of SDL_SCANCODE_DELETE: KeyDelete
+  of SDL_SCANCODE_INSERT: KeyInsert
+  of SDL_SCANCODE_LEFT: KeyLeft
+  of SDL_SCANCODE_RIGHT: KeyRight
+  of SDL_SCANCODE_UP: KeyUp
+  of SDL_SCANCODE_DOWN: KeyDown
+  of SDL_SCANCODE_PAGEUP: KeyPageUp
+  of SDL_SCANCODE_PAGEDOWN: KeyPageDown
+  of SDL_SCANCODE_HOME: KeyHome
+  of SDL_SCANCODE_END: KeyEnd
+  of SDL_SCANCODE_CAPSLOCK: KeyCapslock
+  of SDL_SCANCODE_COMMA: KeyComma
+  of SDL_SCANCODE_PERIOD: KeyPeriod
+  else: KeyNone
 
 proc translateMods(m: int16): set[Modifier] =
   let m = m.int32
-  if (m and KMOD_SHIFT) != 0: result.incl modShift
-  if (m and KMOD_CTRL) != 0: result.incl modCtrl
-  if (m and KMOD_ALT) != 0: result.incl modAlt
-  if (m and KMOD_GUI) != 0: result.incl modGui
+  if (m and KMOD_SHIFT) != 0: result.incl ShiftPressed
+  if (m and KMOD_CTRL) != 0: result.incl CtrlPressed
+  if (m and KMOD_ALT) != 0: result.incl AltPressed
+  if (m and KMOD_GUI) != 0: result.incl GuiPressed
 
-proc sdlPollEvent(e: var input.Event): bool =
+proc sdlPollEvent(e: var input.Event; flags: set[InputFlag]): bool =
   var sdlEvent: sdl2.Event
   if not sdl2.pollEvent(sdlEvent):
     return false
   result = true
-  e = input.Event(kind: evNone)
+  e = input.Event(kind: NoEvent)
   case sdlEvent.kind
   of QuitEvent:
-    e.kind = evQuit
+    e.kind = input.QuitEvent
   of WindowEvent:
     let wev = sdlEvent.window
     case wev.event
     of WindowEvent_Resized, WindowEvent_SizeChanged:
-      e.kind = evWindowResize
+      e.kind = WindowResizeEvent
       e.x = wev.data1
       e.y = wev.data2
     of WindowEvent_Close:
-      e.kind = evWindowClose
+      e.kind = WindowCloseEvent
     of WindowEvent_FocusGained:
-      e.kind = evWindowFocusGained
+      e.kind = WindowFocusGainedEvent
     of WindowEvent_FocusLost:
-      e.kind = evWindowFocusLost
+      e.kind = WindowFocusLostEvent
     else:
-      e.kind = evNone
+      e.kind = NoEvent
   of KeyDown:
-    e.kind = evKeyDown
+    e.kind = KeyDownEvent
     e.key = translateScancode(sdlEvent.key.keysym.scancode)
     e.mods = translateMods(sdlEvent.key.keysym.modstate)
   of KeyUp:
-    e.kind = evKeyUp
+    e.kind = KeyUpEvent
     e.key = translateScancode(sdlEvent.key.keysym.scancode)
     e.mods = translateMods(sdlEvent.key.keysym.modstate)
   of TextInput:
-    e.kind = evTextInput
+    e.kind = TextInputEvent
     for i in 0..3:
       e.text[i] = sdlEvent.text.text[i]
   of MouseButtonDown:
-    e.kind = evMouseDown
+    e.kind = MouseDownEvent
     e.x = sdlEvent.button.x
     e.y = sdlEvent.button.y
     e.clicks = sdlEvent.button.clicks.int
     case sdlEvent.button.button
-    of BUTTON_LEFT: e.button = mbLeft
-    of BUTTON_RIGHT: e.button = mbRight
-    of BUTTON_MIDDLE: e.button = mbMiddle
-    else: e.button = mbLeft
+    of BUTTON_LEFT: e.button = LeftButton
+    of BUTTON_RIGHT: e.button = RightButton
+    of BUTTON_MIDDLE: e.button = MiddleButton
+    else: e.button = LeftButton
   of MouseButtonUp:
-    e.kind = evMouseUp
+    e.kind = MouseUpEvent
     e.x = sdlEvent.button.x
     e.y = sdlEvent.button.y
     case sdlEvent.button.button
-    of BUTTON_LEFT: e.button = mbLeft
-    of BUTTON_RIGHT: e.button = mbRight
-    of BUTTON_MIDDLE: e.button = mbMiddle
-    else: e.button = mbLeft
+    of BUTTON_LEFT: e.button = LeftButton
+    of BUTTON_RIGHT: e.button = RightButton
+    of BUTTON_MIDDLE: e.button = MiddleButton
+    else: e.button = LeftButton
   of MouseMotion:
-    e.kind = evMouseMove
+    e.kind = MouseMoveEvent
     e.x = sdlEvent.motion.x
     e.y = sdlEvent.motion.y
     e.xrel = sdlEvent.motion.xrel
     e.yrel = sdlEvent.motion.yrel
     if (sdlEvent.motion.state and BUTTON_LMASK) != 0:
-      e.buttons.incl mbLeft
+      e.buttons.incl LeftButton
     if (sdlEvent.motion.state and BUTTON_RMASK) != 0:
-      e.buttons.incl mbRight
+      e.buttons.incl RightButton
   of MouseWheel:
-    e.kind = evMouseWheel
+    e.kind = MouseWheelEvent
     e.x = sdlEvent.wheel.x
     e.y = sdlEvent.wheel.y
   else:
-    e.kind = evNone
+    e.kind = NoEvent
 
-proc sdlWaitEvent(e: var input.Event; timeoutMs: int): bool =
+proc sdlWaitEvent(e: var input.Event; timeoutMs: int;
+                  flags: set[InputFlag]): bool =
   # Use pollEvent with delay for timeout behavior
   if timeoutMs < 0:
     # Block until event
     while true:
-      if sdlPollEvent(e): return true
+      if sdlPollEvent(e, flags): return true
       sdl2.delay(10)
   elif timeoutMs == 0:
-    return sdlPollEvent(e)
+    return sdlPollEvent(e, flags)
   else:
     let start = sdl2.getTicks()
     while sdl2.getTicks() - start < timeoutMs.uint32:
-      if sdlPollEvent(e): return true
+      if sdlPollEvent(e, flags): return true
       sdl2.delay(10)
     return false
 
 proc sdlGetTicks(): int = sdl2.getTicks().int
 
 proc sdlDelay(ms: int) = sdl2.delay(ms.uint32)
-
-proc sdlStartTextInput() = sdl2.startTextInput()
 
 proc sdlQuitRequest() = sdl2.quit()
 
@@ -340,6 +340,6 @@ proc initSdl2Driver*() =
   inputRelays = InputRelays(
     pollEvent: sdlPollEvent, waitEvent: sdlWaitEvent,
     getTicks: sdlGetTicks, delay: sdlDelay,
-    startTextInput: sdlStartTextInput, quitRequest: sdlQuitRequest)
+    quitRequest: sdlQuitRequest)
   clipboardRelays = ClipboardRelays(
     getText: sdlGetClipboardText, putText: sdlPutClipboardText)
