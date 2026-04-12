@@ -566,6 +566,28 @@ proc loadFromFile*(b: Buffer; filename: string) =
   b.timestamp = os.getLastModificationTime(b.filename)
   b.changed = false
 
+proc fileContentChanged*(b: Buffer): bool =
+  ## Returns true if the file on disk has different content than what the
+  ## buffer holds. Used to avoid false "file changed" warnings when only
+  ## the timestamp changed (e.g. after git operations).
+  if b.filename.len == 0: return false
+  try:
+    let disk = readFile(b.filename)
+    var i = 0 # index into disk
+    var j = 0 # index into buffer
+    let L = b.len
+    while i < disk.len and j < L:
+      if disk[i] == '\C':
+        inc i # skip CR, buffer stores LF only
+      elif disk[i] == b[j]:
+        inc i; inc j
+      else:
+        return true
+    while i < disk.len and disk[i] == '\C': inc i
+    result = i != disk.len or j != L
+  except IOError:
+    result = true
+
 proc saveAsTemp*(b: Buffer; filename: string) =
   if b.lineending.len == 0:
     b.lineending = "\L"

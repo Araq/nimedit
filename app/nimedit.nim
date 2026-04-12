@@ -454,14 +454,15 @@ proc harddiskCheck(ed: Editor) =
         let newTimestamp = os.getLastModificationTime(it.filename)
         if it.timestamp != newTimestamp:
           it.timestamp = newTimestamp
-          ed.sh.state = requestedReload
-          if it != ed.main:
-            trackSpot(ed.sh.hotspots, ed.main)
-            ed.main = it
-          ed.main.changed = true
-          ed.sh.focus = ed.prompt
-          ed.sh.statusMsg = "File changed on disk. Reload?"
-          break
+          if it.fileContentChanged:
+            ed.sh.state = requestedReload
+            if it != ed.main:
+              trackSpot(ed.sh.hotspots, ed.main)
+              ed.main = it
+            ed.main.changed = true
+            ed.sh.focus = ed.prompt
+            ed.sh.statusMsg = "File changed on disk. Reload?"
+            break
       except OSError:
         discard
 
