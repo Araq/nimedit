@@ -169,9 +169,9 @@ func transformFor(
 
 proc arc*(x, y: int; radius: int; octs: openArray[Octant]; p: Pixel) =
   assert radius > 0
-  for progressor in octantAPoints(radius):
+  for octAPosition in octantAPoints(radius):
     for oct in octs:
-      let offset = progressor.transformFor(oct)
+      let offset = octAPosition.transformFor(oct)
       pixel(x + offset.x, y + offset.y, p)
 
 proc roundedRect*(x1, y1, x2, y2, rad: int; p: Pixel) =
