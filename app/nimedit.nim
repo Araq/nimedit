@@ -930,9 +930,10 @@ proc processEvents(events: out seq[Event]; ed: Editor): bool =
       if clicks == 0 or clicks > 5: clicks = 1
       if ctrlKeyPressed(e): inc(clicks)
       let p = point(e.x, e.y)
-      if ed.mainRect.contains(p) and ed.main.scrollingEnabled:
+      if ed.mainRect.contains(p):
         var rawMainRect = ed.mainRect
-        rawMainRect.w -= scrollBarWidth
+        if ed.main.scrollingEnabled:
+          rawMainRect.w -= scrollBarWidth
         if focus == main and rawMainRect.contains(p):
           main.setCursorFromMouse(ed.mainRect, p, clicks)
         else:
