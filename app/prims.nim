@@ -175,13 +175,8 @@ proc arc*(x, y: int; radius: int; octs: openArray[Octant]; p: Pixel) =
       pixel(x + offset.x, y + offset.y, p)
 
 proc roundedRect*(x1, y1, x2, y2, rad: int; p: Pixel) =
-  if x1 == x2:
-    if y1 == y2: pixel(x1, y1, p)
-    else: vline(x1, y1, y2, p)
-    return
-  if y1 == y2:
-    hline(x1, x2, y1, p)
-    return
+  assert x1 != x2
+  assert y1 != y2
 
   var
     left = x1
