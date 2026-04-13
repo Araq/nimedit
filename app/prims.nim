@@ -96,207 +96,158 @@ proc box*(x1: int; y1: int; x2: int; y2: int; c: Color) =
   if y1 > y2: swap y1, y2
   fillRect(Rect(x: x1, y: y1, w: x2 - x1 + 1, h: y2 - y1 + 1), c)
 
-proc arc*(x: int; y: int; rad: int; start: int;
-          `end`: int; p: Pixel) =
-  var cx: int = 0
-  var cy: int = rad
-  var df: int = 1 - rad
-  var dE: int = 3
-  var dSe: int = - (2 * rad) + 5
-  var xpcx, xmcx, xpcy, xmcy: int
-  var ypcy, ymcy, ypcx, ymcx: int
-  var drawoct: uint8
-  var startoct, endoct, oct: int
-  var stopvalStart: int = 0
-  var stopvalEnd: int = 0
-  var dstart, dend: cdouble
-  var temp: cdouble = 0.0
-  assert rad >= 0
-  if rad == 0:
-    pixel(x, y, p)
-    return
-  drawoct = 0
-  var start = start mod 360
-  var `end` = `end` mod 360
-  while start < 0: inc(start, 360)
-  while `end` < 0: inc(`end`, 360)
-  start = start mod 360
-  `end` = `end` mod 360
-  startoct = start.int32 div 45i32
-  endoct = `end`.int32 div 45i32
-  oct = startoct - 1
-  while true:
-    oct = (oct + 1) mod 8
-    if oct == startoct:
-      dstart = cdouble(start)
-      case oct
-      of 0, 3: temp = sin(dstart * Pi / 180.0)
-      of 1, 6: temp = cos(dstart * Pi / 180.0)
-      of 2, 5: temp = - cos(dstart * Pi / 180.0)
-      of 4, 7: temp = - sin(dstart * Pi / 180.0)
-      else: discard
-      temp = temp * rad.float
-      stopvalStart = temp.int
-      if oct mod 2 != 0: drawoct = drawoct or uint8(1 shl oct)
-      else: drawoct = drawoct and uint8(255 - (1 shl oct))
-    if oct == endoct:
-      dend = cdouble(`end`)
-      case oct
-      of 0, 3: temp = sin(dend * Pi / 180.0)
-      of 1, 6: temp = cos(dend * Pi / 180.0)
-      of 2, 5: temp = - cos(dend * Pi / 180.0)
-      of 4, 7: temp = - sin(dend * Pi / 180.0)
-      else: discard
-      temp = temp * rad.float
-      stopvalEnd = temp.int
-      if startoct == endoct:
-        if start > `end`: drawoct = 255
-        else: drawoct = drawoct and uint8(255 - (1 shl oct))
-      elif oct mod 2 != 0:
-        drawoct = drawoct and uint8(255 - (1 shl oct))
-      else:
-        drawoct = drawoct or uint8(1 shl oct)
-    elif oct != startoct:
-      drawoct = drawoct or uint8(1 shl oct)
-    if oct == endoct: break
-  while true:
-    ypcy = y + cy
-    ymcy = y - cy
-    if cx > 0:
-      xpcx = x + cx
-      xmcx = x - cx
-      if (drawoct and 4) != 0: pixel(xmcx, ypcy, p)
-      if (drawoct and 2) != 0: pixel(xpcx, ypcy, p)
-      if (drawoct and 32) != 0: pixel(xmcx, ymcy, p)
-      if (drawoct and 64) != 0: pixel(xpcx, ymcy, p)
-    else:
-      if (drawoct and 96) != 0: pixel(x, ymcy, p)
-      if (drawoct and 6) != 0: pixel(x, ypcy, p)
-    xpcy = x + cy
-    xmcy = x - cy
-    if cx > 0 and cx != cy:
-      ypcx = y + cx
-      ymcx = y - cx
-      if (drawoct and 8) != 0: pixel(xmcy, ypcx, p)
-      if (drawoct and 1) != 0: pixel(xpcy, ypcx, p)
-      if (drawoct and 16) != 0: pixel(xmcy, ymcx, p)
-      if (drawoct and 128) != 0: pixel(xpcy, ymcx, p)
-    elif cx == 0:
-      if (drawoct and 24) != 0: pixel(xmcy, y, p)
-      if (drawoct and 129) != 0: pixel(xpcy, y, p)
-    if stopvalStart == cx:
-      if (drawoct and uint8(1 shl startoct)) != 0:
-        drawoct = drawoct and uint8(255 - (1 shl startoct))
-      else:
-        drawoct = drawoct or uint8(1 shl startoct)
-    if stopvalEnd == cx:
-      if (drawoct and uint8(1 shl endoct)) != 0:
-        drawoct = drawoct and uint8(255 - (1 shl endoct))
-      else:
-        drawoct = drawoct or uint8(1 shl endoct)
+type Octant* = enum
+  octA, octB, octC, octD, octE, octF, octG, octH
+
+#[
+     oct F |270
+           | oct G
+           |
+  oct E    |     oct H
+180 --------------- 0   -> +x
+  oct D    |     oct A
+           |
+     oct C |  oct B
+           |90
+
+           |
+           v
+          +y
+]#
+
+iterator octantAPoints(radius: int): tuple[x, y: int] =
+  ##[Used to iterate over every position on `octA`'s arc segment.
+
+  The yielded values are the offset from the center of the arc to a position
+  between 0 and 45 degrees, starting at 0 and ending at 45.
+
+  The first values yielded will be `(0, radius)`.
+  The last values will be approximately `(radius / sqrt(2), radius / sqrt(2))`.
+
+  If you want to iterate over an octant that isn't `octA`, you'll have to
+  mirror, rotate, or apply some other transformation to the results.
+  ]##
+  # Uses the midpoint circle algorithm.
+  var
+    df = 4 - radius
+    dE = 5
+    dSe = - (2 * radius) + 7
+    currentPos = (x: radius, y: 0)
+
+  while currentPos.y <= currentPos.x:
+    yield currentPos
+
     if df < 0:
-      inc(df, dE)
-      inc(dE, 2)
-      inc(dSe, 2)
+      df.inc dE
+      dSe.inc 2
     else:
-      inc(df, dSe)
-      inc(dE, 2)
-      inc(dSe, 4)
-      dec(cy)
-    inc(cx)
-    if cx > cy: break
+      df.inc dSe
+      dSe.inc 4
+      currentPos.x.dec
+    dE.inc 2
+    currentPos.y.inc
+
+func transformFor(
+    octantAPoint: tuple[x, y: int]; desiredOctant: Octant
+  ): tuple[x, y: int] {.inline.} =
+  ##Transforms a point on `octA`'s arc to lie upon the input octant.
+  const CloserToYAxis = {octB, octC, octF, octG}
+  var
+    changeInX = octantAPoint.x
+    changeInY = octantAPoint.y
+  if desiredOctant in CloserToYAxis: swap changeInX, changeInY
+
+  const
+    Northern = {octE..octH}
+    Western = {octC..octF}
+  result.x = changeInX
+  if desiredOctant in Western: result.x *= -1
+
+  result.y = changeInY
+  if desiredOctant in Northern: result.y *= -1
+
+
+proc arc*(x, y: int; radius: int; octs: openArray[Octant]; p: Pixel) =
+  assert radius > 0
+  for octAPosition in octantAPoints(radius):
+    for oct in octs:
+      let offset = octAPosition.transformFor(oct)
+      pixel(x + offset.x, y + offset.y, p)
+
+
+type
+  RoundedRect = tuple
+    left, top, right, bottom, rad: int
+
+func normalize(x1, y1, x2, y2, rad: sink int): RoundedRect {.inline.} =
+  assert x1 != x2
+  assert y1 != y2
+
+  result.left = x1
+  result.right = x2
+  result.top = y1
+  result.bottom = y2
+  if result.left > result.right: swap result.left, result.right
+  if result.top > result.bottom: swap result.top, result.bottom
+
+  let
+    width = result.right - result.left
+    height = result.bottom - result.top
+  result.rad = rad
+  if (result.rad * 2) > width: result.rad = width div 2
+  if (result.rad * 2) > height: result.rad = height div 2
 
 proc roundedRect*(x1, y1, x2, y2, rad: int; p: Pixel) =
-  var w, h: int
-  var xx1, xx2, yy1, yy2: int
-  assert rad >= 0
-  if rad <= 1: return
-  if x1 == x2:
-    if y1 == y2: pixel(x1, y1, p)
-    else: vline(x1, y1, y2, p)
-    return
-  else:
-    if y1 == y2:
-      hline(x1, x2, y1, p)
-      return
-  var x1 = x1; var x2 = x2; var y1 = y1; var y2 = y2
-  if x1 > x2: swap x1, x2
-  if y1 > y2: swap y1, y2
-  w = x2 - x1; h = y2 - y1
-  var rad = rad
-  if (rad * 2) > w: rad = w div 2
-  if (rad * 2) > h: rad = h div 2
-  xx1 = x1 + rad; xx2 = x2 - rad
-  yy1 = y1 + rad; yy2 = y2 - rad
-  arc(xx1, yy1, rad, 180, 270, p)
-  arc(xx2, yy1, rad, 270, 360, p)
-  arc(xx1, yy2, rad, 90, 180, p)
-  arc(xx2, yy2, rad, 0, 90, p)
-  if xx1 <= xx2:
-    hline(xx1, xx2, y1, p)
-    hline(xx1, xx2, y2, p)
-  if yy1 <= yy2:
-    vline(x1, yy1, yy2, p)
-    vline(x2, yy1, yy2, p)
+  let r = normalize(x1, y1, x2, y2, rad)
+
+  let
+    leftArcCenter = r.left + r.rad
+    rightArcCenter = r.right - r.rad
+    topArcCenter = r.top + r.rad
+    bottomArcCenter = r.bottom - r.rad
+  arc(leftArcCenter, topArcCenter, r.rad, [octE, octF], p)
+  arc(rightArcCenter, topArcCenter, r.rad, [octG, octH], p)
+  arc(leftArcCenter, bottomArcCenter, r.rad, [octC, octD], p)
+  arc(rightArcCenter, bottomArcCenter, r.rad, [octA, octB], p)
+
+  hline(leftArcCenter, rightArcCenter, r.top, p)
+  hline(leftArcCenter, rightArcCenter, r.bottom, p)
+  vline(r.left, topArcCenter, bottomArcCenter, p)
+  vline(r.right, topArcCenter, bottomArcCenter, p)
+
+
+proc fillArc(x, y, radius: int; octs: openArray[Octant]; color: Color) =
+  for octAPosition in octantAPoints(radius):
+    for oct in octs:
+      let (dx, dy) = octAPosition.transformFor(oct)
+      hline(x, x + dx, y + dy, color)
+
 
 proc roundedBox*(x1: int; y1: int; x2: int;
                     y2: int; rad: int; c: Color) =
-  var w, h, r2: int
-  var cx: int = 0
-  var cy: int = rad
-  var ocx: int = -1
-  var ocy: int = -1
-  var df: int = 1 - rad
-  var dE: int = 3
-  var dSe: int = - (2 * rad) + 5
-  var xpcx, xmcx, xpcy, xmcy: int
-  var ypcy, ymcy, ypcx, ymcx: int
-  var x, y, dx, dy: int
-  assert rad >= 0
-  if rad <= 1: return
-  if x1 == x2:
-    if y1 == y2: pixel(x1, y1, c)
-    else: vline(x1, y1, y2, c)
-    return
-  else:
-    if y1 == y2:
-      hline(x1, x2, y1, c)
-      return
-  var x1 = x1; var x2 = x2; var y1 = y1; var y2 = y2
-  if x1 > x2: swap x1, x2
-  if y1 > y2: swap y1, y2
-  w = x2 - x1 + 1; h = y2 - y1 + 1
-  r2 = rad + rad
-  var rad = rad
-  if r2 > w: rad = w div 2; r2 = rad + rad
-  if r2 > h: rad = h div 2
-  x = x1 + rad; y = y1 + rad
-  dx = x2 - x1 - rad - rad; dy = y2 - y1 - rad - rad
-  while true:
-    xpcx = x + cx; xmcx = x - cx
-    xpcy = x + cy; xmcy = x - cy
-    if ocy != cy:
-      if cy > 0:
-        ypcy = y + cy; ymcy = y - cy
-        hline(xmcx, xpcx + dx, ypcy + dy, c)
-        hline(xmcx, xpcx + dx, ymcy, c)
-      else:
-        hline(xmcx, xpcx + dx, y, c)
-      ocy = cy
-    if ocx != cx:
-      if cx != cy:
-        if cx > 0:
-          ypcx = y + cx; ymcx = y - cx
-          hline(xmcy, xpcy + dx, ymcx, c)
-          hline(xmcy, xpcy + dx, ypcx + dy, c)
-        else:
-          hline(xmcy, xpcy + dx, y, c)
-      ocx = cx
-    if df < 0:
-      inc(df, dE); inc(dE, 2); inc(dSe, 2)
-    else:
-      inc(df, dSe); inc(dE, 2); inc(dSe, 4); dec(cy)
-    inc(cx)
-    if cx > cy: break
-  if dx > 0 and dy > 0:
-    box(x1, y1 + rad + 1, x2, y2 - rad, c)
+  let r = normalize(x1, y1, x2, y2, rad)
+
+  let
+    leftArcCenter = r.left + r.rad
+    rightArcCenter = r.right - r.rad
+    topArcCenter = r.top + r.rad
+    bottomArcCenter = r.bottom - r.rad
+
+  fillArc(leftArcCenter, topArcCenter, r.rad, [octE, octF], c)
+  fillArc(rightArcCenter, topArcCenter, r.rad, [octG, octH], c)
+  fillArc(leftArcCenter, bottomArcCenter, r.rad, [octC, octD], c)
+  fillArc(rightArcCenter, bottomArcCenter, r.rad, [octA, octB], c)
+
+
+  # We'll divide the area into three rectangles.
+  let
+    topBox = Rect(x: leftArcCenter, y: r.top, w: rightArcCenter - leftArcCenter,
+      h: r.rad)
+    middleBox = Rect(x: r.left, y: topArcCenter, w: r.right - r.left,
+      h: bottomArcCenter - topArcCenter)
+    bottomBox = Rect(x: leftArcCenter, y: bottomArcCenter, w: topBox.w,
+      h: topBox.h)
+
+  fillRect(topBox, c)
+  fillRect(middleBox, c)
+  fillRect(bottomBox, c)
