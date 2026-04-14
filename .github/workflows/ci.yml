@@ -28,4 +28,4 @@ jobs:
 
 
       - name: Build
-        run: nimble install
+        run: nimble install -y
