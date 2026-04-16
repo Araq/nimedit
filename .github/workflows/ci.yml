@@ -14,13 +14,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          path: 'nimedit'
 
 
       - name: Setup Nim
         uses: alaviss/setup-nim@0.1.1
         with:
           version: devel
-          path: 'nimedit'
+          path: 'nim'
 
       - name: Nim version
         run: nim --version
