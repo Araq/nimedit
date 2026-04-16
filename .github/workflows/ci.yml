@@ -36,4 +36,5 @@ jobs:
       - name: Build
         run: |
           cd nimedit
+          nimble install -y
           nim c -r tests/tester.nim
