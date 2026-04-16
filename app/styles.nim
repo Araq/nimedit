@@ -74,7 +74,7 @@ proc findStyledFontFile(mainFontFile: Path; style: FontStyle): Path =
                      fmt"Could not find font file that matches style {style}!")
 
 proc fatal*(msg: string) {.noReturn.} =
-  quitRequest()
+  shutdown()
   quit(msg)
 
 proc parseColor*(hex: string): Color =
