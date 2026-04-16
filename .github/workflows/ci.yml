@@ -20,7 +20,7 @@ jobs:
         uses: alaviss/setup-nim@0.1.1
         with:
           version: devel
-          path: 'nim'
+          path: 'nimedit'
 
       - name: Nim version
         run: nim --version
@@ -32,4 +32,6 @@ jobs:
           sudo apt install libx11-dev libxft-dev fonts-freefont-ttf fonts-dejavu-core
 
       - name: Build
-        run: nim c -r tests/tester.nim
+        run: |
+          cd nimedit
+          nim c -r tests/tester.nim
