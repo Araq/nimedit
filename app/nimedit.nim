@@ -868,7 +868,7 @@ proc runAction(ed: Editor; action: Action; arg: string; shiftKeyPressed: bool): 
     if ed.buffersCounter >= 2:
       moveTabToRightWindow(ed)
 
-  of Action.QuitApplication: input.quitRequest()
+  of Action.QuitApplication: input.shutdown()
   of Action.Declarations:
     if main.lang == langNim:
       main.filterLines = not main.filterLines
@@ -1197,4 +1197,4 @@ proc mainProc(ed: Editor) =
 
 initBackend()
 mainProc(Editor())
-input.quitRequest()
+input.shutdown()
