@@ -31,4 +31,4 @@ jobs:
           sudo apt install libx11-dev libxft-dev fonts-freefont-ttf fonts-dejavu-core
 
       - name: Build
-        run: nimble install -y
+        run: nimble build
